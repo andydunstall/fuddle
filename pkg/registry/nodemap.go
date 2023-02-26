@@ -23,13 +23,16 @@ import (
 type NodeMap struct {
 	nodes map[string]interface{}
 
+	subscribers map[string]func()
+
 	mu sync.Mutex
 }
 
 func NewNodeMap() *NodeMap {
 	return &NodeMap{
-		nodes: make(map[string]interface{}),
-		mu:    sync.Mutex{},
+		nodes:       make(map[string]interface{}),
+		subscribers: make(map[string]func()),
+		mu:          sync.Mutex{},
 	}
 }
 
@@ -45,15 +48,56 @@ func (m *NodeMap) NodeIDs() []string {
 }
 
 func (m *NodeMap) Register(id string) {
+	m.register(id)
+	m.notifySubscribers()
+}
+
+func (m *NodeMap) Unregister(id string) {
+	m.unregister(id)
+	m.notifySubscribers()
+}
+
+// Subscribe to nodemap updates using the given ID to identify the subscriber.
+// The subscriber must not block.
+func (m *NodeMap) Subscribe(id string, cb func()) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.subscribers[id] = cb
+}
+
+// Unsubscribe the subscriber with the given ID.
+func (m *NodeMap) Unsubscribe(id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	delete(m.subscribers, id)
+}
+
+func (m *NodeMap) register(id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.nodes[id] = struct{}{}
 }
 
-func (m *NodeMap) Unregister(id string) {
+func (m *NodeMap) unregister(id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	delete(m.nodes, id)
+}
+
+func (m *NodeMap) notifySubscribers() {
+	// Copy the subscribers to notify without the mutex held.
+	m.mu.Lock()
+	subs := make([]func(), 0, len(m.subscribers))
+	for _, sub := range m.subscribers {
+		subs = append(subs, sub)
+	}
+	m.mu.Unlock()
+
+	for _, sub := range subs {
+		sub()
+	}
 }

@@ -20,6 +20,8 @@ import (
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/registry"
 	"github.com/andydunstall/fuddle/pkg/rpc"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"go.uber.org/zap"
 )
 
@@ -37,8 +39,11 @@ type Server struct {
 func NewServer(conf *config.Config, logger *zap.Logger) *Server {
 	logger = logger.With(zap.String("service", "server"))
 
-	registryService := registry.NewService(conf, logger)
-	adminService := admin.NewService(registryService.NodeMap(), conf, logger)
+	metricsRegistry := prometheus.NewRegistry()
+	metricsRegistry.MustRegister(collectors.NewGoCollector())
+
+	registryService := registry.NewService(conf, metricsRegistry, logger)
+	adminService := admin.NewService(registryService.NodeMap(), conf, metricsRegistry, logger)
 
 	grpcServer := newGRPCServer(conf.BindAddr, logger)
 	rpc.RegisterRegistryServer(grpcServer.GRPCServer(), registryService.Server())

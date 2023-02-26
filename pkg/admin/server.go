@@ -23,6 +23,8 @@ import (
 	"net/http"
 
 	"github.com/andydunstall/fuddle/pkg/registry"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -33,7 +35,7 @@ type server struct {
 	logger *zap.Logger
 }
 
-func newServer(addr string, nodeMap *registry.NodeMap, logger *zap.Logger) *server {
+func newServer(addr string, nodeMap *registry.NodeMap, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
 	server := &server{
 		nodeMap: nodeMap,
 		logger:  logger,
@@ -41,6 +43,13 @@ func newServer(addr string, nodeMap *registry.NodeMap, logger *zap.Logger) *serv
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/cluster", server.clusterRoute)
+	mux.Handle(
+		"/metrics",
+		promhttp.HandlerFor(
+			metricsRegistry,
+			promhttp.HandlerOpts{Registry: metricsRegistry},
+		),
+	)
 
 	httpServer := &http.Server{
 		Addr:    addr,
