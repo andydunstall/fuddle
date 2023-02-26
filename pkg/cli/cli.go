@@ -35,6 +35,8 @@ func init() {
 
 	fuddleCmd.AddCommand(
 		startCmd,
+		statusCmd,
+		demoCmd,
 	)
 }
 
