@@ -43,3 +43,9 @@ func (s *Server) Unregister(ctx context.Context, req *rpc.RegisterRequest) (*rpc
 	s.nodeMap.Unregister(req.NodeId)
 	return &rpc.RegisterResponse{}, nil
 }
+
+func (s *Server) Nodes(ctx context.Context, req *rpc.NodesRequest) (*rpc.NodesResponse, error) {
+	return &rpc.NodesResponse{
+		Ids: s.nodeMap.NodeIDs(),
+	}, nil
+}

@@ -9,8 +9,16 @@ message RegisterRequest {
 message RegisterResponse {
 }
 
+message NodesRequest {
+}
+
+message NodesResponse {
+	repeated string ids = 1;
+}
+
 // Registry is a service that manges the set of nodes present in the cluster.
 service Registry {
 	rpc Register(RegisterRequest) returns (RegisterResponse);
 	rpc Unregister(RegisterRequest) returns (RegisterResponse);
+	rpc Nodes(NodesRequest) returns (NodesResponse);
 }

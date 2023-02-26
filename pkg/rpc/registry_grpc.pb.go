@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type RegistryClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	Unregister(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
+	Nodes(ctx context.Context, in *NodesRequest, opts ...grpc.CallOption) (*NodesResponse, error)
 }
 
 type registryClient struct {
@@ -48,12 +49,22 @@ func (c *registryClient) Unregister(ctx context.Context, in *RegisterRequest, op
 	return out, nil
 }
 
+func (c *registryClient) Nodes(ctx context.Context, in *NodesRequest, opts ...grpc.CallOption) (*NodesResponse, error) {
+	out := new(NodesResponse)
+	err := c.cc.Invoke(ctx, "/Registry/Nodes", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RegistryServer is the server API for Registry service.
 // All implementations must embed UnimplementedRegistryServer
 // for forward compatibility
 type RegistryServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Unregister(context.Context, *RegisterRequest) (*RegisterResponse, error)
+	Nodes(context.Context, *NodesRequest) (*NodesResponse, error)
 	mustEmbedUnimplementedRegistryServer()
 }
 
@@ -66,6 +77,9 @@ func (UnimplementedRegistryServer) Register(context.Context, *RegisterRequest) (
 }
 func (UnimplementedRegistryServer) Unregister(context.Context, *RegisterRequest) (*RegisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unregister not implemented")
+}
+func (UnimplementedRegistryServer) Nodes(context.Context, *NodesRequest) (*NodesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Nodes not implemented")
 }
 func (UnimplementedRegistryServer) mustEmbedUnimplementedRegistryServer() {}
 
@@ -116,6 +130,24 @@ func _Registry_Unregister_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Registry_Nodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistryServer).Nodes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Registry/Nodes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistryServer).Nodes(ctx, req.(*NodesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Registry_ServiceDesc is the grpc.ServiceDesc for Registry service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -130,6 +162,10 @@ var Registry_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Unregister",
 			Handler:    _Registry_Unregister_Handler,
+		},
+		{
+			MethodName: "Nodes",
+			Handler:    _Registry_Nodes_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
