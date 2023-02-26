@@ -13,20 +13,32 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package cli
 
 import (
-	"fmt"
-	"math/rand"
-	"time"
-
-	"github.com/andydunstall/fuddle/pkg/cli"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	rand.Seed(time.Now().UnixNano())
+// fuddleCmd is the root command to run fuddle.
+var fuddleCmd = &cobra.Command{
+	Use:          "fuddle [command] (flags)",
+	Short:        "fuddle cli and server",
+	Long:         "fuddle cli and server",
+	SilenceUsage: true,
+	CompletionOptions: cobra.CompletionOptions{
+		DisableDefaultCmd: true,
+	},
+}
 
-	if err := cli.Start(); err != nil {
-		fmt.Println(err)
-	}
+func init() {
+	cobra.EnableCommandSorting = false
+
+	fuddleCmd.AddCommand(
+		startCmd,
+	)
+}
+
+// Start starts the CLI.
+func Start() error {
+	return fuddleCmd.Execute()
 }

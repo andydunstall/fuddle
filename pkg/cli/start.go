@@ -13,20 +13,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package cli
 
 import (
-	"fmt"
-	"math/rand"
-	"time"
-
-	"github.com/andydunstall/fuddle/pkg/cli"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	rand.Seed(time.Now().UnixNano())
+// startCmd starts a fuddle node.
+var startCmd = &cobra.Command{
+	Use:   "start",
+	Short: "start a fuddle node",
+	Long:  "start a fuddle node",
+	RunE:  runStart,
+}
 
-	if err := cli.Start(); err != nil {
-		fmt.Println(err)
-	}
+func runStart(cmd *cobra.Command, args []string) error {
+	return nil
 }
