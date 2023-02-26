@@ -1,0 +1,3 @@
+# Ignore the fuddle binary.
+fuddle
+!fuddle/
