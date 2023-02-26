@@ -17,11 +17,15 @@ package server
 
 import (
 	"github.com/andydunstall/fuddle/pkg/config"
+	"github.com/andydunstall/fuddle/pkg/registry"
+	"github.com/andydunstall/fuddle/pkg/rpc"
 	"go.uber.org/zap"
 )
 
 // Server runs a fuddle node.
 type Server struct {
+	registryService *registry.Service
+
 	grpcServer *grpcServer
 
 	conf   *config.Config
@@ -31,11 +35,16 @@ type Server struct {
 func NewServer(conf *config.Config, logger *zap.Logger) *Server {
 	logger = logger.With(zap.String("service", "server"))
 
+	registryService := registry.NewService(conf, logger)
+
 	grpcServer := newGRPCServer(conf.BindAddr, logger)
+	rpc.RegisterRegistryServer(grpcServer.GRPCServer(), registryService.Server())
+
 	return &Server{
-		grpcServer: grpcServer,
-		conf:       conf,
-		logger:     logger,
+		registryService: registryService,
+		grpcServer:      grpcServer,
+		conf:            conf,
+		logger:          logger,
 	}
 }
 
@@ -43,6 +52,9 @@ func NewServer(conf *config.Config, logger *zap.Logger) *Server {
 func (s *Server) Start() error {
 	s.logger.Info("starting node", zap.Object("conf", s.conf))
 
+	if err := s.registryService.Start(); err != nil {
+		return err
+	}
 	if err := s.grpcServer.Start(); err != nil {
 		return err
 	}
@@ -53,4 +65,5 @@ func (s *Server) Start() error {
 func (s *Server) GracefulStop() {
 	s.logger.Info("starting node graceful shutdown")
 	s.grpcServer.GracefulStop()
+	s.registryService.GracefulStop()
 }
