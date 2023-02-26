@@ -1,4 +1,6 @@
-# Fuddle
+<p align="center">
+  <img src='assets/images/logo.png?raw=true' width='80%'>
+</p>
 
 ---
 
