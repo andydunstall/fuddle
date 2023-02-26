@@ -13,32 +13,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package cli
+package config
 
 import (
-	"github.com/spf13/cobra"
+	"go.uber.org/zap/zapcore"
 )
 
-// fuddleCmd is the root command to run fuddle.
-var fuddleCmd = &cobra.Command{
-	Use:          "fuddle [command] (flags)",
-	Short:        "fuddle cli and server",
-	Long:         "fuddle cli and server",
-	SilenceUsage: true,
-	CompletionOptions: cobra.CompletionOptions{
-		DisableDefaultCmd: true,
-	},
+// Config contains the node configuration.
+type Config struct {
+	// BindAddr is the bind address to listen for connections.
+	BindAddr string
+	// AdvAddr is the address to advertise to clients.
+	AdvAddr string
 }
 
-func init() {
-	cobra.EnableCommandSorting = false
-
-	fuddleCmd.AddCommand(
-		startCmd,
-	)
-}
-
-// Start starts the CLI.
-func Start() error {
-	return fuddleCmd.Execute()
+func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddString("bind-addr", c.BindAddr)
+	e.AddString("adv-addr", c.AdvAddr)
+	return nil
 }
