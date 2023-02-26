@@ -13,45 +13,32 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package registry
+package tests
 
 import (
+	"net"
+
 	"github.com/andydunstall/fuddle/pkg/config"
-	"go.uber.org/zap"
 )
 
-type Service struct {
-	nodeMap *NodeMap
-	server  *Server
+func testConfig() *config.Config {
+	conf := &config.Config{}
 
-	logger *zap.Logger
+	conf.BindAddr = getSystemAddress()
+	conf.AdvAddr = conf.BindAddr
+
+	conf.BindAdminAddr = getSystemAddress()
+	conf.AdvAdminAddr = conf.BindAdminAddr
+
+	return conf
 }
 
-func NewService(conf *config.Config, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "registry"))
-
-	nodeMap := NewNodeMap()
-	server := NewServer(nodeMap)
-	return &Service{
-		nodeMap: nodeMap,
-		server:  server,
-		logger:  logger,
+func getSystemAddress() string {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
 	}
-}
+	defer ln.Close()
 
-func (s *Service) Start() error {
-	s.logger.Info("starting registry service")
-	return nil
-}
-
-func (s *Service) GracefulStop() {
-	s.logger.Info("starting registry service graceful shutdown")
-}
-
-func (s *Service) Server() *Server {
-	return s.server
-}
-
-func (s *Service) NodeMap() *NodeMap {
-	return s.nodeMap
+	return ln.Addr().String()
 }

@@ -30,6 +30,11 @@ var (
 	bindAddr string
 	// advAddr is the address the server should advertise to clients.
 	advAddr string
+
+	// bindAdminAddr is the bind address to listen for admin clients.
+	bindAdminAddr string
+	// advAdminAddr is the address to advertise to admin clients.
+	advAdminAddr string
 )
 
 // startCmd starts a fuddle node.
@@ -43,7 +48,7 @@ var startCmd = &cobra.Command{
 func init() {
 	startCmd.Flags().StringVarP(
 		&bindAddr,
-		"addr", "a",
+		"addr", "",
 		"0.0.0.0:8220",
 		"the bind address to listen for connections",
 	)
@@ -53,6 +58,19 @@ func init() {
 		"",
 		"the address to advertise to clients (defaults to the bind address)",
 	)
+
+	startCmd.Flags().StringVarP(
+		&bindAdminAddr,
+		"admin-addr", "",
+		"0.0.0.0:8221",
+		"the bind address to listen for admin connections",
+	)
+	startCmd.Flags().StringVarP(
+		&advAddr,
+		"adv-admin-addr", "",
+		"",
+		"the address to advertise to admin clients (defaults to the bind address)",
+	)
 }
 
 func runStart(cmd *cobra.Command, args []string) {
@@ -60,9 +78,15 @@ func runStart(cmd *cobra.Command, args []string) {
 	conf := &config.Config{
 		BindAddr: bindAddr,
 		AdvAddr:  bindAddr,
+
+		BindAdminAddr: bindAdminAddr,
+		AdvAdminAddr:  bindAdminAddr,
 	}
 	if advAddr != "" {
 		conf.AdvAddr = bindAddr
+	}
+	if advAdminAddr != "" {
+		conf.AdvAdminAddr = bindAdminAddr
 	}
 
 	server := server.NewServer(conf, logger)

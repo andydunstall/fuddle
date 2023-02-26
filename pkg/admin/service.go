@@ -13,45 +13,36 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package registry
+package admin
 
 import (
 	"github.com/andydunstall/fuddle/pkg/config"
+	"github.com/andydunstall/fuddle/pkg/registry"
 	"go.uber.org/zap"
 )
 
 type Service struct {
-	nodeMap *NodeMap
-	server  *Server
+	server *server
 
 	logger *zap.Logger
 }
 
-func NewService(conf *config.Config, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "registry"))
+func NewService(nodeMap *registry.NodeMap, conf *config.Config, logger *zap.Logger) *Service {
+	logger = logger.With(zap.String("service", "admin"))
 
-	nodeMap := NewNodeMap()
-	server := NewServer(nodeMap)
+	server := newServer(conf.BindAdminAddr, nodeMap, logger)
 	return &Service{
-		nodeMap: nodeMap,
-		server:  server,
-		logger:  logger,
+		server: server,
+		logger: logger,
 	}
 }
 
 func (s *Service) Start() error {
-	s.logger.Info("starting registry service")
-	return nil
+	s.logger.Info("starting admin service")
+	return s.server.Start()
 }
 
 func (s *Service) GracefulStop() {
-	s.logger.Info("starting registry service graceful shutdown")
-}
-
-func (s *Service) Server() *Server {
-	return s.server
-}
-
-func (s *Service) NodeMap() *NodeMap {
-	return s.nodeMap
+	s.logger.Info("starting admin service graceful shutdown")
+	s.server.GracefulStop()
 }
