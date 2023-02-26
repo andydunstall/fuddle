@@ -13,36 +13,32 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package admin
+package tests
 
 import (
+	"net"
+
 	"github.com/andydunstall/fuddle/pkg/config"
-	"github.com/andydunstall/fuddle/pkg/registry"
-	"go.uber.org/zap"
 )
 
-type Service struct {
-	server *server
+func testConfig() *config.Config {
+	conf := &config.Config{}
 
-	logger *zap.Logger
+	conf.BindAddr = getSystemAddress()
+	conf.AdvAddr = conf.BindAddr
+
+	conf.BindAdminAddr = getSystemAddress()
+	conf.AdvAdminAddr = conf.BindAdminAddr
+
+	return conf
 }
 
-func NewService(nodeMap *registry.NodeMap, conf *config.Config, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "admin"))
-
-	server := newServer(conf.BindAdminAddr, nodeMap, logger)
-	return &Service{
-		server: server,
-		logger: logger,
+func getSystemAddress() string {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
 	}
-}
+	defer ln.Close()
 
-func (s *Service) Start() error {
-	s.logger.Info("starting admin service")
-	return s.server.Start()
-}
-
-func (s *Service) GracefulStop() {
-	s.logger.Info("starting admin service graceful shutdown")
-	s.server.GracefulStop()
+	return ln.Addr().String()
 }

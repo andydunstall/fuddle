@@ -37,8 +37,8 @@ type Server struct {
 func NewServer(conf *config.Config, logger *zap.Logger) *Server {
 	logger = logger.With(zap.String("service", "server"))
 
-	adminService := admin.NewService(conf, logger)
 	registryService := registry.NewService(conf, logger)
+	adminService := admin.NewService(registryService.NodeMap(), conf, logger)
 
 	grpcServer := newGRPCServer(conf.BindAddr, logger)
 	rpc.RegisterRegistryServer(grpcServer.GRPCServer(), registryService.Server())

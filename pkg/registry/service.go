@@ -51,3 +51,7 @@ func (s *Service) GracefulStop() {
 func (s *Service) Server() *Server {
 	return s.server
 }
+
+func (s *Service) NodeMap() *NodeMap {
+	return s.nodeMap
+}

@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestRegistry_RegisterAndUnregisterNode(t *testing.T) {
+func TestAdmin_ListRegisteredNodes(t *testing.T) {
 	conf := testConfig()
 	server := server.NewServer(conf, zap.NewNop())
 	assert.Nil(t, server.Start())
@@ -38,7 +38,9 @@ func TestRegistry_RegisterAndUnregisterNode(t *testing.T) {
 	assert.Nil(t, registry.Register(context.TODO(), "node-1"))
 	assert.Nil(t, registry.Register(context.TODO(), "node-2"))
 
-	nodeIDs, err := registry.Nodes(context.TODO())
+	admin := client.NewAdmin(conf.AdvAdminAddr)
+
+	nodeIDs, err := admin.Nodes(context.TODO())
 	assert.Nil(t, err)
 	// Sort to make comparison easier.
 	sort.Strings(nodeIDs)
@@ -46,7 +48,7 @@ func TestRegistry_RegisterAndUnregisterNode(t *testing.T) {
 
 	assert.Nil(t, registry.Unregister(context.TODO(), "node-1"))
 
-	nodeIDs, err = registry.Nodes(context.TODO())
+	nodeIDs, err = admin.Nodes(context.TODO())
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"node-2"}, nodeIDs)
 }

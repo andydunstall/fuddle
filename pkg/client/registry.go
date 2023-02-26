@@ -48,7 +48,7 @@ func (r *Registry) Register(ctx context.Context, id string) error {
 		NodeId: id,
 	})
 	if err != nil {
-		return fmt.Errorf("registry client: register: %s", err)
+		return fmt.Errorf("registry client: register: %w", err)
 	}
 	return nil
 }
@@ -58,7 +58,7 @@ func (r *Registry) Unregister(ctx context.Context, id string) error {
 		NodeId: id,
 	})
 	if err != nil {
-		return fmt.Errorf("registry client: unregister: %s", err)
+		return fmt.Errorf("registry client: unregister: %w", err)
 	}
 	return nil
 }
@@ -66,7 +66,7 @@ func (r *Registry) Unregister(ctx context.Context, id string) error {
 func (r *Registry) Nodes(ctx context.Context) ([]string, error) {
 	resp, err := r.client.Nodes(context.Background(), &rpc.NodesRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("registry client: nodes: %s", err)
+		return nil, fmt.Errorf("registry client: nodes: %w", err)
 	}
 	return resp.Ids, nil
 }

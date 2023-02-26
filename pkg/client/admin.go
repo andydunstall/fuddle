@@ -13,36 +13,40 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package admin
+package client
 
 import (
-	"github.com/andydunstall/fuddle/pkg/config"
-	"github.com/andydunstall/fuddle/pkg/registry"
-	"go.uber.org/zap"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
 )
 
-type Service struct {
-	server *server
-
-	logger *zap.Logger
+type Admin struct {
+	addr string
 }
 
-func NewService(nodeMap *registry.NodeMap, conf *config.Config, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "admin"))
-
-	server := newServer(conf.BindAdminAddr, nodeMap, logger)
-	return &Service{
-		server: server,
-		logger: logger,
+func NewAdmin(addr string) *Admin {
+	return &Admin{
+		addr: addr,
 	}
 }
 
-func (s *Service) Start() error {
-	s.logger.Info("starting admin service")
-	return s.server.Start()
-}
+func (a *Admin) Nodes(ctx context.Context) ([]string, error) {
+	url := fmt.Sprintf("http://%s/api/v1/cluster", a.addr)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("admin client: nodes: %w", err)
+	}
+	defer resp.Body.Close()
 
-func (s *Service) GracefulStop() {
-	s.logger.Info("starting admin service graceful shutdown")
-	s.server.GracefulStop()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("admin client: nodes: bad status code: %d", resp.StatusCode)
+	}
+
+	var nodeIDs []string
+	if err = json.NewDecoder(resp.Body).Decode(&nodeIDs); err != nil {
+		return nil, fmt.Errorf("admin client: nodes, %w", err)
+	}
+	return nodeIDs, nil
 }

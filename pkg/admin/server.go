@@ -17,22 +17,26 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 
+	"github.com/andydunstall/fuddle/pkg/registry"
 	"go.uber.org/zap"
 )
 
 type server struct {
+	nodeMap    *registry.NodeMap
 	httpServer *http.Server
 
 	logger *zap.Logger
 }
 
-func newServer(addr string, logger *zap.Logger) *server {
+func newServer(addr string, nodeMap *registry.NodeMap, logger *zap.Logger) *server {
 	server := &server{
-		logger: logger,
+		nodeMap: nodeMap,
+		logger:  logger,
 	}
 
 	mux := http.NewServeMux()
@@ -76,4 +80,9 @@ func (s *server) GracefulStop() {
 }
 
 func (s *server) clusterRoute(w http.ResponseWriter, r *http.Request) {
+	if err := json.NewEncoder(w).Encode(s.nodeMap.NodeIDs()); err != nil {
+		s.logger.Error("failed to encode cluster response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 }
