@@ -38,3 +38,27 @@ func TestNodeMap_RegisterAndUnregisterNode(t *testing.T) {
 
 	assert.Equal(t, []string{"node-2"}, m.NodeIDs())
 }
+
+func TestNodeMap_SubscribeToUpdates(t *testing.T) {
+	m := NewNodeMap()
+
+	notifiedCount := 0
+
+	// Subscribe and check the callback is called once for each update.
+	m.Subscribe("sub", func() {
+		notifiedCount++
+	})
+
+	m.Register("node-1")
+	m.Register("node-2")
+	m.Unregister("node-2")
+	assert.Equal(t, 3, notifiedCount)
+
+	// Unsubscribe and check the callback is no longer called.
+	m.Unsubscribe("sub")
+
+	m.Register("node-1")
+	m.Register("node-2")
+	m.Unregister("node-2")
+	assert.Equal(t, 3, notifiedCount)
+}

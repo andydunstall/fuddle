@@ -17,6 +17,8 @@ package tests
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"sort"
 	"testing"
 
@@ -51,4 +53,18 @@ func TestAdmin_ListRegisteredNodes(t *testing.T) {
 	nodeIDs, err = admin.Nodes(context.TODO())
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"node-2"}, nodeIDs)
+}
+
+func TestAdmin_PrometheusMetrics(t *testing.T) {
+	conf := testConfig()
+	server := server.NewServer(conf, zap.NewNop())
+	assert.Nil(t, server.Start())
+	defer server.GracefulStop()
+
+	url := fmt.Sprintf("http://%s/metrics", conf.AdvAdminAddr)
+	resp, err := http.Get(url)
+	assert.Nil(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, 200, resp.StatusCode)
 }
