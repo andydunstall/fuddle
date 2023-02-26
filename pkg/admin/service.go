@@ -18,6 +18,7 @@ package admin
 import (
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/registry"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -27,10 +28,10 @@ type Service struct {
 	logger *zap.Logger
 }
 
-func NewService(nodeMap *registry.NodeMap, conf *config.Config, logger *zap.Logger) *Service {
+func NewService(nodeMap *registry.NodeMap, conf *config.Config, metricsRegistry *prometheus.Registry, logger *zap.Logger) *Service {
 	logger = logger.With(zap.String("service", "admin"))
 
-	server := newServer(conf.BindAdminAddr, nodeMap, logger)
+	server := newServer(conf.BindAdminAddr, nodeMap, metricsRegistry, logger)
 	return &Service{
 		server: server,
 		logger: logger,
