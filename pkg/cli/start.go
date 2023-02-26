@@ -74,7 +74,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	if err := server.Start(); err != nil {
 		logger.Fatal("failed to start server", zap.Error(err))
 	}
-	defer server.GracefulShutdown()
+	defer server.GracefulStop()
 
 	sig := <-signalCh
 	logger.Info("received exit signal", zap.String("signal", sig.String()))

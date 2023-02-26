@@ -22,24 +22,35 @@ import (
 
 // Server runs a fuddle node.
 type Server struct {
+	grpcServer *grpcServer
+
 	conf   *config.Config
 	logger *zap.Logger
 }
 
 func NewServer(conf *config.Config, logger *zap.Logger) *Server {
 	logger = logger.With(zap.String("service", "server"))
+
+	grpcServer := newGRPCServer(conf.BindAddr, logger)
 	return &Server{
-		conf:   conf,
-		logger: logger,
+		grpcServer: grpcServer,
+		conf:       conf,
+		logger:     logger,
 	}
 }
 
+// Start starts the node in a background goroutine.
 func (s *Server) Start() error {
 	s.logger.Info("starting node", zap.Object("conf", s.conf))
+
+	if err := s.grpcServer.Start(); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (s *Server) GracefulShutdown() {
+func (s *Server) GracefulStop() {
 	s.logger.Info("starting node graceful shutdown")
+	s.grpcServer.GracefulStop()
 }
