@@ -16,38 +16,44 @@
 package registry
 
 import (
-	"github.com/andydunstall/fuddle/pkg/config"
-	"go.uber.org/zap"
+	"sync"
 )
 
-type Service struct {
-	nodeMap *NodeMap
-	server  *Server
+// NodeMap maintains the registered nodes in the cluster.
+type NodeMap struct {
+	nodes map[string]interface{}
 
-	logger *zap.Logger
+	mu sync.Mutex
 }
 
-func NewService(conf *config.Config, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "registry"))
-
-	nodeMap := NewNodeMap()
-	server := NewServer(nodeMap)
-	return &Service{
-		nodeMap: nodeMap,
-		server:  server,
-		logger:  logger,
+func NewNodeMap() *NodeMap {
+	return &NodeMap{
+		nodes: make(map[string]interface{}),
+		mu:    sync.Mutex{},
 	}
 }
 
-func (s *Service) Start() error {
-	s.logger.Info("starting registry service")
-	return nil
+func (m *NodeMap) NodeIDs() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	nodeIDs := make([]string, 0, len(m.nodes))
+	for id := range m.nodes {
+		nodeIDs = append(nodeIDs, id)
+	}
+	return nodeIDs
 }
 
-func (s *Service) GracefulStop() {
-	s.logger.Info("starting registry service graceful shutdown")
+func (m *NodeMap) Register(id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.nodes[id] = struct{}{}
 }
 
-func (s *Service) Server() *Server {
-	return s.server
+func (m *NodeMap) Unregister(id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	delete(m.nodes, id)
 }

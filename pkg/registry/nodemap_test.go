@@ -16,38 +16,25 @@
 package registry
 
 import (
-	"github.com/andydunstall/fuddle/pkg/config"
-	"go.uber.org/zap"
+	"sort"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type Service struct {
-	nodeMap *NodeMap
-	server  *Server
+func TestNodeMap_RegisterAndUnregisterNode(t *testing.T) {
+	m := NewNodeMap()
+	assert.Equal(t, []string{}, m.NodeIDs())
 
-	logger *zap.Logger
-}
+	m.Register("node-1")
+	m.Register("node-2")
 
-func NewService(conf *config.Config, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "registry"))
+	nodeIDs := m.NodeIDs()
+	// Sort to make comparison easier.
+	sort.Strings(nodeIDs)
+	assert.Equal(t, []string{"node-1", "node-2"}, nodeIDs)
 
-	nodeMap := NewNodeMap()
-	server := NewServer(nodeMap)
-	return &Service{
-		nodeMap: nodeMap,
-		server:  server,
-		logger:  logger,
-	}
-}
+	m.Unregister("node-1")
 
-func (s *Service) Start() error {
-	s.logger.Info("starting registry service")
-	return nil
-}
-
-func (s *Service) GracefulStop() {
-	s.logger.Info("starting registry service graceful shutdown")
-}
-
-func (s *Service) Server() *Server {
-	return s.server
+	assert.Equal(t, []string{"node-2"}, m.NodeIDs())
 }

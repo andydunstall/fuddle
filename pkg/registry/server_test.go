@@ -16,38 +16,36 @@
 package registry
 
 import (
-	"github.com/andydunstall/fuddle/pkg/config"
-	"go.uber.org/zap"
+	"context"
+	"sort"
+	"testing"
+
+	"github.com/andydunstall/fuddle/pkg/rpc"
+	"github.com/stretchr/testify/assert"
 )
 
-type Service struct {
-	nodeMap *NodeMap
-	server  *Server
+func TestServer_RegisterAndUnregisterNode(t *testing.T) {
+	m := NewNodeMap()
+	s := NewServer(m)
 
-	logger *zap.Logger
-}
+	_, err := s.Register(context.TODO(), &rpc.RegisterRequest{
+		NodeId: "node-1",
+	})
+	assert.Nil(t, err)
+	_, err = s.Register(context.TODO(), &rpc.RegisterRequest{
+		NodeId: "node-2",
+	})
+	assert.Nil(t, err)
 
-func NewService(conf *config.Config, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "registry"))
+	nodeIDs := m.NodeIDs()
+	// Sort to make comparison easier.
+	sort.Strings(nodeIDs)
+	assert.Equal(t, []string{"node-1", "node-2"}, nodeIDs)
 
-	nodeMap := NewNodeMap()
-	server := NewServer(nodeMap)
-	return &Service{
-		nodeMap: nodeMap,
-		server:  server,
-		logger:  logger,
-	}
-}
+	_, err = s.Unregister(context.TODO(), &rpc.RegisterRequest{
+		NodeId: "node-1",
+	})
+	assert.Nil(t, err)
 
-func (s *Service) Start() error {
-	s.logger.Info("starting registry service")
-	return nil
-}
-
-func (s *Service) GracefulStop() {
-	s.logger.Info("starting registry service graceful shutdown")
-}
-
-func (s *Service) Server() *Server {
-	return s.server
+	assert.Equal(t, []string{"node-2"}, m.NodeIDs())
 }

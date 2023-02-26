@@ -23,17 +23,23 @@ import (
 
 // Server exposes gRPC endpoints for the registry.
 type Server struct {
+	nodeMap *NodeMap
+
 	rpc.UnimplementedRegistryServer
 }
 
-func NewServer() *Server {
-	return &Server{}
+func NewServer(nodeMap *NodeMap) *Server {
+	return &Server{
+		nodeMap: nodeMap,
+	}
 }
 
 func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
+	s.nodeMap.Register(req.NodeId)
 	return &rpc.RegisterResponse{}, nil
 }
 
 func (s *Server) Unregister(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
+	s.nodeMap.Unregister(req.NodeId)
 	return &rpc.RegisterResponse{}, nil
 }
