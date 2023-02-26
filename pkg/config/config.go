@@ -25,10 +25,19 @@ type Config struct {
 	BindAddr string
 	// AdvAddr is the address to advertise to clients.
 	AdvAddr string
+
+	// BindAdminAddr is the bind address to listen for admin clients.
+	BindAdminAddr string
+	// AdvAdminAddr is the address to advertise to admin clients.
+	AdvAdminAddr string
 }
 
 func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("bind-addr", c.BindAddr)
 	e.AddString("adv-addr", c.AdvAddr)
+
+	e.AddString("bind-admin-addr", c.BindAdminAddr)
+	e.AddString("adv-admin-addr", c.AdvAdminAddr)
+
 	return nil
 }
