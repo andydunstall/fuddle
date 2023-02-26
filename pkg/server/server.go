@@ -13,16 +13,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
 import (
-	"fmt"
-
-	"github.com/andydunstall/fuddle/pkg/cli"
+	"go.uber.org/zap"
 )
 
-func main() {
-	if err := cli.Start(); err != nil {
-		fmt.Println(err)
-	}
+// Server runs a fuddle node.
+type Server struct {
+}
+
+func NewServer(logger *zap.Logger) *Server {
+	return &Server{}
+}
+
+func (s *Server) Start() error {
+	return nil
+}
+
+func (s *Server) GracefulShutdown() {
 }

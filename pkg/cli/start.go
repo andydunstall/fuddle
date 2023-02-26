@@ -16,7 +16,12 @@
 package cli
 
 import (
+	"os"
+	"os/signal"
+
+	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 // startCmd starts a fuddle node.
@@ -24,9 +29,23 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "start a fuddle node",
 	Long:  "start a fuddle node",
-	RunE:  runStart,
+	Run:   runStart,
 }
 
-func runStart(cmd *cobra.Command, args []string) error {
-	return nil
+func runStart(cmd *cobra.Command, args []string) {
+	logger, _ := zap.NewProduction()
+
+	server := server.NewServer(logger)
+
+	// Catch signals so to gracefully shutdown the server.
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, os.Interrupt)
+
+	if err := server.Start(); err != nil {
+		logger.Fatal("failed to start server", zap.Error(err))
+	}
+	defer server.GracefulShutdown()
+
+	sig := <-signalCh
+	logger.Info("received exit signal", zap.String("signal", sig.String()))
 }
