@@ -16,6 +16,7 @@
 package server
 
 import (
+	"github.com/andydunstall/fuddle/pkg/admin"
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/registry"
 	"github.com/andydunstall/fuddle/pkg/rpc"
@@ -24,7 +25,7 @@ import (
 
 // Server runs a fuddle node.
 type Server struct {
-	adminService    *registry.Service
+	adminService    *admin.Service
 	registryService *registry.Service
 
 	grpcServer *grpcServer
@@ -36,7 +37,7 @@ type Server struct {
 func NewServer(conf *config.Config, logger *zap.Logger) *Server {
 	logger = logger.With(zap.String("service", "server"))
 
-	adminService := registry.NewService(conf, logger)
+	adminService := admin.NewService(conf, logger)
 	registryService := registry.NewService(conf, logger)
 
 	grpcServer := newGRPCServer(conf.BindAddr, logger)

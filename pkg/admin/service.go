@@ -21,22 +21,27 @@ import (
 )
 
 type Service struct {
+	server *server
+
 	logger *zap.Logger
 }
 
 func NewService(conf *config.Config, logger *zap.Logger) *Service {
 	logger = logger.With(zap.String("service", "admin"))
 
+	server := newServer(conf.BindAdminAddr, logger)
 	return &Service{
+		server: server,
 		logger: logger,
 	}
 }
 
 func (s *Service) Start() error {
 	s.logger.Info("starting admin service")
-	return nil
+	return s.server.Start()
 }
 
 func (s *Service) GracefulStop() {
 	s.logger.Info("starting admin service graceful shutdown")
+	s.server.GracefulStop()
 }
