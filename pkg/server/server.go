@@ -42,7 +42,7 @@ func NewServer(conf *config.Config, logger *zap.Logger) *Server {
 	metricsRegistry := prometheus.NewRegistry()
 	metricsRegistry.MustRegister(collectors.NewGoCollector())
 
-	registryService := registry.NewService(conf, logger)
+	registryService := registry.NewService(conf, metricsRegistry, logger)
 	adminService := admin.NewService(registryService.NodeMap(), conf, metricsRegistry, logger)
 
 	grpcServer := newGRPCServer(conf.BindAddr, logger)
