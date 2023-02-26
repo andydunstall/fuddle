@@ -19,9 +19,17 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+)
+
+var (
+	// bindAddr is the address the server should bind to.
+	bindAddr string
+	// advAddr is the address the server should advertise to clients.
+	advAddr string
 )
 
 // startCmd starts a fuddle node.
@@ -32,10 +40,32 @@ var startCmd = &cobra.Command{
 	Run:   runStart,
 }
 
+func init() {
+	startCmd.Flags().StringVarP(
+		&bindAddr,
+		"addr", "a",
+		"0.0.0.0:8220",
+		"the bind address to listen for connections",
+	)
+	startCmd.Flags().StringVarP(
+		&advAddr,
+		"adv-addr", "",
+		"",
+		"the address to advertise to clients (defaults to the bind address)",
+	)
+}
+
 func runStart(cmd *cobra.Command, args []string) {
 	logger, _ := zap.NewProduction()
+	conf := &config.Config{
+		BindAddr: bindAddr,
+		AdvAddr:  bindAddr,
+	}
+	if advAddr != "" {
+		conf.AdvAddr = bindAddr
+	}
 
-	server := server.NewServer(logger)
+	server := server.NewServer(conf, logger)
 
 	// Catch signals so to gracefully shutdown the server.
 	signalCh := make(chan os.Signal, 1)

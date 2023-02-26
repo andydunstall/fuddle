@@ -13,33 +13,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package server
+package config
 
 import (
-	"github.com/andydunstall/fuddle/pkg/config"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-// Server runs a fuddle node.
-type Server struct {
-	conf   *config.Config
-	logger *zap.Logger
+// Config contains the node configuration.
+type Config struct {
+	// BindAddr is the bind address to listen for connections.
+	BindAddr string
+	// AdvAddr is the address to advertise to clients.
+	AdvAddr string
 }
 
-func NewServer(conf *config.Config, logger *zap.Logger) *Server {
-	logger = logger.With(zap.String("service", "server"))
-	return &Server{
-		conf:   conf,
-		logger: logger,
-	}
-}
-
-func (s *Server) Start() error {
-	s.logger.Info("starting node", zap.Object("conf", s.conf))
-
+func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddString("bind-addr", c.BindAddr)
+	e.AddString("adv-addr", c.AdvAddr)
 	return nil
-}
-
-func (s *Server) GracefulShutdown() {
-	s.logger.Info("starting node graceful shutdown")
 }
