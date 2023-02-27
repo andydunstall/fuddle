@@ -42,16 +42,24 @@ func TestAdmin_ListRegisteredNodes(t *testing.T) {
 
 	admin := client.NewAdmin(conf.AdvAdminAddr)
 
-	nodeIDs, err := admin.Nodes(context.TODO())
+	nodes, err := admin.Nodes(context.TODO())
 	assert.Nil(t, err)
+	nodeIDs := []string{}
+	for _, node := range nodes {
+		nodeIDs = append(nodeIDs, node.Id)
+	}
 	// Sort to make comparison easier.
 	sort.Strings(nodeIDs)
 	assert.Equal(t, []string{"node-1", "node-2"}, nodeIDs)
 
 	assert.Nil(t, registry.Unregister(context.TODO(), "node-1"))
 
-	nodeIDs, err = admin.Nodes(context.TODO())
+	nodes, err = admin.Nodes(context.TODO())
 	assert.Nil(t, err)
+	nodeIDs = []string{}
+	for _, node := range nodes {
+		nodeIDs = append(nodeIDs, node.Id)
+	}
 	assert.Equal(t, []string{"node-2"}, nodeIDs)
 }
 

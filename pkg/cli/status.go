@@ -20,6 +20,7 @@ import (
 	"sort"
 
 	"github.com/andydunstall/fuddle/pkg/client"
+	"github.com/andydunstall/fuddle/pkg/rpc"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 )
@@ -59,23 +60,32 @@ func init() {
 
 func runClusterStatus(cmd *cobra.Command, args []string) error {
 	client := client.NewAdmin(statusAdminAddr)
-	nodeIDs, err := client.Nodes(context.Background())
+	nodes, err := client.Nodes(context.Background())
 	if err != nil {
 		return err
 	}
 
-	displayNodes(nodeIDs)
+	displayNodes(nodes)
 
 	return nil
 }
 
-func displayNodes(nodeIDs []string) {
-	sort.Strings(nodeIDs)
+func displayNodes(nodes []*rpc.NodeState) {
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].Id < nodes[j].Id
+	})
 
-	tbl := table.New("ID")
-	for _, id := range nodeIDs {
-		tbl.AddRow(id)
+	tbl := table.New("ID", "Service", "Revision")
+	for _, node := range nodes {
+		tbl.AddRow(node.Id, node.Service, formatRevision(node.Revision))
 	}
 
 	tbl.Print()
+}
+
+func formatRevision(revision string) string {
+	if len(revision) > 7 {
+		return revision[:7] + "..."
+	}
+	return revision
 }

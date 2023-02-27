@@ -45,7 +45,9 @@ func ConnectRegistry(addr string) (*Registry, error) {
 
 func (r *Registry) Register(ctx context.Context, id string) error {
 	_, err := r.client.Register(context.Background(), &rpc.RegisterRequest{
-		NodeId: id,
+		Node: &rpc.NodeState{
+			Id: id,
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("registry client: register: %w", err)
@@ -54,8 +56,8 @@ func (r *Registry) Register(ctx context.Context, id string) error {
 }
 
 func (r *Registry) Unregister(ctx context.Context, id string) error {
-	_, err := r.client.Unregister(context.Background(), &rpc.RegisterRequest{
-		NodeId: id,
+	_, err := r.client.Unregister(context.Background(), &rpc.UnregisterRequest{
+		Id: id,
 	})
 	if err != nil {
 		return fmt.Errorf("registry client: unregister: %w", err)
@@ -63,12 +65,12 @@ func (r *Registry) Unregister(ctx context.Context, id string) error {
 	return nil
 }
 
-func (r *Registry) Nodes(ctx context.Context) ([]string, error) {
+func (r *Registry) Nodes(ctx context.Context) ([]*rpc.NodeState, error) {
 	resp, err := r.client.Nodes(context.Background(), &rpc.NodesRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("registry client: nodes: %w", err)
 	}
-	return resp.Ids, nil
+	return resp.Nodes, nil
 }
 
 func (r *Registry) Close() {

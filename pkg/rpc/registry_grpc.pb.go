@@ -19,7 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RegistryClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
-	Unregister(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
+	Unregister(ctx context.Context, in *UnregisterRequest, opts ...grpc.CallOption) (*UnregisterResponse, error)
 	Nodes(ctx context.Context, in *NodesRequest, opts ...grpc.CallOption) (*NodesResponse, error)
 }
 
@@ -40,8 +40,8 @@ func (c *registryClient) Register(ctx context.Context, in *RegisterRequest, opts
 	return out, nil
 }
 
-func (c *registryClient) Unregister(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
-	out := new(RegisterResponse)
+func (c *registryClient) Unregister(ctx context.Context, in *UnregisterRequest, opts ...grpc.CallOption) (*UnregisterResponse, error) {
+	out := new(UnregisterResponse)
 	err := c.cc.Invoke(ctx, "/Registry/Unregister", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func (c *registryClient) Nodes(ctx context.Context, in *NodesRequest, opts ...gr
 // for forward compatibility
 type RegistryServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
-	Unregister(context.Context, *RegisterRequest) (*RegisterResponse, error)
+	Unregister(context.Context, *UnregisterRequest) (*UnregisterResponse, error)
 	Nodes(context.Context, *NodesRequest) (*NodesResponse, error)
 	mustEmbedUnimplementedRegistryServer()
 }
@@ -75,7 +75,7 @@ type UnimplementedRegistryServer struct {
 func (UnimplementedRegistryServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
 }
-func (UnimplementedRegistryServer) Unregister(context.Context, *RegisterRequest) (*RegisterResponse, error) {
+func (UnimplementedRegistryServer) Unregister(context.Context, *UnregisterRequest) (*UnregisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unregister not implemented")
 }
 func (UnimplementedRegistryServer) Nodes(context.Context, *NodesRequest) (*NodesResponse, error) {
@@ -113,7 +113,7 @@ func _Registry_Register_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 func _Registry_Unregister_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RegisterRequest)
+	in := new(UnregisterRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func _Registry_Unregister_Handler(srv interface{}, ctx context.Context, dec func
 		FullMethod: "/Registry/Unregister",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RegistryServer).Unregister(ctx, req.(*RegisterRequest))
+		return srv.(RegistryServer).Unregister(ctx, req.(*UnregisterRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
