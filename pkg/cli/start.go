@@ -23,6 +23,7 @@ import (
 	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -35,6 +36,9 @@ var (
 	bindAdminAddr string
 	// advAdminAddr is the address to advertise to admin clients.
 	advAdminAddr string
+
+	// startVerbose indicates whether debug logs should be enabled on the node.
+	startVerbose bool
 )
 
 // startCmd starts a fuddle node.
@@ -71,10 +75,22 @@ func init() {
 		"",
 		"the address to advertise to admin clients (defaults to the bind address)",
 	)
+
+	startCmd.PersistentFlags().BoolVarP(
+		&startVerbose,
+		"verbose", "v",
+		false,
+		"if set enabled debug logs on the node",
+	)
 }
 
 func runStart(cmd *cobra.Command, args []string) {
-	logger, _ := zap.NewProduction()
+	loggerConf := zap.NewProductionConfig()
+	if startVerbose {
+		loggerConf.Level.SetLevel(zapcore.DebugLevel)
+	}
+	logger := zap.Must(loggerConf.Build())
+
 	conf := &config.Config{
 		BindAddr: bindAddr,
 		AdvAddr:  bindAddr,
