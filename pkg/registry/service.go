@@ -42,7 +42,7 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 		nodeCountGauge.Set(float64(len(nodeMap.NodeIDs())))
 	})
 
-	server := NewServer(nodeMap)
+	server := NewServer(nodeMap, logger)
 	return &Service{
 		nodeMap: nodeMap,
 		server:  server,

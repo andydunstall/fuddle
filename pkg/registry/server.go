@@ -19,27 +19,35 @@ import (
 	"context"
 
 	"github.com/andydunstall/fuddle/pkg/rpc"
+	"go.uber.org/zap"
 )
 
 // Server exposes gRPC endpoints for the registry.
 type Server struct {
 	nodeMap *NodeMap
 
+	logger *zap.Logger
+
 	rpc.UnimplementedRegistryServer
 }
 
-func NewServer(nodeMap *NodeMap) *Server {
+func NewServer(nodeMap *NodeMap, logger *zap.Logger) *Server {
 	return &Server{
 		nodeMap: nodeMap,
+		logger:  logger,
 	}
 }
 
 func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
+	s.logger.Debug("register", zap.String("node-id", req.NodeId))
+
 	s.nodeMap.Register(req.NodeId)
 	return &rpc.RegisterResponse{}, nil
 }
 
 func (s *Server) Unregister(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
+	s.logger.Debug("unregister", zap.String("node-id", req.NodeId))
+
 	s.nodeMap.Unregister(req.NodeId)
 	return &rpc.RegisterResponse{}, nil
 }

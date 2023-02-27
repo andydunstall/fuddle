@@ -22,11 +22,12 @@ import (
 
 	"github.com/andydunstall/fuddle/pkg/rpc"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestServer_RegisterAndUnregisterNode(t *testing.T) {
 	m := NewNodeMap()
-	s := NewServer(m)
+	s := NewServer(m, zap.NewNop())
 
 	_, err := s.Register(context.TODO(), &rpc.RegisterRequest{
 		NodeId: "node-1",
