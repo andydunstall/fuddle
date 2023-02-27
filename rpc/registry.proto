@@ -32,7 +32,7 @@ message NodesRequest {
 }
 
 message NodesResponse {
-	repeated string ids = 1;
+	repeated NodeState nodes = 1;
 }
 
 // Registry is a service that manges the set of nodes present in the cluster.

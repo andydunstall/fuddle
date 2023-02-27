@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/andydunstall/fuddle/pkg/rpc"
 )
 
 type Admin struct {
@@ -32,7 +34,7 @@ func NewAdmin(addr string) *Admin {
 	}
 }
 
-func (a *Admin) Nodes(ctx context.Context) ([]string, error) {
+func (a *Admin) Nodes(ctx context.Context) ([]*rpc.NodeState, error) {
 	url := fmt.Sprintf("http://%s/api/v1/cluster", a.addr)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -44,9 +46,9 @@ func (a *Admin) Nodes(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("admin client: nodes: bad status code: %d", resp.StatusCode)
 	}
 
-	var nodeIDs []string
-	if err = json.NewDecoder(resp.Body).Decode(&nodeIDs); err != nil {
+	var nodes []*rpc.NodeState
+	if err = json.NewDecoder(resp.Body).Decode(&nodes); err != nil {
 		return nil, fmt.Errorf("admin client: nodes, %w", err)
 	}
-	return nodeIDs, nil
+	return nodes, nil
 }

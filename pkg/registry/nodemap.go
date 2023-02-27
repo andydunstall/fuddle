@@ -23,7 +23,7 @@ import (
 
 // NodeMap maintains the registered nodes in the cluster.
 type NodeMap struct {
-	nodes map[string]*NodeState
+	nodes map[string]*rpc.NodeState
 
 	subscribers map[string]func()
 
@@ -32,7 +32,7 @@ type NodeMap struct {
 
 func NewNodeMap() *NodeMap {
 	return &NodeMap{
-		nodes:       make(map[string]*NodeState),
+		nodes:       make(map[string]*rpc.NodeState),
 		subscribers: make(map[string]func()),
 		mu:          sync.Mutex{},
 	}
@@ -47,6 +47,17 @@ func (m *NodeMap) NodeIDs() []string {
 		nodeIDs = append(nodeIDs, id)
 	}
 	return nodeIDs
+}
+
+func (m *NodeMap) Nodes() []*rpc.NodeState {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	nodes := make([]*rpc.NodeState, 0, len(m.nodes))
+	for _, node := range m.nodes {
+		nodes = append(nodes, node)
+	}
+	return nodes
 }
 
 func (m *NodeMap) Register(node *rpc.NodeState) {
@@ -80,12 +91,7 @@ func (m *NodeMap) register(node *rpc.NodeState) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.nodes[node.Id] = &NodeState{
-		ID:       node.Id,
-		Service:  node.Service,
-		Revision: node.Revision,
-		State:    node.State,
-	}
+	m.nodes[node.Id] = node
 }
 
 func (m *NodeMap) unregister(id string) {

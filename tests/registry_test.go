@@ -38,15 +38,23 @@ func TestRegistry_RegisterAndUnregisterNode(t *testing.T) {
 	assert.Nil(t, registry.Register(context.TODO(), "node-1"))
 	assert.Nil(t, registry.Register(context.TODO(), "node-2"))
 
-	nodeIDs, err := registry.Nodes(context.TODO())
+	nodes, err := registry.Nodes(context.TODO())
 	assert.Nil(t, err)
+	nodeIDs := []string{}
+	for _, node := range nodes {
+		nodeIDs = append(nodeIDs, node.Id)
+	}
 	// Sort to make comparison easier.
 	sort.Strings(nodeIDs)
 	assert.Equal(t, []string{"node-1", "node-2"}, nodeIDs)
 
 	assert.Nil(t, registry.Unregister(context.TODO(), "node-1"))
 
-	nodeIDs, err = registry.Nodes(context.TODO())
+	nodes, err = registry.Nodes(context.TODO())
 	assert.Nil(t, err)
+	nodeIDs = []string{}
+	for _, node := range nodes {
+		nodeIDs = append(nodeIDs, node.Id)
+	}
 	assert.Equal(t, []string{"node-2"}, nodeIDs)
 }

@@ -65,12 +65,12 @@ func (r *Registry) Unregister(ctx context.Context, id string) error {
 	return nil
 }
 
-func (r *Registry) Nodes(ctx context.Context) ([]string, error) {
+func (r *Registry) Nodes(ctx context.Context) ([]*rpc.NodeState, error) {
 	resp, err := r.client.Nodes(context.Background(), &rpc.NodesRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("registry client: nodes: %w", err)
 	}
-	return resp.Ids, nil
+	return resp.Nodes, nil
 }
 
 func (r *Registry) Close() {
