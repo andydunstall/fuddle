@@ -17,6 +17,7 @@ package registry
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/andydunstall/fuddle/pkg/rpc"
 	"go.uber.org/zap"
@@ -39,22 +40,28 @@ func NewServer(nodeMap *NodeMap, logger *zap.Logger) *Server {
 }
 
 func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
+	if req.Node == nil {
+		s.logger.Warn("registered with no node")
+		return nil, fmt.Errorf("registered with no node")
+	}
+
+	node := req.Node
 	s.logger.Debug(
 		"register",
-		zap.String("node-id", req.NodeId),
-		zap.String("service", req.Service),
-		zap.String("revision", req.Revision),
-		zap.Int("state-len", len(req.State)),
+		zap.String("node-id", node.Id),
+		zap.String("service", node.Service),
+		zap.String("revision", node.Revision),
+		zap.Int("state-len", len(node.State)),
 	)
 
-	s.nodeMap.Register(req)
+	s.nodeMap.Register(node)
 	return &rpc.RegisterResponse{}, nil
 }
 
 func (s *Server) Unregister(ctx context.Context, req *rpc.UnregisterRequest) (*rpc.UnregisterResponse, error) {
-	s.logger.Debug("unregister", zap.String("node-id", req.NodeId))
+	s.logger.Debug("unregister", zap.String("node-id", req.Id))
 
-	s.nodeMap.Unregister(req.NodeId)
+	s.nodeMap.Unregister(req.Id)
 	return &rpc.UnregisterResponse{}, nil
 }
 

@@ -49,8 +49,8 @@ func (m *NodeMap) NodeIDs() []string {
 	return nodeIDs
 }
 
-func (m *NodeMap) Register(req *rpc.RegisterRequest) {
-	m.register(req)
+func (m *NodeMap) Register(node *rpc.NodeState) {
+	m.register(node)
 	m.notifySubscribers()
 }
 
@@ -76,15 +76,15 @@ func (m *NodeMap) Unsubscribe(id string) {
 	delete(m.subscribers, id)
 }
 
-func (m *NodeMap) register(req *rpc.RegisterRequest) {
+func (m *NodeMap) register(node *rpc.NodeState) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.nodes[req.NodeId] = &NodeState{
-		ID:       req.NodeId,
-		Service:  req.Service,
-		Revision: req.Revision,
-		State:    req.State,
+	m.nodes[node.Id] = &NodeState{
+		ID:       node.Id,
+		Service:  node.Service,
+		Revision: node.Revision,
+		State:    node.State,
 	}
 }
 

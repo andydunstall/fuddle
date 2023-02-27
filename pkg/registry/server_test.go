@@ -30,11 +30,15 @@ func TestServer_RegisterAndUnregisterNode(t *testing.T) {
 	s := NewServer(m, zap.NewNop())
 
 	_, err := s.Register(context.TODO(), &rpc.RegisterRequest{
-		NodeId: "node-1",
+		Node: &rpc.NodeState{
+			Id: "node-1",
+		},
 	})
 	assert.Nil(t, err)
 	_, err = s.Register(context.TODO(), &rpc.RegisterRequest{
-		NodeId: "node-2",
+		Node: &rpc.NodeState{
+			Id: "node-2",
+		},
 	})
 	assert.Nil(t, err)
 
@@ -44,9 +48,17 @@ func TestServer_RegisterAndUnregisterNode(t *testing.T) {
 	assert.Equal(t, []string{"node-1", "node-2"}, nodeIDs)
 
 	_, err = s.Unregister(context.TODO(), &rpc.UnregisterRequest{
-		NodeId: "node-1",
+		Id: "node-1",
 	})
 	assert.Nil(t, err)
 
 	assert.Equal(t, []string{"node-2"}, m.NodeIDs())
+}
+
+func TestServer_RegisterWithNoNode(t *testing.T) {
+	m := NewNodeMap()
+	s := NewServer(m, zap.NewNop())
+
+	_, err := s.Register(context.TODO(), &rpc.RegisterRequest{})
+	assert.Equal(t, "registered with no node", err.Error())
 }

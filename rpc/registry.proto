@@ -2,9 +2,9 @@ syntax = 'proto3';
 
 option go_package = 'github.com/andydunstall/fuddle/pkg/rpc';
 
-message RegisterRequest {
+message NodeState {
     // A unique identifier of the node in the cluster.
-	string node_id = 1;
+	string id = 1;
     // The type of service running on the node.
 	string service = 2;
 	// An identifier of the revision running on the node.
@@ -13,12 +13,16 @@ message RegisterRequest {
 	map<string, string> state = 4;
 }
 
+message RegisterRequest {
+	NodeState node = 1;
+}
+
 message RegisterResponse {
 }
 
 message UnregisterRequest {
     // A unique identifier of the node in the cluster.
-	string node_id = 1;
+	string id = 1;
 }
 
 message UnregisterResponse {
