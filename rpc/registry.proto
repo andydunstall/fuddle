@@ -16,6 +16,14 @@ message RegisterRequest {
 message RegisterResponse {
 }
 
+message UnregisterRequest {
+    // A unique identifier of the node in the cluster.
+	string node_id = 1;
+}
+
+message UnregisterResponse {
+}
+
 message NodesRequest {
 }
 
@@ -26,6 +34,6 @@ message NodesResponse {
 // Registry is a service that manges the set of nodes present in the cluster.
 service Registry {
 	rpc Register(RegisterRequest) returns (RegisterResponse);
-	rpc Unregister(RegisterRequest) returns (RegisterResponse);
+	rpc Unregister(UnregisterRequest) returns (UnregisterResponse);
 	rpc Nodes(NodesRequest) returns (NodesResponse);
 }

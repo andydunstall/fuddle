@@ -54,7 +54,7 @@ func (r *Registry) Register(ctx context.Context, id string) error {
 }
 
 func (r *Registry) Unregister(ctx context.Context, id string) error {
-	_, err := r.client.Unregister(context.Background(), &rpc.RegisterRequest{
+	_, err := r.client.Unregister(context.Background(), &rpc.UnregisterRequest{
 		NodeId: id,
 	})
 	if err != nil {
