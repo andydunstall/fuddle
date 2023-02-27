@@ -19,6 +19,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/andydunstall/fuddle/pkg/rpc"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,8 +27,8 @@ func TestNodeMap_RegisterAndUnregisterNode(t *testing.T) {
 	m := NewNodeMap()
 	assert.Equal(t, []string{}, m.NodeIDs())
 
-	m.Register("node-1")
-	m.Register("node-2")
+	m.Register(&rpc.RegisterRequest{NodeId: "node-1"})
+	m.Register(&rpc.RegisterRequest{NodeId: "node-2"})
 
 	nodeIDs := m.NodeIDs()
 	// Sort to make comparison easier.
@@ -49,16 +50,16 @@ func TestNodeMap_SubscribeToUpdates(t *testing.T) {
 		notifiedCount++
 	})
 
-	m.Register("node-1")
-	m.Register("node-2")
+	m.Register(&rpc.RegisterRequest{NodeId: "node-1"})
+	m.Register(&rpc.RegisterRequest{NodeId: "node-2"})
 	m.Unregister("node-2")
 	assert.Equal(t, 3, notifiedCount)
 
 	// Unsubscribe and check the callback is no longer called.
 	m.Unsubscribe("sub")
 
-	m.Register("node-1")
-	m.Register("node-2")
+	m.Register(&rpc.RegisterRequest{NodeId: "node-3"})
+	m.Register(&rpc.RegisterRequest{NodeId: "node-4"})
 	m.Unregister("node-2")
 	assert.Equal(t, 3, notifiedCount)
 }

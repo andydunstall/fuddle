@@ -47,15 +47,15 @@ func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.R
 		zap.Int("state-len", len(req.State)),
 	)
 
-	s.nodeMap.Register(req.NodeId)
+	s.nodeMap.Register(req)
 	return &rpc.RegisterResponse{}, nil
 }
 
-func (s *Server) Unregister(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
+func (s *Server) Unregister(ctx context.Context, req *rpc.UnregisterRequest) (*rpc.UnregisterResponse, error) {
 	s.logger.Debug("unregister", zap.String("node-id", req.NodeId))
 
 	s.nodeMap.Unregister(req.NodeId)
-	return &rpc.RegisterResponse{}, nil
+	return &rpc.UnregisterResponse{}, nil
 }
 
 func (s *Server) Nodes(ctx context.Context, req *rpc.NodesRequest) (*rpc.NodesResponse, error) {

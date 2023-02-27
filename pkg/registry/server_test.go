@@ -43,7 +43,7 @@ func TestServer_RegisterAndUnregisterNode(t *testing.T) {
 	sort.Strings(nodeIDs)
 	assert.Equal(t, []string{"node-1", "node-2"}, nodeIDs)
 
-	_, err = s.Unregister(context.TODO(), &rpc.RegisterRequest{
+	_, err = s.Unregister(context.TODO(), &rpc.UnregisterRequest{
 		NodeId: "node-1",
 	})
 	assert.Nil(t, err)

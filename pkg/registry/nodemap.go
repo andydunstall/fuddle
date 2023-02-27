@@ -17,11 +17,13 @@ package registry
 
 import (
 	"sync"
+
+	"github.com/andydunstall/fuddle/pkg/rpc"
 )
 
 // NodeMap maintains the registered nodes in the cluster.
 type NodeMap struct {
-	nodes map[string]interface{}
+	nodes map[string]*NodeState
 
 	subscribers map[string]func()
 
@@ -30,7 +32,7 @@ type NodeMap struct {
 
 func NewNodeMap() *NodeMap {
 	return &NodeMap{
-		nodes:       make(map[string]interface{}),
+		nodes:       make(map[string]*NodeState),
 		subscribers: make(map[string]func()),
 		mu:          sync.Mutex{},
 	}
@@ -47,8 +49,8 @@ func (m *NodeMap) NodeIDs() []string {
 	return nodeIDs
 }
 
-func (m *NodeMap) Register(id string) {
-	m.register(id)
+func (m *NodeMap) Register(req *rpc.RegisterRequest) {
+	m.register(req)
 	m.notifySubscribers()
 }
 
@@ -74,11 +76,16 @@ func (m *NodeMap) Unsubscribe(id string) {
 	delete(m.subscribers, id)
 }
 
-func (m *NodeMap) register(id string) {
+func (m *NodeMap) register(req *rpc.RegisterRequest) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.nodes[id] = struct{}{}
+	m.nodes[req.NodeId] = &NodeState{
+		ID:       req.NodeId,
+		Service:  req.Service,
+		Revision: req.Revision,
+		State:    req.State,
+	}
 }
 
 func (m *NodeMap) unregister(id string) {
