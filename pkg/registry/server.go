@@ -46,12 +46,16 @@ func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.R
 	}
 
 	node := req.Node
+	stateKeys := make([]string, 0, len(node.State))
+	for key := range node.State {
+		stateKeys = append(stateKeys, key)
+	}
 	s.logger.Debug(
 		"register",
-		zap.String("node-id", node.Id),
-		zap.String("service", node.Service),
-		zap.String("revision", node.Revision),
-		zap.Int("state-len", len(node.State)),
+		zap.String("node.id", node.Id),
+		zap.String("node.service", node.Service),
+		zap.String("node.revision", node.Revision),
+		zap.Strings("node.state", stateKeys),
 	)
 
 	s.nodeMap.Register(node)
@@ -59,7 +63,7 @@ func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.R
 }
 
 func (s *Server) Unregister(ctx context.Context, req *rpc.UnregisterRequest) (*rpc.UnregisterResponse, error) {
-	s.logger.Debug("unregister", zap.String("node-id", req.Id))
+	s.logger.Debug("unregister", zap.String("node.id", req.Id))
 
 	s.nodeMap.Unregister(req.Id)
 	return &rpc.UnregisterResponse{}, nil
