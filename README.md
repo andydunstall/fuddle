@@ -8,4 +8,4 @@
 
 ---
 
-A cluster discovery service.
+Fuddle is a service to manage your cluster.
