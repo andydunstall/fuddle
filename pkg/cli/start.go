@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/andydunstall/fuddle/pkg/build"
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/spf13/cobra"
@@ -97,6 +98,8 @@ func runStart(cmd *cobra.Command, args []string) {
 
 		BindAdminAddr: bindAdminAddr,
 		AdvAdminAddr:  bindAdminAddr,
+
+		Revision: build.Revision,
 	}
 	if advAddr != "" {
 		conf.AdvAddr = bindAddr
