@@ -3,15 +3,17 @@
 These examples provide services that use Fuddle to manage the cluster, which
 can be run using `fuddle demo`.
 
-## [Is Even Service](./is-even)
-The ‘is even’ service provides a toy example showing a simple use of Fuddle.
+## [Random Number Service](./random)
+The random number service provides a toy example showing a simple use of Fuddle.
 
-The frontends expose a REST API to check whether a number is even or odd. When a request comes into the frontend, it queries both the ‘is-even’ service and the ‘is-odd’ service and returns the aggregated result.
+The cluster includes two types of node:
+* Frontends: Accept client requests and forward to the appropriate backend node,
+* Random: Generates a random number
 
-Run the service using `fuddle demo is-even`.
+Run the service using `fuddle demo random`.
 
 <p align="center">
-  <img src='../assets/images/is-even-service.png?raw=true' width='60%'>
+  <img src='../assets/images/random-demo.png?raw=true' width='60%'>
 </p>
 
 ## [Messaging Service](./messaging-service)

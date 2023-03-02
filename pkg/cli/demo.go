@@ -25,5 +25,5 @@ var demoCmd = &cobra.Command{
 }
 
 func init() {
-	demoCmd.AddCommand(isEvenDemoCmd)
+	demoCmd.AddCommand(randomDemoCmd)
 }

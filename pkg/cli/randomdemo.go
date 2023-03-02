@@ -20,8 +20,8 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/andydunstall/fuddle/demos/is-even/pkg/frontend"
-	"github.com/andydunstall/fuddle/demos/is-even/pkg/iseven"
+	"github.com/andydunstall/fuddle/demos/random/pkg/frontend"
+	"github.com/andydunstall/fuddle/demos/random/pkg/random"
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/google/uuid"
@@ -40,19 +40,19 @@ type demoFrontendConfig struct {
 	LogPath string
 }
 
-type demoIsEvenConfig struct {
-	Config  *iseven.Config
+type demoRandomConfig struct {
+	Config  *random.Config
 	Addr    string
 	LogPath string
 }
 
-var isEvenDemoCmd = &cobra.Command{
-	Use:   "iseven",
+var randomDemoCmd = &cobra.Command{
+	Use:   "random",
 	Short: "run a demo 'is even' service cluster",
-	RunE:  runIsEvenDemo,
+	RunE:  runRandomDemo,
 }
 
-func runIsEvenDemo(cmd *cobra.Command, args []string) error {
+func runRandomDemo(cmd *cobra.Command, args []string) error {
 	conf := &config.Config{
 		BindAddr: "127.0.0.1:8220",
 		AdvAddr:  "127.0.0.1:8220",
@@ -84,13 +84,13 @@ func runIsEvenDemo(cmd *cobra.Command, args []string) error {
 		frontendConfig = append(frontendConfig, conf)
 	}
 
-	isEvenConfig := []*demoIsEvenConfig{}
+	randomConfig := []*demoRandomConfig{}
 	for i := 0; i != 3; i++ {
-		conf, err := demoIsEvenNode(logDir)
+		conf, err := demoRandomNode(logDir)
 		if err != nil {
 			return fmt.Errorf("is even service: %w", err)
 		}
-		isEvenConfig = append(isEvenConfig, conf)
+		randomConfig = append(randomConfig, conf)
 	}
 
 	// Catch signals so to gracefully shutdown the server.
@@ -113,10 +113,10 @@ func runIsEvenDemo(cmd *cobra.Command, args []string) error {
 		defer service.GracefulStop()
 	}
 
-	for _, conf := range isEvenConfig {
-		service := iseven.NewService(conf.Config, loggerWithPath(conf.LogPath, false))
+	for _, conf := range randomConfig {
+		service := random.NewService(conf.Config, loggerWithPath(conf.LogPath, false))
 		if err := service.Start(); err != nil {
-			return fmt.Errorf("failed to start iseven: %w", err)
+			return fmt.Errorf("failed to start random: %w", err)
 		}
 		defer service.GracefulStop()
 	}
@@ -146,14 +146,14 @@ func runIsEvenDemo(cmd *cobra.Command, args []string) error {
 	for _, conf := range frontendConfig {
 		fmt.Printf(`
 #   frontend: %s
-#     Endpoint: http://%s/iseven?n=10
+#     Endpoint: http://%s/random
 #     Logs: %s
 #`, conf.Config.ID, conf.Addr, conf.LogPath)
 	}
 
-	for _, conf := range isEvenConfig {
+	for _, conf := range randomConfig {
 		fmt.Printf(`
-#   iseven: %s
+#   random: %s
 #     Logs: %s
 #`, conf.Config.ID, conf.LogPath)
 	}
@@ -196,12 +196,12 @@ func demoFrontendNode(logDir string) (*demoFrontendConfig, error) {
 	}, nil
 }
 
-func demoIsEvenNode(logDir string) (*demoIsEvenConfig, error) {
-	id := "iseven-" + uuid.New().String()[:7]
+func demoRandomNode(logDir string) (*demoRandomConfig, error) {
+	id := "random-" + uuid.New().String()[:7]
 	logPath := logDir + "/" + id + ".log"
 
-	return &demoIsEvenConfig{
-		Config: &iseven.Config{
+	return &demoRandomConfig{
+		Config: &random.Config{
 			ID: id,
 		},
 		Addr:    getSystemAddress(),

@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package iseven
+package random
 
 import (
 	"context"
@@ -31,7 +31,7 @@ type Service struct {
 }
 
 func NewService(conf *Config, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "iseven"))
+	logger = logger.With(zap.String("service", "random"))
 
 	return &Service{
 		registry: nil,
@@ -43,10 +43,10 @@ func NewService(conf *Config, logger *zap.Logger) *Service {
 func (s *Service) Start() error {
 	registry, err := client.ConnectRegistry("127.0.0.1:8220")
 	if err != nil {
-		return fmt.Errorf("even service: %w", err)
+		return fmt.Errorf("random service: %w", err)
 	}
 	if err = registry.Register(context.Background(), s.conf.ID); err != nil {
-		return fmt.Errorf("even service: %w", err)
+		return fmt.Errorf("random service: %w", err)
 	}
 
 	s.registry = registry
