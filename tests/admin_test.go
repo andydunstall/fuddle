@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/andydunstall/fuddle/pkg/client"
+	"github.com/andydunstall/fuddle/pkg/rpc"
 	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -37,8 +38,8 @@ func TestAdmin_ListRegisteredNodes(t *testing.T) {
 	registry, err := client.ConnectRegistry(conf.AdvAddr)
 	assert.Nil(t, err)
 
-	assert.Nil(t, registry.Register(context.TODO(), "node-1"))
-	assert.Nil(t, registry.Register(context.TODO(), "node-2"))
+	assert.Nil(t, registry.Register(context.TODO(), &rpc.NodeState{Id: "node-1"}))
+	assert.Nil(t, registry.Register(context.TODO(), &rpc.NodeState{Id: "node-2"}))
 
 	admin := client.NewAdmin(conf.AdvAdminAddr)
 

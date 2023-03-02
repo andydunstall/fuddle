@@ -16,14 +16,27 @@
 package cli
 
 import (
-	"github.com/spf13/cobra"
+	"net"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-var demoCmd = &cobra.Command{
-	Use:   "demo",
-	Short: "register demo nodes with the cluster",
+func getSystemAddress() string {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	defer ln.Close()
+
+	return ln.Addr().String()
 }
 
-func init() {
-	demoCmd.AddCommand(randomDemoCmd)
+func loggerWithPath(path string, verbose bool) *zap.Logger {
+	loggerConf := zap.NewProductionConfig()
+	if startVerbose {
+		loggerConf.Level.SetLevel(zapcore.DebugLevel)
+	}
+	loggerConf.OutputPaths = []string{path}
+	return zap.Must(loggerConf.Build())
 }

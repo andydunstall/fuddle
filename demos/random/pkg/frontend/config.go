@@ -13,17 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package cli
+package frontend
 
-import (
-	"github.com/spf13/cobra"
-)
-
-var demoCmd = &cobra.Command{
-	Use:   "demo",
-	Short: "register demo nodes with the cluster",
-}
-
-func init() {
-	demoCmd.AddCommand(randomDemoCmd)
+// Config contains the node configuration.
+type Config struct {
+	// ID is the frontend node ID.
+	ID string
 }
