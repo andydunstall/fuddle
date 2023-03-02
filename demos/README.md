@@ -16,7 +16,7 @@ Run the service using `fuddle demo random`.
   <img src='../assets/images/random-demo.png?raw=true' width='60%'>
 </p>
 
-## [Messaging Service](./messaging-service)
+## [Messaging Service](./messaging)
 The messaging service aims to provide a more real world example using Fuddle.
 
 This is a publish/subscribe service where clients publish and subscribe to channels. Those channels are partitioned among the set of nodes in the cluster using consistent hashing.
