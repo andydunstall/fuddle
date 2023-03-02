@@ -23,6 +23,7 @@ import (
 	"net/http"
 
 	"github.com/andydunstall/fuddle/pkg/registry"
+	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -41,9 +42,9 @@ func newServer(addr string, nodeMap *registry.NodeMap, metricsRegistry *promethe
 		logger:  logger,
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/cluster", server.clusterRoute)
-	mux.Handle(
+	r := mux.NewRouter()
+	r.HandleFunc("/api/v1/cluster", server.clusterRoute)
+	r.Handle(
 		"/metrics",
 		promhttp.HandlerFor(
 			metricsRegistry,
@@ -53,7 +54,7 @@ func newServer(addr string, nodeMap *registry.NodeMap, metricsRegistry *promethe
 
 	httpServer := &http.Server{
 		Addr:    addr,
-		Handler: mux,
+		Handler: r,
 	}
 	server.httpServer = httpServer
 
