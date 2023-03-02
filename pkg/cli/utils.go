@@ -16,14 +16,15 @@
 package cli
 
 import (
-	"github.com/spf13/cobra"
+	"net"
 )
 
-var demoCmd = &cobra.Command{
-	Use:   "demo",
-	Short: "register demo nodes with the cluster",
-}
+func getSystemAddress() string {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	defer ln.Close()
 
-func init() {
-	demoCmd.AddCommand(isEvenDemoCmd)
+	return ln.Addr().String()
 }
