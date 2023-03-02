@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/andydunstall/fuddle/pkg/client"
+	"github.com/andydunstall/fuddle/pkg/rpc"
 	"go.uber.org/zap"
 )
 
@@ -45,7 +46,13 @@ func (s *Service) Start() error {
 	if err != nil {
 		return fmt.Errorf("frontend service: %w", err)
 	}
-	if err = registry.Register(context.Background(), s.conf.ID); err != nil {
+	node := &rpc.NodeState{
+		Id:       s.conf.ID,
+		Service:  "frontend",
+		Revision: "v0.1.0",
+		State:    make(map[string]string),
+	}
+	if err = registry.Register(context.Background(), node); err != nil {
 		return fmt.Errorf("frontend service: %w", err)
 	}
 

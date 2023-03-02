@@ -43,11 +43,9 @@ func ConnectRegistry(addr string) (*Registry, error) {
 	}, nil
 }
 
-func (r *Registry) Register(ctx context.Context, id string) error {
+func (r *Registry) Register(ctx context.Context, node *rpc.NodeState) error {
 	_, err := r.client.Register(context.Background(), &rpc.RegisterRequest{
-		Node: &rpc.NodeState{
-			Id: id,
-		},
+		Node: node,
 	})
 	if err != nil {
 		return fmt.Errorf("registry client: register: %w", err)
