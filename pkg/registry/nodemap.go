@@ -49,6 +49,14 @@ func (m *NodeMap) NodeIDs() []string {
 	return nodeIDs
 }
 
+func (m *NodeMap) Node(id string) (*rpc.NodeState, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	node, ok := m.nodes[id]
+	return node, ok
+}
+
 func (m *NodeMap) Nodes() []*rpc.NodeState {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -44,6 +44,7 @@ func newServer(addr string, nodeMap *registry.NodeMap, metricsRegistry *promethe
 
 	r := mux.NewRouter()
 	r.HandleFunc("/api/v1/cluster", server.clusterRoute)
+	r.HandleFunc("/api/v1/node/{id}", server.nodeRoute)
 	r.Handle(
 		"/metrics",
 		promhttp.HandlerFor(
@@ -92,6 +93,27 @@ func (s *server) GracefulStop() {
 func (s *server) clusterRoute(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(s.nodeMap.Nodes()); err != nil {
 		s.logger.Error("failed to encode cluster response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *server) nodeRoute(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	if id == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	node, ok := s.nodeMap.Node(id)
+	if !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(node); err != nil {
+		s.logger.Error("failed to encode node response", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

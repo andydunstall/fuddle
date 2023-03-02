@@ -17,6 +17,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/andydunstall/fuddle/pkg/client"
@@ -45,9 +46,19 @@ Displays an overview of the cluster status and a list of nodes in the cluster.
 	RunE: runClusterStatus,
 }
 
+var statusNodeCmd = &cobra.Command{
+	Use:   "node",
+	Short: "inspect the status of a node",
+	Long: `
+Inspect the status of a node.
+`,
+	RunE: runNodeStatus,
+}
+
 func init() {
 	statusCmd.AddCommand(
 		statusClusterCmd,
+		statusNodeCmd,
 	)
 
 	statusCmd.PersistentFlags().StringVarP(
@@ -66,6 +77,36 @@ func runClusterStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	displayNodes(nodes)
+
+	return nil
+}
+
+func runNodeStatus(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing node ID")
+	}
+
+	id := args[0]
+
+	client := client.NewAdmin(statusAdminAddr)
+	node, err := client.Node(context.Background(), id)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("ID:", node.Id)
+	fmt.Println("Service:", node.Service)
+	fmt.Println("Revision:", node.Revision)
+	fmt.Println("State:")
+
+	keys := []string{}
+	for key := range node.State {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		fmt.Printf("    %s: %s\n", key, node.State[key])
+	}
 
 	return nil
 }
