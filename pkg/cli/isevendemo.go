@@ -18,8 +18,12 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/signal"
 
+	"github.com/andydunstall/fuddle/demos/is-even/pkg/frontend"
+	"github.com/andydunstall/fuddle/demos/is-even/pkg/iseven"
 	"github.com/andydunstall/fuddle/pkg/config"
+	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
@@ -31,13 +35,13 @@ type demoFuddleConfig struct {
 }
 
 type demoFrontendConfig struct {
-	ID      string
+	Config  *frontend.Config
 	Addr    string
 	LogPath string
 }
 
 type demoIsEvenConfig struct {
-	ID      string
+	Config  *iseven.Config
 	Addr    string
 	LogPath string
 }
@@ -62,9 +66,13 @@ func runIsEvenDemo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("is even service: %w", err)
 	}
 
-	fuddleConfig, err := demoFuddleNode(logDir)
-	if err != nil {
-		return fmt.Errorf("is even service: %w", err)
+	fuddleConfig := []*demoFuddleConfig{}
+	for i := 0; i != 1; i++ {
+		conf, err := demoFuddleNode(logDir)
+		if err != nil {
+			return fmt.Errorf("fuddle service: %w", err)
+		}
+		fuddleConfig = append(fuddleConfig, conf)
 	}
 
 	frontendConfig := []*demoFrontendConfig{}
@@ -85,6 +93,34 @@ func runIsEvenDemo(cmd *cobra.Command, args []string) error {
 		isEvenConfig = append(isEvenConfig, conf)
 	}
 
+	// Catch signals so to gracefully shutdown the server.
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, os.Interrupt)
+
+	for _, conf := range fuddleConfig {
+		server := server.NewServer(conf.Config, loggerWithPath(conf.LogPath, false))
+		if err := server.Start(); err != nil {
+			return fmt.Errorf("failed to start fuddle: %w", err)
+		}
+		defer server.GracefulStop()
+	}
+
+	for _, conf := range frontendConfig {
+		service := frontend.NewService(conf.Config, loggerWithPath(conf.LogPath, false))
+		if err := service.Start(); err != nil {
+			return fmt.Errorf("failed to start frontend: %w", err)
+		}
+		defer service.GracefulStop()
+	}
+
+	for _, conf := range isEvenConfig {
+		service := iseven.NewService(conf.Config, loggerWithPath(conf.LogPath, false))
+		if err := service.Start(); err != nil {
+			return fmt.Errorf("failed to start iseven: %w", err)
+		}
+		defer service.GracefulStop()
+	}
+
 	fmt.Printf(`
 #
 # Welcome to the Fuddle ‘Is-Even’ service demo!
@@ -99,27 +135,31 @@ func runIsEvenDemo(cmd *cobra.Command, args []string) error {
 #   -----
 #`, conf.AdvAdminAddr)
 
-	fmt.Printf(`
+	for _, conf := range fuddleConfig {
+		fmt.Printf(`
 #   fuddle: %s
 #     Admin Dashboard: %s
 #     Logs: %s
-#`, fuddleConfig.ID, "http://"+fuddleConfig.Config.AdvAdminAddr, fuddleConfig.LogPath)
+#`, conf.ID, "http://"+conf.Config.AdvAdminAddr, conf.LogPath)
+	}
 
 	for _, conf := range frontendConfig {
 		fmt.Printf(`
 #   frontend: %s
 #     Endpoint: http://%s/iseven?n=10
 #     Logs: %s
-#`, conf.ID, conf.Addr, conf.LogPath)
+#`, conf.Config.ID, conf.Addr, conf.LogPath)
 	}
 
 	for _, conf := range isEvenConfig {
 		fmt.Printf(`
 #   iseven: %s
-#     Endpoint: http://%s/iseven?n=10
 #     Logs: %s
-#`, conf.ID, conf.Addr, conf.LogPath)
+#`, conf.Config.ID, conf.LogPath)
 	}
+	fmt.Println("")
+
+	<-signalCh
 
 	return nil
 }
@@ -148,7 +188,9 @@ func demoFrontendNode(logDir string) (*demoFrontendConfig, error) {
 	logPath := logDir + "/" + id + ".log"
 
 	return &demoFrontendConfig{
-		ID:      id,
+		Config: &frontend.Config{
+			ID: id,
+		},
 		Addr:    getSystemAddress(),
 		LogPath: logPath,
 	}, nil
@@ -159,7 +201,9 @@ func demoIsEvenNode(logDir string) (*demoIsEvenConfig, error) {
 	logPath := logDir + "/" + id + ".log"
 
 	return &demoIsEvenConfig{
-		ID:      id,
+		Config: &iseven.Config{
+			ID: id,
+		},
 		Addr:    getSystemAddress(),
 		LogPath: logPath,
 	}, nil

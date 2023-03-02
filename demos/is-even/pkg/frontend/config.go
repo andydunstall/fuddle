@@ -13,30 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package cli
+package frontend
 
-import (
-	"net"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-)
-
-func getSystemAddress() string {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		panic(err)
-	}
-	defer ln.Close()
-
-	return ln.Addr().String()
-}
-
-func loggerWithPath(path string, verbose bool) *zap.Logger {
-	loggerConf := zap.NewProductionConfig()
-	if startVerbose {
-		loggerConf.Level.SetLevel(zapcore.DebugLevel)
-	}
-	loggerConf.OutputPaths = []string{path}
-	return zap.Must(loggerConf.Build())
+// Config contains the node configuration.
+type Config struct {
+	// ID is the frontend node ID.
+	ID string
 }
