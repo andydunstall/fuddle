@@ -26,6 +26,8 @@ import (
 )
 
 type Service struct {
+	server *server
+
 	registry *client.Registry
 
 	conf   *Config
@@ -35,7 +37,9 @@ type Service struct {
 func NewService(conf *Config, logger *zap.Logger) *Service {
 	logger = logger.With(zap.String("service", "random"))
 
+	server := newServer(conf.Addr, logger)
 	return &Service{
+		server:   server,
 		registry: nil,
 		conf:     conf,
 		logger:   logger,
@@ -62,10 +66,11 @@ func (s *Service) Start() error {
 
 	s.registry = registry
 
-	return nil
+	return s.server.Start()
 }
 
 func (s *Service) GracefulStop() {
+	s.server.GracefulStop()
 	if s.registry != nil {
 		if err := s.registry.Unregister(context.Background(), s.conf.ID); err != nil {
 			s.logger.Error("failed to unregister", zap.Error(err))
