@@ -30,6 +30,9 @@ type Config struct {
 	BindAdminAddr string
 	// AdvAdminAddr is the address to advertise to admin clients.
 	AdvAdminAddr string
+
+	// Revision is the build commit.
+	Revision string
 }
 
 func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
@@ -38,6 +41,8 @@ func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 
 	e.AddString("bind-admin-addr", c.BindAdminAddr)
 	e.AddString("adv-admin-addr", c.AdvAdminAddr)
+
+	e.AddString("revision", c.Revision)
 
 	return nil
 }

@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/andydunstall/fuddle/pkg/build"
 	"github.com/andydunstall/fuddle/pkg/client"
 	"github.com/andydunstall/fuddle/pkg/rpc"
 	"go.uber.org/zap"
@@ -49,7 +50,7 @@ func (s *Service) Start() error {
 	node := &rpc.NodeState{
 		Id:       s.conf.ID,
 		Service:  "frontend",
-		Revision: "v0.1.0",
+		Revision: build.Revision,
 		State:    make(map[string]string),
 	}
 	if err = registry.Register(context.Background(), node); err != nil {
