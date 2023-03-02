@@ -123,9 +123,9 @@ func runRandomDemo(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf(`
 #
-# Welcome to the Fuddle ‘Is-Even’ service demo!
+# Welcome to the Fuddle random number service demo!
 #
-# 'Is-Even' is a toy example that uses Fuddle for cluster management.
+# The is a toy example that uses Fuddle for cluster management.
 #
 # View the cluster dashboard at http://%s."
 #
