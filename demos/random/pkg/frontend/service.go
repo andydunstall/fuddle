@@ -26,6 +26,8 @@ import (
 )
 
 type Service struct {
+	server *server
+
 	registry *client.Registry
 
 	conf   *Config
@@ -35,7 +37,9 @@ type Service struct {
 func NewService(conf *Config, logger *zap.Logger) *Service {
 	logger = logger.With(zap.String("service", "frontend"))
 
+	server := newServer(conf.Addr, logger)
 	return &Service{
+		server:   server,
 		registry: nil,
 		conf:     conf,
 		logger:   logger,
@@ -47,11 +51,14 @@ func (s *Service) Start() error {
 	if err != nil {
 		return fmt.Errorf("frontend service: %w", err)
 	}
+
+	state := make(map[string]string)
+	state["addr"] = s.conf.Addr
 	node := &rpc.NodeState{
 		Id:       s.conf.ID,
 		Service:  "frontend",
 		Revision: build.Revision,
-		State:    make(map[string]string),
+		State:    state,
 	}
 	if err = registry.Register(context.Background(), node); err != nil {
 		return fmt.Errorf("frontend service: %w", err)
@@ -59,10 +66,11 @@ func (s *Service) Start() error {
 
 	s.registry = registry
 
-	return nil
+	return s.server.Start(registry)
 }
 
 func (s *Service) GracefulStop() {
+	s.server.GracefulStop()
 	if s.registry != nil {
 		if err := s.registry.Unregister(context.Background(), s.conf.ID); err != nil {
 			s.logger.Error("failed to unregister", zap.Error(err))

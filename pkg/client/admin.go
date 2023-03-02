@@ -52,3 +52,22 @@ func (a *Admin) Nodes(ctx context.Context) ([]*rpc.NodeState, error) {
 	}
 	return nodes, nil
 }
+
+func (a *Admin) Node(ctx context.Context, id string) (*rpc.NodeState, error) {
+	url := fmt.Sprintf("http://%s/api/v1/node/%s", a.addr, id)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("admin client: node: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("admin client: node: bad status code: %d", resp.StatusCode)
+	}
+
+	var node *rpc.NodeState
+	if err = json.NewDecoder(resp.Body).Decode(&node); err != nil {
+		return nil, fmt.Errorf("admin client: node, %w", err)
+	}
+	return node, nil
+}

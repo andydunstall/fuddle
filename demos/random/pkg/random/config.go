@@ -19,4 +19,6 @@ package random
 type Config struct {
 	// ID is the iseven node ID.
 	ID string
+	// Addr is the address of the HTTP server.
+	Addr string
 }

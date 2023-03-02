@@ -13,45 +13,36 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package admin
+package frontend
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
+	"math/rand"
 	"net"
 	"net/http"
 
-	"github.com/andydunstall/fuddle/pkg/registry"
+	"github.com/andydunstall/fuddle/pkg/client"
 	"github.com/gorilla/mux"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
 type server struct {
-	nodeMap    *registry.NodeMap
 	httpServer *http.Server
+
+	registry *client.Registry
 
 	logger *zap.Logger
 }
 
-func newServer(addr string, nodeMap *registry.NodeMap, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
+func newServer(addr string, logger *zap.Logger) *server {
 	server := &server{
-		nodeMap: nodeMap,
-		logger:  logger,
+		logger: logger,
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/api/v1/cluster", server.clusterRoute)
-	r.HandleFunc("/api/v1/node/{id}", server.nodeRoute)
-	r.Handle(
-		"/metrics",
-		promhttp.HandlerFor(
-			metricsRegistry,
-			promhttp.HandlerOpts{Registry: metricsRegistry},
-		),
-	)
+	r.HandleFunc("/random", server.randomRoute)
 
 	httpServer := &http.Server{
 		Addr:    addr,
@@ -62,22 +53,24 @@ func newServer(addr string, nodeMap *registry.NodeMap, metricsRegistry *promethe
 	return server
 }
 
-func (s *server) Start() error {
+func (s *server) Start(registry *client.Registry) error {
+	s.registry = registry
+
 	// Setup the listener before starting to the goroutine to return any errors
 	// binding or listening to the configured address.
 	ln, err := net.Listen("tcp", s.httpServer.Addr)
 	if err != nil {
-		return fmt.Errorf("admin server: %w", err)
+		return fmt.Errorf("frontend server: %w", err)
 	}
 
 	s.logger.Info(
-		"starting admin server",
+		"starting frontend server",
 		zap.String("addr", s.httpServer.Addr),
 	)
 
 	go func() {
 		if err := s.httpServer.Serve(ln); err != nil && err != http.ErrServerClosed {
-			s.logger.Error("admin serve error", zap.Error(err))
+			s.logger.Error("frontend serve error", zap.Error(err))
 		}
 	}()
 
@@ -86,35 +79,38 @@ func (s *server) Start() error {
 
 func (s *server) GracefulStop() {
 	if err := s.httpServer.Shutdown(context.Background()); err != nil {
-		s.logger.Error("failed to shut down admin server", zap.Error(err))
+		s.logger.Error("failed to shut down frontend server", zap.Error(err))
 	}
 }
 
-func (s *server) clusterRoute(w http.ResponseWriter, r *http.Request) {
-	if err := json.NewEncoder(w).Encode(s.nodeMap.Nodes()); err != nil {
-		s.logger.Error("failed to encode cluster response", zap.Error(err))
+func (s *server) randomRoute(w http.ResponseWriter, r *http.Request) {
+	nodes, err := s.registry.Nodes(context.Background())
+	if err != nil {
+		s.logger.Error("failed to query registry", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-}
-
-func (s *server) nodeRoute(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-	if id == "" {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
 	}
 
-	node, ok := s.nodeMap.Node(id)
-	if !ok {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+	var randomServiceAddrs []string
+	for _, node := range nodes {
+		if node.Service == "random" {
+			randomServiceAddrs = append(randomServiceAddrs, node.State["addr"])
+		}
 	}
-
-	if err := json.NewEncoder(w).Encode(node); err != nil {
-		s.logger.Error("failed to encode node response", zap.Error(err))
+	if len(randomServiceAddrs) == 0 {
+		s.logger.Error("could not find any random service nodes")
 		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
+	}
+
+	addr := randomServiceAddrs[rand.Int()%len(randomServiceAddrs)]
+	resp, err := http.Get(fmt.Sprintf("http://%s", addr))
+	if err != nil {
+		s.logger.Error("could not query random service nodes")
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+	}
+	defer resp.Body.Close()
+
+	w.WriteHeader(resp.StatusCode)
+	if _, err = io.Copy(w, resp.Body); err != nil {
+		s.logger.Debug("failed to write response", zap.Error(err))
 	}
 }
