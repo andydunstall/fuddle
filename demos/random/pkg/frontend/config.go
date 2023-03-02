@@ -19,4 +19,6 @@ package frontend
 type Config struct {
 	// ID is the frontend node ID.
 	ID string
+	// Addr is the address of the HTTP server.
+	Addr string
 }

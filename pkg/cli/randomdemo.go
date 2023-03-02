@@ -36,13 +36,11 @@ type demoFuddleConfig struct {
 
 type demoFrontendConfig struct {
 	Config  *frontend.Config
-	Addr    string
 	LogPath string
 }
 
 type demoRandomConfig struct {
 	Config  *random.Config
-	Addr    string
 	LogPath string
 }
 
@@ -148,7 +146,7 @@ func runRandomDemo(cmd *cobra.Command, args []string) error {
 #   frontend: %s
 #     Endpoint: http://%s/random
 #     Logs: %s
-#`, conf.Config.ID, conf.Addr, conf.LogPath)
+#`, conf.Config.ID, conf.Config.Addr, conf.LogPath)
 	}
 
 	for _, conf := range randomConfig {
@@ -189,9 +187,9 @@ func demoFrontendNode(logDir string) (*demoFrontendConfig, error) {
 
 	return &demoFrontendConfig{
 		Config: &frontend.Config{
-			ID: id,
+			ID:   id,
+			Addr: getSystemAddress(),
 		},
-		Addr:    getSystemAddress(),
 		LogPath: logPath,
 	}, nil
 }
@@ -202,9 +200,9 @@ func demoRandomNode(logDir string) (*demoRandomConfig, error) {
 
 	return &demoRandomConfig{
 		Config: &random.Config{
-			ID: id,
+			ID:   id,
+			Addr: getSystemAddress(),
 		},
-		Addr:    getSystemAddress(),
 		LogPath: logPath,
 	}, nil
 }

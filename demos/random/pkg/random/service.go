@@ -47,11 +47,14 @@ func (s *Service) Start() error {
 	if err != nil {
 		return fmt.Errorf("random service: %w", err)
 	}
+
+	state := make(map[string]string)
+	state["addr"] = s.conf.Addr
 	node := &rpc.NodeState{
 		Id:       s.conf.ID,
 		Service:  "random",
 		Revision: build.Revision,
-		State:    make(map[string]string),
+		State:    state,
 	}
 	if err = registry.Register(context.Background(), node); err != nil {
 		return fmt.Errorf("random service: %w", err)
