@@ -106,3 +106,30 @@ it has left the cluster.
 
 Note as mentioned in the requirements, Fuddle doesn't yet support detecting node
 failures.
+
+# Operating
+
+## Metrics
+
+### `anity_registry_node_count`
+A gauge of the number of nodes in the cluster.
+
+### `anity_registry_connection_count`
+A gauge of the number of registry connections to this node.
+
+### `anity_registry_joins_count`
+A counter of the number of registry node joins.
+
+### `anity_registry_leaves_count`
+A counter of the number of registry node leaves.
+
+### `anity_registry_updates_count`
+A counter of the number of registry node state updates.
+
+## Admin API
+
+### `/api/v1/cluster`
+Returns the nodes in the cluster and their state.
+
+### `/api/v1/node/{id}` 
+Returns the node with the given ID
