@@ -97,21 +97,17 @@ func runRandomDemo(cmd *cobra.Command, args []string) error {
 
 	for _, conf := range fuddleConfig {
 		server := server.NewServer(conf.Config, loggerWithPath(conf.LogPath, false))
-		fmt.Println("START FUDDLE")
 		if err := server.Start(); err != nil {
 			return fmt.Errorf("failed to start fuddle: %w", err)
 		}
-		fmt.Println("START FUDDLE OK")
 		defer server.GracefulStop()
 	}
 
 	for _, conf := range frontendConfig {
 		service := frontend.NewService(conf.Config, loggerWithPath(conf.LogPath, false))
-		fmt.Println("START FR")
 		if err := service.Start(); err != nil {
 			return fmt.Errorf("failed to start frontend: %w", err)
 		}
-		fmt.Println("START FR OK")
 		defer service.GracefulStop()
 	}
 
