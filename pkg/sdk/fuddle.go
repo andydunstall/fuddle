@@ -74,7 +74,13 @@ func Register(addr string, attrs Attributes, state map[string]string, logger *za
 		State: state,
 	}
 
-	nodeMap := registry.NewNodeMap()
+	nodeMap := registry.NewNodeMap(registry.NodeState{
+		ID:       attrs.ID,
+		Service:  attrs.Service,
+		Locality: attrs.Locality,
+		Revision: attrs.Revision,
+		State:    state,
+	})
 	if err := nodeMap.Update(joinUpdate); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("fuddle: %w", err)

@@ -22,6 +22,7 @@ import (
 	"github.com/andydunstall/fuddle/pkg/build"
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/server"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -93,6 +94,8 @@ func runStart(cmd *cobra.Command, args []string) {
 	logger := zap.Must(loggerConf.Build())
 
 	conf := &config.Config{
+		ID: "fuddle-" + uuid.New().String()[:7],
+
 		BindAddr: bindAddr,
 		AdvAddr:  bindAddr,
 

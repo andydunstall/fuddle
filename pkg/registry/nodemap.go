@@ -41,9 +41,11 @@ type NodeMap struct {
 	mu sync.Mutex
 }
 
-func NewNodeMap() *NodeMap {
+func NewNodeMap(node NodeState) *NodeMap {
+	nodes := make(map[string]NodeState)
+	nodes[node.ID] = node
 	return &NodeMap{
-		nodes:       make(map[string]NodeState),
+		nodes:       nodes,
 		subscribers: make(map[*subHandle]interface{}),
 	}
 }

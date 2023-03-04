@@ -29,7 +29,6 @@ import (
 )
 
 type demoFuddleConfig struct {
-	ID      string
 	LogPath string
 	Config  *config.Config
 }
@@ -97,21 +96,17 @@ func runRandomDemo(cmd *cobra.Command, args []string) error {
 
 	for _, conf := range fuddleConfig {
 		server := server.NewServer(conf.Config, loggerWithPath(conf.LogPath, false))
-		fmt.Println("START FUDDLE")
 		if err := server.Start(); err != nil {
 			return fmt.Errorf("failed to start fuddle: %w", err)
 		}
-		fmt.Println("START FUDDLE OK")
 		defer server.GracefulStop()
 	}
 
 	for _, conf := range frontendConfig {
 		service := frontend.NewService(conf.Config, loggerWithPath(conf.LogPath, false))
-		fmt.Println("START FR")
 		if err := service.Start(); err != nil {
 			return fmt.Errorf("failed to start frontend: %w", err)
 		}
-		fmt.Println("START FR OK")
 		defer service.GracefulStop()
 	}
 
@@ -142,7 +137,7 @@ func runRandomDemo(cmd *cobra.Command, args []string) error {
 #   fuddle: %s
 #     Admin Dashboard: %s
 #     Logs: %s
-#`, conf.ID, "http://"+conf.Config.AdvAdminAddr, conf.LogPath)
+#`, conf.Config.ID, "http://"+conf.Config.AdvAdminAddr, conf.LogPath)
 	}
 
 	for _, conf := range frontendConfig {
@@ -168,6 +163,8 @@ func runRandomDemo(cmd *cobra.Command, args []string) error {
 
 func demoFuddleNode(logDir string) (*demoFuddleConfig, error) {
 	conf := &config.Config{
+		ID: "fuddle-" + uuid.New().String()[:7],
+
 		BindAddr: "127.0.0.1:8220",
 		AdvAddr:  "127.0.0.1:8220",
 
@@ -175,11 +172,9 @@ func demoFuddleNode(logDir string) (*demoFuddleConfig, error) {
 		AdvAdminAddr:  "127.0.0.1:8221",
 	}
 
-	fuddleNodeID := "fuddle-" + uuid.New().String()[:7]
-	fuddleNodeLogPath := logDir + "/" + fuddleNodeID + ".log"
+	fuddleNodeLogPath := logDir + "/" + conf.ID + ".log"
 
 	return &demoFuddleConfig{
-		ID:      fuddleNodeID,
 		LogPath: fuddleNodeLogPath,
 		Config:  conf,
 	}, nil
