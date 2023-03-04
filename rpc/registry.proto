@@ -2,27 +2,26 @@ syntax = 'proto3';
 
 option go_package = 'github.com/andydunstall/fuddle/pkg/rpc';
 
-enum UpdateType {
-	NODE_JOIN = 0;
-	NODE_LEAVE = 1;
-	NODE_UPDATE = 2;
+enum NodeUpdateType {
+	JOIN = 0;
+	LEAVE = 1;
+	STATE = 2;
 }
 
 // Attributes contain the immutable information about the node.
 message Attributes {
-    // A unique identifier of the node in the cluster.
-	string id = 1;
     // The type of service running on the node.
-	string service = 2;
+	string service = 1;
     // The location of the node in the cluster.
-	string locality = 3;
+	string locality = 2;
 	// An identifier of the revision running on the node.
-    string revision = 4;
+    string revision = 3;
 }
 
 message NodeUpdate {
+    // A unique identifier of the node in the cluster.
 	string node_id = 1;
-	UpdateType update_type = 2;
+	NodeUpdateType update_type = 2;
 	// attributes is only defined when the update_type is NODE_JOIN, since they
 	// cannot be changed.
 	Attributes attributes = 3;
@@ -30,7 +29,7 @@ message NodeUpdate {
 	// The contents of state vary based on the update type:
 	// * NODE_JOIN: All the state must be included
 	// * NODE_LEAVE: No state needs to be included
-	// * NODE_UPDATE: Only the updated state must be included
+	// * NODE_STATE: Only the updated state must be included
 	map<string, string> state = 4;
 }
 

@@ -30,16 +30,16 @@ import (
 )
 
 type server struct {
-	nodeMap    *registry.NodeMap
-	httpServer *http.Server
+	clusterState *registry.ClusterState
+	httpServer   *http.Server
 
 	logger *zap.Logger
 }
 
-func newServer(addr string, nodeMap *registry.NodeMap, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
+func newServer(addr string, clusterState *registry.ClusterState, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
 	server := &server{
-		nodeMap: nodeMap,
-		logger:  logger,
+		clusterState: clusterState,
+		logger:       logger,
 	}
 
 	r := mux.NewRouter()
@@ -91,7 +91,7 @@ func (s *server) GracefulStop() {
 }
 
 func (s *server) clusterRoute(w http.ResponseWriter, r *http.Request) {
-	if err := json.NewEncoder(w).Encode(s.nodeMap.Nodes()); err != nil {
+	if err := json.NewEncoder(w).Encode(s.clusterState.Nodes(false)); err != nil {
 		s.logger.Error("failed to encode cluster response", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
@@ -106,7 +106,7 @@ func (s *server) nodeRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	node, ok := s.nodeMap.Node(id)
+	node, ok := s.clusterState.Node(id)
 	if !ok {
 		http.Error(w, "not found", http.StatusNotFound)
 		return

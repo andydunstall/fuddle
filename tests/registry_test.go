@@ -50,7 +50,7 @@ func TestRegistry_RegisterNode(t *testing.T) {
 	})
 	update := waitWithTimeout(updates)
 	assert.Equal(t, "node-1", update.NodeId)
-	assert.Equal(t, rpc.UpdateType_NODE_JOIN, update.UpdateType)
+	assert.Equal(t, rpc.NodeUpdateType_JOIN, update.UpdateType)
 
 	assert.Nil(t, err)
 }
@@ -77,7 +77,7 @@ func TestRegistry_SubscribeToClusterUpdates(t *testing.T) {
 	// Check the node receives the fuddle service node.
 	update := waitWithTimeout(updates)
 	assert.Equal(t, "fuddle-123", update.NodeId)
-	assert.Equal(t, rpc.UpdateType_NODE_JOIN, update.UpdateType)
+	assert.Equal(t, rpc.NodeUpdateType_JOIN, update.UpdateType)
 
 	// Add more nodes to the registry, and check the first node receives
 	// updates for each.
@@ -97,7 +97,7 @@ func TestRegistry_SubscribeToClusterUpdates(t *testing.T) {
 	for _, id := range ids {
 		update := waitWithTimeout(updates)
 		assert.Equal(t, id, update.NodeId)
-		assert.Equal(t, rpc.UpdateType_NODE_JOIN, update.UpdateType)
+		assert.Equal(t, rpc.NodeUpdateType_JOIN, update.UpdateType)
 	}
 
 	// Update each node.
@@ -109,7 +109,7 @@ func TestRegistry_SubscribeToClusterUpdates(t *testing.T) {
 	var updatedIDs []string
 	for _, id := range ids {
 		update := waitWithTimeout(updates)
-		assert.Equal(t, rpc.UpdateType_NODE_UPDATE, update.UpdateType)
+		assert.Equal(t, rpc.NodeUpdateType_STATE, update.UpdateType)
 		updatedIDs = append(updatedIDs, id)
 	}
 	sort.Strings(updatedIDs)
@@ -125,7 +125,7 @@ func TestRegistry_SubscribeToClusterUpdates(t *testing.T) {
 	var leftIDs []string
 	for _, id := range ids {
 		update := waitWithTimeout(updates)
-		assert.Equal(t, rpc.UpdateType_NODE_LEAVE, update.UpdateType)
+		assert.Equal(t, rpc.NodeUpdateType_LEAVE, update.UpdateType)
 		leftIDs = append(leftIDs, id)
 	}
 	sort.Strings(leftIDs)
