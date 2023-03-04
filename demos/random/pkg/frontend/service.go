@@ -63,16 +63,16 @@ func (s *Service) Start() error {
 	nodes := make(map[string]string)
 	registry.Subscribe(true, func(update *rpc.NodeUpdate) {
 		switch update.UpdateType {
-		case rpc.UpdateType_NODE_JOIN:
+		case rpc.NodeUpdateType_JOIN:
 			fallthrough
-		case rpc.UpdateType_NODE_UPDATE:
+		case rpc.NodeUpdateType_STATE:
 			if update.Attributes.Service == "random" {
 				addr, ok := update.State["addr"]
 				if ok {
 					nodes[update.NodeId] = addr
 				}
 			}
-		case rpc.UpdateType_NODE_LEAVE:
+		case rpc.NodeUpdateType_LEAVE:
 			delete(nodes, update.NodeId)
 		}
 

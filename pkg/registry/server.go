@@ -25,17 +25,17 @@ import (
 
 // Server exposes gRPC endpoints for the registry.
 type Server struct {
-	nodeMap *NodeMap
+	clusterState *ClusterState
 
 	logger *zap.Logger
 
 	rpc.UnimplementedRegistryServer
 }
 
-func NewServer(nodeMap *NodeMap, logger *zap.Logger) *Server {
+func NewServer(clusterState *ClusterState, logger *zap.Logger) *Server {
 	return &Server{
-		nodeMap: nodeMap,
-		logger:  logger,
+		clusterState: clusterState,
+		logger:       logger,
 	}
 }
 
@@ -49,10 +49,10 @@ func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
 		return err
 	}
 	// If the first update is not the node joining this is a protocol error.
-	if joinUpdate.UpdateType != rpc.UpdateType_NODE_JOIN {
+	if joinUpdate.UpdateType != rpc.NodeUpdateType_JOIN {
 		return fmt.Errorf("protocol error: node must register")
 	}
-	if err := s.nodeMap.Update(joinUpdate); err != nil {
+	if err := s.clusterState.ApplyUpdate(joinUpdate); err != nil {
 		return err
 	}
 
@@ -61,7 +61,7 @@ func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
 	// Subscribe to the node map and send updates to the client. This will
 	// replay all existing nodes as JOIN updates to ensure the subscriber
 	// doesn't miss any updates.
-	unsubscribe := s.nodeMap.Subscribe(true, func(update *rpc.NodeUpdate) {
+	unsubscribe := s.clusterState.Subscribe(true, func(update *rpc.NodeUpdate) {
 		// Avoid echoing back updates from the connected nodes.
 		if update.NodeId == nodeID {
 			return
@@ -80,7 +80,7 @@ func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
 			return err
 		}
 
-		if err := s.nodeMap.Update(update); err != nil {
+		if err := s.clusterState.ApplyUpdate(update); err != nil {
 			s.logger.Error("update error", zap.Error(err))
 		}
 	}

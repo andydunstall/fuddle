@@ -22,8 +22,8 @@ import (
 )
 
 type Service struct {
-	nodeMap *NodeMap
-	server  *Server
+	clusterState *ClusterState
+	server       *Server
 
 	logger *zap.Logger
 }
@@ -37,7 +37,7 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 	})
 	metricsRegistry.MustRegister(nodeCountGauge)
 
-	nodeMap := NewNodeMap(NodeState{
+	clusterState := NewClusterState(NodeState{
 		ID:       conf.ID,
 		Service:  "fuddle",
 		Locality: "",
@@ -48,15 +48,15 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 		},
 	})
 
-	// nodeMap.Subscribe(func() {
-	// 	nodeCountGauge.Set(float64(len(nodeMap.NodeIDs())))
+	// clusterState.Subscribe(func() {
+	// 	nodeCountGauge.Set(float64(len(clusterState.NodeIDs())))
 	// })
 
-	server := NewServer(nodeMap, logger)
+	server := NewServer(clusterState, logger)
 	return &Service{
-		nodeMap: nodeMap,
-		server:  server,
-		logger:  logger,
+		clusterState: clusterState,
+		server:       server,
+		logger:       logger,
 	}
 }
 
@@ -73,6 +73,6 @@ func (s *Service) Server() *Server {
 	return s.server
 }
 
-func (s *Service) NodeMap() *NodeMap {
-	return s.nodeMap
+func (s *Service) ClusterState() *ClusterState {
+	return s.clusterState
 }

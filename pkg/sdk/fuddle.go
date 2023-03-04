@@ -38,7 +38,7 @@ type Attributes struct {
 type Fuddle struct {
 	id string
 
-	nodeMap *registry.NodeMap
+	clusterState *registry.ClusterState
 
 	conn   *grpc.ClientConn
 	stream rpc.Registry_RegisterClient
@@ -64,9 +64,8 @@ func Register(addr string, attrs Attributes, state map[string]string, logger *za
 
 	joinUpdate := &rpc.NodeUpdate{
 		NodeId:     attrs.ID,
-		UpdateType: rpc.UpdateType_NODE_JOIN,
+		UpdateType: rpc.NodeUpdateType_JOIN,
 		Attributes: &rpc.Attributes{
-			Id:       attrs.ID,
 			Service:  attrs.Service,
 			Locality: attrs.Locality,
 			Revision: attrs.Revision,
@@ -74,14 +73,14 @@ func Register(addr string, attrs Attributes, state map[string]string, logger *za
 		State: state,
 	}
 
-	nodeMap := registry.NewNodeMap(registry.NodeState{
+	clusterState := registry.NewClusterState(registry.NodeState{
 		ID:       attrs.ID,
 		Service:  attrs.Service,
 		Locality: attrs.Locality,
 		Revision: attrs.Revision,
 		State:    state,
 	})
-	if err := nodeMap.Update(joinUpdate); err != nil {
+	if err := clusterState.ApplyUpdate(joinUpdate); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("fuddle: %w", err)
 	}
@@ -91,11 +90,11 @@ func Register(addr string, attrs Attributes, state map[string]string, logger *za
 	}
 
 	f := &Fuddle{
-		id:      attrs.ID,
-		nodeMap: nodeMap,
-		conn:    conn,
-		stream:  stream,
-		logger:  logger,
+		id:           attrs.ID,
+		clusterState: clusterState,
+		conn:         conn,
+		stream:       stream,
+		logger:       logger,
 	}
 
 	f.wg.Add(1)
@@ -109,18 +108,18 @@ func (f *Fuddle) ID() string {
 }
 
 func (f *Fuddle) Nodes() []registry.NodeState {
-	return f.nodeMap.Nodes()
+	return f.clusterState.Nodes(true)
 }
 
 func (f *Fuddle) Update(key string, value string) error {
 	update := &rpc.NodeUpdate{
 		NodeId:     f.id,
-		UpdateType: rpc.UpdateType_NODE_UPDATE,
+		UpdateType: rpc.NodeUpdateType_STATE,
 		State: map[string]string{
 			key: value,
 		},
 	}
-	if err := f.nodeMap.Update(update); err != nil {
+	if err := f.clusterState.ApplyUpdate(update); err != nil {
 		return fmt.Errorf("fuddle: %w", err)
 	}
 	if err := f.stream.Send(update); err != nil {
@@ -130,13 +129,13 @@ func (f *Fuddle) Update(key string, value string) error {
 }
 
 func (f *Fuddle) Subscribe(rewind bool, cb func(update *rpc.NodeUpdate)) func() {
-	return f.nodeMap.Subscribe(rewind, cb)
+	return f.clusterState.Subscribe(rewind, cb)
 }
 
 func (f *Fuddle) Unregister() error {
 	err := f.stream.Send(&rpc.NodeUpdate{
 		NodeId:     f.id,
-		UpdateType: rpc.UpdateType_NODE_LEAVE,
+		UpdateType: rpc.NodeUpdateType_LEAVE,
 	})
 
 	f.conn.Close()
@@ -156,7 +155,7 @@ func (f *Fuddle) sync() {
 			return
 		}
 
-		if err := f.nodeMap.Update(update); err != nil {
+		if err := f.clusterState.ApplyUpdate(update); err != nil {
 			f.logger.Error("failed to update state", zap.Error(err))
 		}
 	}
