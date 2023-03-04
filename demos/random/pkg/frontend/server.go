@@ -19,11 +19,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"net/http"
 
-	"github.com/andydunstall/fuddle/pkg/client"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
@@ -31,14 +29,15 @@ import (
 type server struct {
 	httpServer *http.Server
 
-	registry *client.Registry
+	loadBalancer *loadBalancer
 
 	logger *zap.Logger
 }
 
-func newServer(addr string, logger *zap.Logger) *server {
+func newServer(addr string, loadBalancer *loadBalancer, logger *zap.Logger) *server {
 	server := &server{
-		logger: logger,
+		loadBalancer: loadBalancer,
+		logger:       logger,
 	}
 
 	r := mux.NewRouter()
@@ -53,9 +52,7 @@ func newServer(addr string, logger *zap.Logger) *server {
 	return server
 }
 
-func (s *server) Start(registry *client.Registry) error {
-	s.registry = registry
-
+func (s *server) Start() error {
 	// Setup the listener before starting to the goroutine to return any errors
 	// binding or listening to the configured address.
 	ln, err := net.Listen("tcp", s.httpServer.Addr)
@@ -74,6 +71,7 @@ func (s *server) Start(registry *client.Registry) error {
 		}
 	}()
 
+	fmt.Println("STARTED")
 	return nil
 }
 
@@ -84,28 +82,19 @@ func (s *server) GracefulStop() {
 }
 
 func (s *server) randomRoute(w http.ResponseWriter, r *http.Request) {
-	nodes, err := s.registry.Nodes(context.Background())
-	if err != nil {
-		s.logger.Error("failed to query registry", zap.Error(err))
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-	}
-
-	var randomServiceAddrs []string
-	for _, node := range nodes {
-		if node.Service == "random" {
-			randomServiceAddrs = append(randomServiceAddrs, node.State["addr"])
-		}
-	}
-	if len(randomServiceAddrs) == 0 {
+	upstreamAddr, ok := s.loadBalancer.Addr()
+	if !ok {
 		s.logger.Error("could not find any random service nodes")
 		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
 
-	addr := randomServiceAddrs[rand.Int()%len(randomServiceAddrs)]
-	resp, err := http.Get(fmt.Sprintf("http://%s", addr))
+	resp, err := http.Get(fmt.Sprintf("http://%s", upstreamAddr))
 	if err != nil {
+		fmt.Println(err)
 		s.logger.Error("could not query random service nodes")
 		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
 	defer resp.Body.Close()
 

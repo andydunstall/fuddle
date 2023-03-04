@@ -16,46 +16,122 @@
 package tests
 
 import (
-	"context"
+	"fmt"
 	"sort"
 	"testing"
+	"time"
 
-	"github.com/andydunstall/fuddle/pkg/client"
 	"github.com/andydunstall/fuddle/pkg/rpc"
+	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
 	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
 
-func TestRegistry_RegisterAndUnregisterNode(t *testing.T) {
+// Tests registering a node checks the node is in the clients node map.
+func TestRegistry_RegisterNode(t *testing.T) {
 	conf := testConfig()
 	server := server.NewServer(conf, zap.NewNop())
 	assert.Nil(t, server.Start())
 	defer server.GracefulStop()
 
-	registry, err := client.ConnectRegistry(conf.AdvAddr)
+	client, err := fuddle.Register(conf.AdvAddr, fuddle.Attributes{
+		ID: "node-1",
+	}, make(map[string]string), zap.NewNop())
 	assert.Nil(t, err)
+	defer func() {
+		assert.Nil(t, client.Unregister())
+	}()
 
-	assert.Nil(t, registry.Register(context.TODO(), &rpc.NodeState{Id: "node-1"}))
-	assert.Nil(t, registry.Register(context.TODO(), &rpc.NodeState{Id: "node-2"}))
+	// Check when subscribing with rewind we receive ourselves.
+	updates := make(chan *rpc.NodeUpdate, 1)
+	client.Subscribe(true, func(update *rpc.NodeUpdate) {
+		updates <- update
+	})
+	update := waitWithTimeout(updates)
+	assert.Equal(t, "node-1", update.NodeId)
+	assert.Equal(t, rpc.UpdateType_NODE_JOIN, update.UpdateType)
 
-	nodes, err := registry.Nodes(context.TODO())
 	assert.Nil(t, err)
-	nodeIDs := []string{}
-	for _, node := range nodes {
-		nodeIDs = append(nodeIDs, node.Id)
+}
+
+func TestRegistry_SubscribeToClusterUpdates(t *testing.T) {
+	conf := testConfig()
+	server := server.NewServer(conf, zap.NewNop())
+	assert.Nil(t, server.Start())
+	defer server.GracefulStop()
+
+	client, err := fuddle.Register(conf.AdvAddr, fuddle.Attributes{
+		ID: "local-node",
+	}, make(map[string]string), zap.NewNop())
+	assert.Nil(t, err)
+	defer func() {
+		assert.Nil(t, client.Unregister())
+	}()
+
+	updates := make(chan *rpc.NodeUpdate, 64)
+	client.Subscribe(false, func(update *rpc.NodeUpdate) {
+		updates <- update
+	})
+
+	// Add more nodes to the registry, and check the first node receives
+	// updates for each.
+
+	var ids []string
+	var clients []*fuddle.Fuddle
+	for i := 0; i != 5; i++ {
+		id := fmt.Sprintf("node-%d", i)
+		ids = append(ids, id)
+		client, err := fuddle.Register(conf.AdvAddr, fuddle.Attributes{
+			ID: id,
+		}, make(map[string]string), zap.NewNop())
+		clients = append(clients, client)
+		assert.Nil(t, err)
 	}
-	// Sort to make comparison easier.
-	sort.Strings(nodeIDs)
-	assert.Equal(t, []string{"node-1", "node-2"}, nodeIDs)
 
-	assert.Nil(t, registry.Unregister(context.TODO(), "node-1"))
-
-	nodes, err = registry.Nodes(context.TODO())
-	assert.Nil(t, err)
-	nodeIDs = []string{}
-	for _, node := range nodes {
-		nodeIDs = append(nodeIDs, node.Id)
+	for _, id := range ids {
+		update := waitWithTimeout(updates)
+		assert.Equal(t, id, update.NodeId)
+		assert.Equal(t, rpc.UpdateType_NODE_JOIN, update.UpdateType)
 	}
-	assert.Equal(t, []string{"node-2"}, nodeIDs)
+
+	// Update each node.
+
+	for _, client := range clients {
+		assert.Nil(t, client.Update("foo", "bar"))
+	}
+
+	var updatedIDs []string
+	for _, id := range ids {
+		update := waitWithTimeout(updates)
+		assert.Equal(t, rpc.UpdateType_NODE_UPDATE, update.UpdateType)
+		updatedIDs = append(updatedIDs, id)
+	}
+	sort.Strings(updatedIDs)
+	assert.Equal(t, ids, updatedIDs)
+
+	// Remove each of the nodes in the registry, and check the first node
+	// receives leave updates for each.
+
+	for _, client := range clients {
+		assert.Nil(t, client.Unregister())
+	}
+
+	var leftIDs []string
+	for _, id := range ids {
+		update := waitWithTimeout(updates)
+		assert.Equal(t, rpc.UpdateType_NODE_LEAVE, update.UpdateType)
+		leftIDs = append(leftIDs, id)
+	}
+	sort.Strings(leftIDs)
+	assert.Equal(t, ids, leftIDs)
+}
+
+func waitWithTimeout(c chan *rpc.NodeUpdate) *rpc.NodeUpdate {
+	select {
+	case update := <-c:
+		return update
+	case <-time.After(time.Second):
+		return nil
+	}
 }

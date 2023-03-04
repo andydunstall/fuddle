@@ -21,7 +21,7 @@ import (
 	"sort"
 
 	"github.com/andydunstall/fuddle/pkg/client"
-	"github.com/andydunstall/fuddle/pkg/rpc"
+	"github.com/andydunstall/fuddle/pkg/registry"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 )
@@ -94,7 +94,7 @@ func runNodeStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("ID:", node.Id)
+	fmt.Println("ID:", node.ID)
 	fmt.Println("Service:", node.Service)
 	fmt.Println("Revision:", node.Revision)
 	fmt.Println("State:")
@@ -111,14 +111,14 @@ func runNodeStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func displayNodes(nodes []*rpc.NodeState) {
+func displayNodes(nodes []*registry.NodeState) {
 	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].Id < nodes[j].Id
+		return nodes[i].ID < nodes[j].ID
 	})
 
 	tbl := table.New("ID", "Service", "Revision")
 	for _, node := range nodes {
-		tbl.AddRow(node.Id, node.Service, formatRevision(node.Revision))
+		tbl.AddRow(node.ID, node.Service, formatRevision(node.Revision))
 	}
 
 	tbl.Print()

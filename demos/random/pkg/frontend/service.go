@@ -16,19 +16,17 @@
 package frontend
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/andydunstall/fuddle/pkg/build"
-	"github.com/andydunstall/fuddle/pkg/client"
 	"github.com/andydunstall/fuddle/pkg/rpc"
+	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
 	"go.uber.org/zap"
 )
 
 type Service struct {
 	server *server
 
-	registry *client.Registry
+	registry     *fuddle.Fuddle
+	loadBalancer *loadBalancer
 
 	conf   *Config
 	logger *zap.Logger
@@ -37,42 +35,63 @@ type Service struct {
 func NewService(conf *Config, logger *zap.Logger) *Service {
 	logger = logger.With(zap.String("service", "frontend"))
 
-	server := newServer(conf.Addr, logger)
+	loadBalancer := newLoadBalancer()
+	server := newServer(conf.Addr, loadBalancer, logger)
 	return &Service{
-		server:   server,
-		registry: nil,
-		conf:     conf,
-		logger:   logger,
+		server:       server,
+		loadBalancer: loadBalancer,
+		registry:     nil,
+		conf:         conf,
+		logger:       logger,
 	}
 }
 
 func (s *Service) Start() error {
-	registry, err := client.ConnectRegistry("127.0.0.1:8220")
+	state := map[string]string{
+		"addr": s.conf.Addr,
+	}
+	registry, err := fuddle.Register("localhost:8220", fuddle.Attributes{
+		ID:       s.conf.ID,
+		Service:  "frontend",
+		Locality: "aws.us-east-1.us-east-1-a",
+		Revision: build.Revision,
+	}, state, zap.NewNop())
 	if err != nil {
-		return fmt.Errorf("frontend service: %w", err)
+		return err
 	}
 
-	state := make(map[string]string)
-	state["addr"] = s.conf.Addr
-	node := &rpc.NodeState{
-		Id:       s.conf.ID,
-		Service:  "frontend",
-		Revision: build.Revision,
-		State:    state,
-	}
-	if err = registry.Register(context.Background(), node); err != nil {
-		return fmt.Errorf("frontend service: %w", err)
-	}
+	nodes := make(map[string]string)
+	registry.Subscribe(true, func(update *rpc.NodeUpdate) {
+		switch update.UpdateType {
+		case rpc.UpdateType_NODE_JOIN:
+			fallthrough
+		case rpc.UpdateType_NODE_UPDATE:
+			if update.Attributes.Service == "random" {
+				addr, ok := update.State["addr"]
+				if ok {
+					nodes[update.NodeId] = addr
+				}
+			}
+		case rpc.UpdateType_NODE_LEAVE:
+			delete(nodes, update.NodeId)
+		}
+
+		addrs := []string{}
+		for _, addr := range nodes {
+			addrs = append(addrs, addr)
+		}
+		s.loadBalancer.SetAddrs(addrs)
+	})
 
 	s.registry = registry
 
-	return s.server.Start(registry)
+	return s.server.Start()
 }
 
 func (s *Service) GracefulStop() {
 	s.server.GracefulStop()
 	if s.registry != nil {
-		if err := s.registry.Unregister(context.Background(), s.conf.ID); err != nil {
+		if err := s.registry.Unregister(); err != nil {
 			s.logger.Error("failed to unregister", zap.Error(err))
 		}
 	}
