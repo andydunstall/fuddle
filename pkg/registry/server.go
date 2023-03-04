@@ -16,8 +16,8 @@
 package registry
 
 import (
-	"context"
 	"fmt"
+	"io"
 
 	"github.com/andydunstall/fuddle/pkg/rpc"
 	"go.uber.org/zap"
@@ -39,38 +39,49 @@ func NewServer(nodeMap *NodeMap, logger *zap.Logger) *Server {
 	}
 }
 
-func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
-	if req.Node == nil {
-		s.logger.Warn("registered with no node")
-		return nil, fmt.Errorf("registered with no node")
+func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
+	conn := newConnection(stream)
+	defer conn.Close()
+
+	// Wait for the connected node to join.
+	joinUpdate, err := conn.RecvUpdate()
+	if err != nil {
+		return err
+	}
+	// If the first update is not the node joining this is a protocol error.
+	if joinUpdate.UpdateType != rpc.UpdateType_NODE_JOIN {
+		return fmt.Errorf("protocol error: node must register")
+	}
+	if err := s.nodeMap.Update(joinUpdate); err != nil {
+		return err
 	}
 
-	node := req.Node
-	stateKeys := make([]string, 0, len(node.State))
-	for key := range node.State {
-		stateKeys = append(stateKeys, key)
+	nodeID := joinUpdate.NodeId
+
+	// Subscribe to the node map and send updates to the client. This will
+	// replay all existing nodes as JOIN updates to ensure the subscriber
+	// doesn't miss any updates.
+	unsubscribe := s.nodeMap.Subscribe(true, func(update *rpc.NodeUpdate) {
+		// Avoid echoing back updates from the connected nodes.
+		if update.NodeId == nodeID {
+			return
+		}
+
+		conn.AddUpdate(update)
+	})
+	defer unsubscribe()
+
+	for {
+		update, err := conn.RecvUpdate()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		if err := s.nodeMap.Update(update); err != nil {
+			s.logger.Error("update error", zap.Error(err))
+		}
 	}
-	s.logger.Debug(
-		"register",
-		zap.String("node.id", node.Id),
-		zap.String("node.service", node.Service),
-		zap.String("node.revision", node.Revision),
-		zap.Strings("node.state", stateKeys),
-	)
-
-	s.nodeMap.Register(node)
-	return &rpc.RegisterResponse{}, nil
-}
-
-func (s *Server) Unregister(ctx context.Context, req *rpc.UnregisterRequest) (*rpc.UnregisterResponse, error) {
-	s.logger.Debug("unregister", zap.String("node.id", req.Id))
-
-	s.nodeMap.Unregister(req.Id)
-	return &rpc.UnregisterResponse{}, nil
-}
-
-func (s *Server) Nodes(ctx context.Context, req *rpc.NodesRequest) (*rpc.NodesResponse, error) {
-	return &rpc.NodesResponse{
-		Nodes: s.nodeMap.Nodes(),
-	}, nil
 }

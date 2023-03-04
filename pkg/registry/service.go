@@ -38,9 +38,9 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 	metricsRegistry.MustRegister(nodeCountGauge)
 
 	nodeMap := NewNodeMap()
-	nodeMap.Subscribe("registry.metrics", func() {
-		nodeCountGauge.Set(float64(len(nodeMap.NodeIDs())))
-	})
+	// nodeMap.Subscribe(func() {
+	// 	nodeCountGauge.Set(float64(len(nodeMap.NodeIDs())))
+	// })
 
 	server := NewServer(nodeMap, logger)
 	return &Service{

@@ -16,109 +16,176 @@
 package registry
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/andydunstall/fuddle/pkg/rpc"
 )
 
-// NodeMap maintains the registered nodes in the cluster.
-type NodeMap struct {
-	nodes map[string]*rpc.NodeState
+type subHandle struct {
+	Callback func(update *rpc.NodeUpdate)
+}
 
-	subscribers map[string]func()
+type NodeState struct {
+	ID       string            `json:"id,omitempty"`
+	Service  string            `json:"service,omitempty"`
+	Locality string            `json:"locality,omitempty"`
+	Revision string            `json:"revision,omitempty"`
+	State    map[string]string `json:"state,omitempty"`
+}
+
+type NodeMap struct {
+	nodes       map[string]NodeState
+	subscribers map[*subHandle]interface{}
 
 	mu sync.Mutex
 }
 
 func NewNodeMap() *NodeMap {
 	return &NodeMap{
-		nodes:       make(map[string]*rpc.NodeState),
-		subscribers: make(map[string]func()),
-		mu:          sync.Mutex{},
+		nodes:       make(map[string]NodeState),
+		subscribers: make(map[*subHandle]interface{}),
 	}
 }
 
-func (m *NodeMap) NodeIDs() []string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	nodeIDs := make([]string, 0, len(m.nodes))
-	for id := range m.nodes {
-		nodeIDs = append(nodeIDs, id)
-	}
-	return nodeIDs
-}
-
-func (m *NodeMap) Node(id string) (*rpc.NodeState, bool) {
+func (m *NodeMap) Node(id string) (NodeState, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	node, ok := m.nodes[id]
-	return node, ok
+	if !ok {
+		return NodeState{}, false
+	}
+
+	nodeCopy := node
+	nodeCopy.State = make(map[string]string)
+	for k, v := range node.State {
+		nodeCopy.State[k] = v
+	}
+
+	return nodeCopy, true
 }
 
-func (m *NodeMap) Nodes() []*rpc.NodeState {
+func (m *NodeMap) Nodes() []NodeState {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	nodes := make([]*rpc.NodeState, 0, len(m.nodes))
+	var nodes []NodeState
 	for _, node := range m.nodes {
-		nodes = append(nodes, node)
+		nodeCopy := node
+		nodeCopy.State = make(map[string]string)
+		for k, v := range node.State {
+			nodeCopy.State[k] = v
+		}
+		nodes = append(nodes, nodeCopy)
 	}
+
 	return nodes
 }
 
-func (m *NodeMap) Register(node *rpc.NodeState) {
-	m.register(node)
-	m.notifySubscribers()
-}
-
-func (m *NodeMap) Unregister(id string) {
-	m.unregister(id)
-	m.notifySubscribers()
-}
-
-// Subscribe to nodemap updates using the given ID to identify the subscriber.
-// The subscriber must not block.
-func (m *NodeMap) Subscribe(id string, cb func()) {
+func (m *NodeMap) Update(update *rpc.NodeUpdate) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.subscribers[id] = cb
-}
+	switch update.UpdateType {
+	case rpc.UpdateType_NODE_JOIN:
+		if update.Attributes == nil {
+			return fmt.Errorf("node join: missing attributes")
+		}
 
-// Unsubscribe the subscriber with the given ID.
-func (m *NodeMap) Unsubscribe(id string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+		// Copy the state since the update will be propagated to subscribers
+		// so must not be modified.
+		state := map[string]string{}
+		for k, v := range update.State {
+			state[k] = v
+		}
 
-	delete(m.subscribers, id)
-}
+		m.nodes[update.NodeId] = NodeState{
+			ID:       update.NodeId,
+			Service:  update.Attributes.Service,
+			Locality: update.Attributes.Locality,
+			Revision: update.Attributes.Revision,
+			State:    state,
+		}
+	case rpc.UpdateType_NODE_LEAVE:
+		delete(m.nodes, update.NodeId)
+	case rpc.UpdateType_NODE_UPDATE:
+		if update.State == nil {
+			return fmt.Errorf("node update: missing state")
+		}
 
-func (m *NodeMap) register(node *rpc.NodeState) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+		node, ok := m.nodes[update.NodeId]
+		if !ok {
+			return fmt.Errorf("node update: node does not exist")
+		}
+		if node.State == nil {
+			node.State = make(map[string]string)
+		}
+		for k, v := range update.State {
+			node.State[k] = v
+		}
+	}
 
-	m.nodes[node.Id] = node
-}
-
-func (m *NodeMap) unregister(id string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	delete(m.nodes, id)
-}
-
-func (m *NodeMap) notifySubscribers() {
-	// Copy the subscribers to notify without the mutex held.
-	m.mu.Lock()
-	subs := make([]func(), 0, len(m.subscribers))
-	for _, sub := range m.subscribers {
+	var subs []*subHandle
+	for sub := range m.subscribers {
 		subs = append(subs, sub)
 	}
-	m.mu.Unlock()
 
 	for _, sub := range subs {
-		sub()
+		sub.Callback(update)
 	}
+
+	return nil
+}
+
+// Subscribe to node updates. The callback MUST NOT block, or modify the
+// update.
+//
+// If rewind is true all existing nodes are send as JOIN events. This is to
+// subscribe without missing updates.
+func (m *NodeMap) Subscribe(rewind bool, cb func(update *rpc.NodeUpdate)) func() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// If rewind send all existing node state as JOIN events. This must be
+	// send before unlocking the mutex to avoid interleaving bootstrap updates
+	// new updates. Therefore the callback must not block.
+	if rewind {
+		for _, node := range m.nodes {
+			// Copy the node state since the update state must not be modified.
+			state := map[string]string{}
+			for k, v := range node.State {
+				state[k] = v
+			}
+
+			update := &rpc.NodeUpdate{
+				NodeId:     node.ID,
+				UpdateType: rpc.UpdateType_NODE_JOIN,
+				Attributes: &rpc.Attributes{
+					Id:       node.ID,
+					Service:  node.Service,
+					Locality: node.Locality,
+					Revision: node.Revision,
+				},
+				State: state,
+			}
+			cb(update)
+		}
+	}
+
+	handle := &subHandle{
+		Callback: cb,
+	}
+	m.subscribers[handle] = struct{}{}
+
+	return func() {
+		m.unsubscribe(handle)
+	}
+}
+
+func (m *NodeMap) unsubscribe(handle *subHandle) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	delete(m.subscribers, handle)
 }

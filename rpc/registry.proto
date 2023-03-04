@@ -2,42 +2,40 @@ syntax = 'proto3';
 
 option go_package = 'github.com/andydunstall/fuddle/pkg/rpc';
 
-message NodeState {
+enum UpdateType {
+	NODE_JOIN = 0;
+	NODE_LEAVE = 1;
+	NODE_UPDATE = 2;
+}
+
+// Attributes contain the immutable information about the node.
+message Attributes {
     // A unique identifier of the node in the cluster.
 	string id = 1;
     // The type of service running on the node.
 	string service = 2;
+    // The location of the node in the cluster.
+	string locality = 3;
 	// An identifier of the revision running on the node.
-    string revision = 3;
-	// Application defined state of the node.
+    string revision = 4;
+}
+
+message NodeUpdate {
+	string node_id = 1;
+	UpdateType update_type = 2;
+	// attributes is only defined when the update_type is NODE_JOIN, since they
+	// cannot be changed.
+	Attributes attributes = 3;
+	// state contains the application defined state which may be updated.
+	// The contents of state vary based on the update type:
+	// * NODE_JOIN: All the state must be included
+	// * NODE_LEAVE: No state needs to be included
+	// * NODE_UPDATE: Only the updated state must be included
 	map<string, string> state = 4;
-}
-
-message RegisterRequest {
-	NodeState node = 1;
-}
-
-message RegisterResponse {
-}
-
-message UnregisterRequest {
-    // A unique identifier of the node in the cluster.
-	string id = 1;
-}
-
-message UnregisterResponse {
-}
-
-message NodesRequest {
-}
-
-message NodesResponse {
-	repeated NodeState nodes = 1;
 }
 
 // Registry is a service that manges the set of nodes present in the cluster.
 service Registry {
-	rpc Register(RegisterRequest) returns (RegisterResponse);
-	rpc Unregister(UnregisterRequest) returns (UnregisterResponse);
-	rpc Nodes(NodesRequest) returns (NodesResponse);
+	// Register joins the cluster and streams updates.
+	rpc Register(stream NodeUpdate) returns (stream NodeUpdate);
 }
