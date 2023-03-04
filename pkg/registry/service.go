@@ -37,7 +37,17 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 	})
 	metricsRegistry.MustRegister(nodeCountGauge)
 
-	nodeMap := NewNodeMap()
+	nodeMap := NewNodeMap(NodeState{
+		ID:       conf.ID,
+		Service:  "fuddle",
+		Locality: "",
+		Revision: conf.Revision,
+		State: map[string]string{
+			"addr.rpc":   conf.BindAddr,
+			"addr.admin": conf.BindAdminAddr,
+		},
+	})
+
 	// nodeMap.Subscribe(func() {
 	// 	nodeCountGauge.Set(float64(len(nodeMap.NodeIDs())))
 	// })

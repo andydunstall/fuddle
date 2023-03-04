@@ -21,6 +21,9 @@ import (
 
 // Config contains the node configuration.
 type Config struct {
+	// ID is a unique identifier for the fuddle node.
+	ID string
+
 	// BindAddr is the bind address to listen for connections.
 	BindAddr string
 	// AdvAddr is the address to advertise to clients.

@@ -71,7 +71,6 @@ func (s *server) Start() error {
 		}
 	}()
 
-	fmt.Println("STARTED")
 	return nil
 }
 
@@ -91,7 +90,6 @@ func (s *server) randomRoute(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := http.Get(fmt.Sprintf("http://%s", upstreamAddr))
 	if err != nil {
-		fmt.Println(err)
 		s.logger.Error("could not query random service nodes")
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

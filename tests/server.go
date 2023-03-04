@@ -24,6 +24,8 @@ import (
 func testConfig() *config.Config {
 	conf := &config.Config{}
 
+	conf.ID = "fuddle-123"
+
 	conf.BindAddr = getSystemAddress()
 	conf.AdvAddr = conf.BindAddr
 

@@ -74,6 +74,11 @@ func TestRegistry_SubscribeToClusterUpdates(t *testing.T) {
 		updates <- update
 	})
 
+	// Check the node receives the fuddle service node.
+	update := waitWithTimeout(updates)
+	assert.Equal(t, "fuddle-123", update.NodeId)
+	assert.Equal(t, rpc.UpdateType_NODE_JOIN, update.UpdateType)
+
 	// Add more nodes to the registry, and check the first node receives
 	// updates for each.
 

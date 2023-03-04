@@ -29,7 +29,6 @@ import (
 )
 
 type demoFuddleConfig struct {
-	ID      string
 	LogPath string
 	Config  *config.Config
 }
@@ -138,7 +137,7 @@ func runRandomDemo(cmd *cobra.Command, args []string) error {
 #   fuddle: %s
 #     Admin Dashboard: %s
 #     Logs: %s
-#`, conf.ID, "http://"+conf.Config.AdvAdminAddr, conf.LogPath)
+#`, conf.Config.ID, "http://"+conf.Config.AdvAdminAddr, conf.LogPath)
 	}
 
 	for _, conf := range frontendConfig {
@@ -164,6 +163,8 @@ func runRandomDemo(cmd *cobra.Command, args []string) error {
 
 func demoFuddleNode(logDir string) (*demoFuddleConfig, error) {
 	conf := &config.Config{
+		ID: "fuddle-" + uuid.New().String()[:7],
+
 		BindAddr: "127.0.0.1:8220",
 		AdvAddr:  "127.0.0.1:8220",
 
@@ -171,11 +172,9 @@ func demoFuddleNode(logDir string) (*demoFuddleConfig, error) {
 		AdvAdminAddr:  "127.0.0.1:8221",
 	}
 
-	fuddleNodeID := "fuddle-" + uuid.New().String()[:7]
-	fuddleNodeLogPath := logDir + "/" + fuddleNodeID + ".log"
+	fuddleNodeLogPath := logDir + "/" + conf.ID + ".log"
 
 	return &demoFuddleConfig{
-		ID:      fuddleNodeID,
 		LogPath: fuddleNodeLogPath,
 		Config:  conf,
 	}, nil
