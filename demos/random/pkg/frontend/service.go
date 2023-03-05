@@ -17,7 +17,7 @@ package frontend
 
 import (
 	"github.com/andydunstall/fuddle/pkg/build"
-	"github.com/andydunstall/fuddle/pkg/rpc"
+	"github.com/andydunstall/fuddle/pkg/registry"
 	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
 	"go.uber.org/zap"
 )
@@ -25,8 +25,8 @@ import (
 type Service struct {
 	server *server
 
-	registry     *fuddle.Fuddle
-	loadBalancer *loadBalancer
+	fuddleRegistry *fuddle.Fuddle
+	loadBalancer   *loadBalancer
 
 	conf   *Config
 	logger *zap.Logger
@@ -38,11 +38,11 @@ func NewService(conf *Config, logger *zap.Logger) *Service {
 	loadBalancer := newLoadBalancer()
 	server := newServer(conf.Addr, loadBalancer, logger)
 	return &Service{
-		server:       server,
-		loadBalancer: loadBalancer,
-		registry:     nil,
-		conf:         conf,
-		logger:       logger,
+		server:         server,
+		loadBalancer:   loadBalancer,
+		fuddleRegistry: nil,
+		conf:           conf,
+		logger:         logger,
 	}
 }
 
@@ -50,48 +50,40 @@ func (s *Service) Start() error {
 	state := map[string]string{
 		"addr": s.conf.Addr,
 	}
-	registry, err := fuddle.Register("localhost:8220", fuddle.Attributes{
+	fuddleRegistry, err := fuddle.Register("localhost:8220", registry.NodeState{
 		ID:       s.conf.ID,
 		Service:  "frontend",
 		Locality: "aws.us-east-1.us-east-1-a",
 		Revision: build.Revision,
-	}, state, zap.NewNop())
+		State:    state,
+	}, zap.NewNop())
 	if err != nil {
 		return err
 	}
 
-	nodes := make(map[string]string)
-	registry.Subscribe(true, func(update *rpc.NodeUpdate) {
-		switch update.UpdateType {
-		case rpc.NodeUpdateType_JOIN:
-			fallthrough
-		case rpc.NodeUpdateType_STATE:
-			if update.Attributes.Service == "random" {
-				addr, ok := update.State["addr"]
-				if ok {
-					nodes[update.NodeId] = addr
-				}
-			}
-		case rpc.NodeUpdateType_LEAVE:
-			delete(nodes, update.NodeId)
-		}
-
+	// Query only 'addr' state updates for random service nodes.
+	query := &registry.Query{
+		"random": &registry.ServiceQuery{
+			State: []string{"addr"},
+		},
+	}
+	fuddleRegistry.SubscribeNodes(query, func(nodes []registry.NodeState) {
 		addrs := []string{}
-		for _, addr := range nodes {
-			addrs = append(addrs, addr)
+		for _, node := range nodes {
+			addrs = append(addrs, node.State["addr"])
 		}
 		s.loadBalancer.SetAddrs(addrs)
 	})
 
-	s.registry = registry
+	s.fuddleRegistry = fuddleRegistry
 
 	return s.server.Start()
 }
 
 func (s *Service) GracefulStop() {
 	s.server.GracefulStop()
-	if s.registry != nil {
-		if err := s.registry.Unregister(); err != nil {
+	if s.fuddleRegistry != nil {
+		if err := s.fuddleRegistry.Unregister(); err != nil {
 			s.logger.Error("failed to unregister", zap.Error(err))
 		}
 	}

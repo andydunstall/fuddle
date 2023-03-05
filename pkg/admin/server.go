@@ -91,7 +91,7 @@ func (s *server) GracefulStop() {
 }
 
 func (s *server) clusterRoute(w http.ResponseWriter, r *http.Request) {
-	if err := json.NewEncoder(w).Encode(s.clusterState.Nodes(false)); err != nil {
+	if err := json.NewEncoder(w).Encode(s.clusterState.Nodes(nil)); err != nil {
 		s.logger.Error("failed to encode cluster response", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
