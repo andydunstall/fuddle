@@ -17,6 +17,7 @@ package random
 
 import (
 	"github.com/andydunstall/fuddle/pkg/build"
+	"github.com/andydunstall/fuddle/pkg/registry"
 	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
 	"go.uber.org/zap"
 )
@@ -24,7 +25,7 @@ import (
 type Service struct {
 	server *server
 
-	registry *fuddle.Fuddle
+	fuddleRegistry *fuddle.Fuddle
 
 	conf   *Config
 	logger *zap.Logger
@@ -35,10 +36,10 @@ func NewService(conf *Config, logger *zap.Logger) *Service {
 
 	server := newServer(conf.Addr, logger)
 	return &Service{
-		server:   server,
-		registry: nil,
-		conf:     conf,
-		logger:   logger,
+		server:         server,
+		fuddleRegistry: nil,
+		conf:           conf,
+		logger:         logger,
 	}
 }
 
@@ -46,25 +47,26 @@ func (s *Service) Start() error {
 	state := map[string]string{
 		"addr": s.conf.Addr,
 	}
-	registry, err := fuddle.Register("localhost:8220", fuddle.Attributes{
+	fuddleRegistry, err := fuddle.Register("localhost:8220", registry.NodeState{
 		ID:       s.conf.ID,
 		Service:  "random",
 		Locality: "aws.us-east-1.us-east-1-a",
 		Revision: build.Revision,
-	}, state, zap.NewNop())
+		State:    state,
+	}, zap.NewNop())
 	if err != nil {
 		return err
 	}
 
-	s.registry = registry
+	s.fuddleRegistry = fuddleRegistry
 
 	return s.server.Start()
 }
 
 func (s *Service) GracefulStop() {
 	s.server.GracefulStop()
-	if s.registry != nil {
-		if err := s.registry.Unregister(); err != nil {
+	if s.fuddleRegistry != nil {
+		if err := s.fuddleRegistry.Unregister(); err != nil {
 			s.logger.Error("failed to unregister", zap.Error(err))
 		}
 	}

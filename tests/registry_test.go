@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/andydunstall/fuddle/pkg/registry"
 	"github.com/andydunstall/fuddle/pkg/rpc"
 	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
 	"github.com/andydunstall/fuddle/pkg/server"
@@ -35,9 +36,9 @@ func TestRegistry_RegisterNode(t *testing.T) {
 	assert.Nil(t, server.Start())
 	defer server.GracefulStop()
 
-	client, err := fuddle.Register(conf.AdvAddr, fuddle.Attributes{
+	client, err := fuddle.Register(conf.AdvAddr, registry.NodeState{
 		ID: "node-1",
-	}, make(map[string]string), zap.NewNop())
+	}, zap.NewNop())
 	assert.Nil(t, err)
 	defer func() {
 		assert.Nil(t, client.Unregister())
@@ -45,7 +46,7 @@ func TestRegistry_RegisterNode(t *testing.T) {
 
 	// Check when subscribing with rewind we receive ourselves.
 	updates := make(chan *rpc.NodeUpdate, 1)
-	client.Subscribe(true, func(update *rpc.NodeUpdate) {
+	client.SubscribeUpdates(true, func(update *rpc.NodeUpdate) {
 		updates <- update
 	})
 	update := waitWithTimeout(updates)
@@ -61,16 +62,16 @@ func TestRegistry_SubscribeToClusterUpdates(t *testing.T) {
 	assert.Nil(t, server.Start())
 	defer server.GracefulStop()
 
-	client, err := fuddle.Register(conf.AdvAddr, fuddle.Attributes{
+	client, err := fuddle.Register(conf.AdvAddr, registry.NodeState{
 		ID: "local-node",
-	}, make(map[string]string), zap.NewNop())
+	}, zap.NewNop())
 	assert.Nil(t, err)
 	defer func() {
 		assert.Nil(t, client.Unregister())
 	}()
 
 	updates := make(chan *rpc.NodeUpdate, 64)
-	client.Subscribe(false, func(update *rpc.NodeUpdate) {
+	client.SubscribeUpdates(false, func(update *rpc.NodeUpdate) {
 		updates <- update
 	})
 
@@ -87,9 +88,9 @@ func TestRegistry_SubscribeToClusterUpdates(t *testing.T) {
 	for i := 0; i != 5; i++ {
 		id := fmt.Sprintf("node-%d", i)
 		ids = append(ids, id)
-		client, err := fuddle.Register(conf.AdvAddr, fuddle.Attributes{
+		client, err := fuddle.Register(conf.AdvAddr, registry.NodeState{
 			ID: id,
-		}, make(map[string]string), zap.NewNop())
+		}, zap.NewNop())
 		clients = append(clients, client)
 		assert.Nil(t, err)
 	}

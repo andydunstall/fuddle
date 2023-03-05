@@ -28,13 +28,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type Attributes struct {
-	ID       string
-	Service  string
-	Locality string
-	Revision string
-}
-
 type Fuddle struct {
 	id string
 
@@ -48,7 +41,7 @@ type Fuddle struct {
 	logger *zap.Logger
 }
 
-func Register(addr string, attrs Attributes, state map[string]string, logger *zap.Logger) (*Fuddle, error) {
+func Register(addr string, node registry.NodeState, logger *zap.Logger) (*Fuddle, error) {
 	conn, err := grpc.Dial(
 		addr, grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -63,23 +56,17 @@ func Register(addr string, attrs Attributes, state map[string]string, logger *za
 	}
 
 	joinUpdate := &rpc.NodeUpdate{
-		NodeId:     attrs.ID,
+		NodeId:     node.ID,
 		UpdateType: rpc.NodeUpdateType_JOIN,
 		Attributes: &rpc.Attributes{
-			Service:  attrs.Service,
-			Locality: attrs.Locality,
-			Revision: attrs.Revision,
+			Service:  node.Service,
+			Locality: node.Locality,
+			Revision: node.Revision,
 		},
-		State: state,
+		State: node.State,
 	}
 
-	clusterState := registry.NewClusterState(registry.NodeState{
-		ID:       attrs.ID,
-		Service:  attrs.Service,
-		Locality: attrs.Locality,
-		Revision: attrs.Revision,
-		State:    state,
-	})
+	clusterState := registry.NewClusterState(node)
 	if err := clusterState.ApplyUpdate(joinUpdate); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("fuddle: %w", err)
@@ -90,7 +77,7 @@ func Register(addr string, attrs Attributes, state map[string]string, logger *za
 	}
 
 	f := &Fuddle{
-		id:           attrs.ID,
+		id:           node.ID,
 		clusterState: clusterState,
 		conn:         conn,
 		stream:       stream,
@@ -105,10 +92,6 @@ func Register(addr string, attrs Attributes, state map[string]string, logger *za
 
 func (f *Fuddle) ID() string {
 	return f.id
-}
-
-func (f *Fuddle) Nodes() []registry.NodeState {
-	return f.clusterState.Nodes(true)
 }
 
 func (f *Fuddle) Update(key string, value string) error {
@@ -128,8 +111,12 @@ func (f *Fuddle) Update(key string, value string) error {
 	return nil
 }
 
-func (f *Fuddle) Subscribe(rewind bool, cb func(update *rpc.NodeUpdate)) func() {
-	return f.clusterState.Subscribe(rewind, cb)
+func (f *Fuddle) SubscribeUpdates(rewind bool, cb func(update *rpc.NodeUpdate)) func() {
+	return f.clusterState.SubscribeUpdates(rewind, cb)
+}
+
+func (f *Fuddle) SubscribeNodes(query *registry.Query, cb func([]registry.NodeState)) func() {
+	return f.clusterState.SubscribeNodes(query, cb)
 }
 
 func (f *Fuddle) Unregister() error {

@@ -61,7 +61,7 @@ func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
 	// Subscribe to the node map and send updates to the client. This will
 	// replay all existing nodes as JOIN updates to ensure the subscriber
 	// doesn't miss any updates.
-	unsubscribe := s.clusterState.Subscribe(true, func(update *rpc.NodeUpdate) {
+	unsubscribe := s.clusterState.SubscribeUpdates(true, func(update *rpc.NodeUpdate) {
 		// Avoid echoing back updates from the connected nodes.
 		if update.NodeId == nodeID {
 			return
