@@ -111,19 +111,19 @@ failures.
 
 ## Metrics
 
-### `anity_registry_node_count`
+### `fuddle_registry_node_count`
 A gauge of the number of nodes in the cluster.
 
-### `anity_registry_connection_count`
+### `fuddle_registry_connection_count`
 A gauge of the number of registry connections to this node.
 
-### `anity_registry_joins_count`
+### `fuddle_registry_joins_count`
 A counter of the number of registry node joins.
 
-### `anity_registry_leaves_count`
+### `fuddle_registry_leaves_count`
 A counter of the number of registry node leaves.
 
-### `anity_registry_updates_count`
+### `fuddle_registry_updates_count`
 A counter of the number of registry node state updates.
 
 ## Admin API
