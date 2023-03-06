@@ -1,0 +1,24 @@
+.nodes {
+  width: 80%;
+  margin: 50px auto;
+}
+
+.nodes .list {
+  background-color: #ffffff;
+  border-radius: 10px;
+  margin-top: 20px;
+}
+
+.nodes .list table {
+  width: 90%;
+  margin: 0 auto;
+  padding: 50px 0;
+}
+
+.nodes .list th {
+  text-align: left;
+}
+
+.nodes .list td {
+  padding: 6px 0;
+}

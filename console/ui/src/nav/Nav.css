@@ -1,0 +1,10 @@
+.nav {
+  background-color: #ffffff;
+  height: 100px;
+}
+
+.nav .title img {
+  height: 60px;
+  padding: 20px;
+  padding-left: 50px;
+}
