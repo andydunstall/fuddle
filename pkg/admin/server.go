@@ -52,6 +52,8 @@ func newServer(addr string, clusterState *registry.ClusterState, metricsRegistry
 			promhttp.HandlerOpts{Registry: metricsRegistry},
 		),
 	)
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./console/ui/build/static"))))
+	r.Handle("/", http.FileServer(http.Dir("./console/ui/build")))
 
 	httpServer := &http.Server{
 		Addr:    addr,
