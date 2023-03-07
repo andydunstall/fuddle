@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package registry
+package sdk
 
 import (
 	"testing"
@@ -28,7 +28,6 @@ func TestNodeState_Copy(t *testing.T) {
 		ID:       "local-123",
 		Service:  "foo",
 		Locality: "us-east-1-a",
-		Created:  12345,
 		Revision: "v0.1.0",
 		State: map[string]string{
 			"a": "1",

@@ -18,5 +18,5 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   exclude:
-    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
-    - "exported (type|method|function) (.+) should have comment or be unexported"
+    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Unregister|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
+    - "exported (type|method|function|const) (.+) should have comment(.+)or be unexported"

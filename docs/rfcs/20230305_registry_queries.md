@@ -5,17 +5,14 @@
 When users request the state of the registry or subscribe to updates they should
 be able to query only the state they are interested in.
 
-This RFC proposes a query format that filters nodes and node state based on
-service, locality and state.
+This RFC proposes a query format that filters nodes and based on service,
+locality and state.
 
 This does not describe for methods for subscribing to node state.
 
 # Requirements
 
-* Must be able to query nodes based on their service
-* Must be able to query nodes based on their locality
-* Must be able to query nodes based on their state
-* Must be able to filter state entries based on their key
+* Must be able to query nodes based on their service, locality and state
 
 # Format
 To support the requirements described above, the RFC proposes a query format:
@@ -58,62 +55,32 @@ hierarchy where each level is separated by a dot. Such as
 `<provider>.<region>.<availability zone>`.
 
 ## State Filters
-State filters can be used to discard nodes and filter what state should be
-included in the response.
-
-The keys of the state filter specify what keys should be included, and the
-values filter out nodes whose state doesn't match.
+Filters out nodes whose state doesn't match the filter.
 
 If an entry matches multiple state filter keys, it must match the values for
-all of them. So its ok to use filters like
-`{ “status”: [“active”], “*”: [“*”] }`, which will filter out nodes whose status
-is not `active` and include all state for matching nodes.
+all of them.
 
 Such as:
-* Include all state: `{ “*”: [“*”] }`
-* Include all addresses: `{ “addr.*”: [“*”] }`
-* Match nodes whose `status` is `active` or `booting` and include all node state: `{ “status”: [“active”, “booting”], “*”: [“*”] }`
-* Match nodes whose `status` is `active` and include the node addresses: `{ “status”: [“active”], “addr.*”: [“*”] }`
+* Match nodes whose `status` is `active` and protocol version is 2 or 3: `{ “status”: [“active”], “protocol.version”: [“2”, "3"] }`
+* Match nodes whose IP begins with "10.": `{ “addr.ip”: [“10.*”] }`
 
 Similar to the locality, the format of the state keys are user defined though it
 is recommended to use a hierarchy where each level is separated by a dot.
 
 # Examples
 
-### Active Storage Service In `us-east-1`
-Say a cluster is partitioning data among a set of storage nodes in the local
-region (`eu-west-2`) using consistent hashing. Nodes need to be notified when a
-new active storage node joins or leaves the region, therefore can subscribe
-using the query:
-
+### Active Order Service Nodes In `us-east-1`
+Queries `order` service nodes in `us-east-1` whole `status` is `active` and
+`protocol.version` is either 2 or 3.
 ```
 {
     // Storage service only.
     “storage”: {
         // AWS eu-west-2 only.
-        locality: [“aws.eu-west-2.*”],
+        locality: [“aws.us-east-1.*”],
         state: {
-            // Filter to only include nodes where status=active.
             “status”: [“active”],
-        }
-    }
-}
-```
-
-### Admin and Messaging Service In Europe
-Query the created timestamp of admin and messaging service nodes in europe.
-```
-{
-    “admin”: {
-        locality: [“aws.eu-*”, “gcp:europe-*”],
-        state: {
-            “created”: [“*”],
-        }
-    },
-    “messaging”: {
-        locality: [“aws.eu-*”, “gcp:europe-*”],
-        state: {
-            “created”: [“*”],
+            “protocol.version”: [“2”, "3"],
         }
     }
 }

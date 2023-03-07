@@ -13,28 +13,30 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package registry
+package sdk
 
-// NodeState represents the state of a node that is propagated to other nodes
-// in the cluster.
+// NodeState represents the state of a node in the cluster.
+//
+// It includes both fixed attributes of the node, and mutable application
+// defined state.
 type NodeState struct {
 	// ID is a unique identifier for the node in the cluster.
-	ID string `json:"id,omitempty"`
+	ID string
 
-	// Service is the type of service running on the node.
-	Service string `json:"service,omitempty"`
+	// Service is the name of the service running on the node.
+	Service string
 
 	// Locality is the location of the node in the cluster.
-	Locality string `json:"locality,omitempty"`
+	Locality string
 
 	// Created is the time the node was created in UNIX milliseconds.
 	Created int64
 
 	// Revision identifies the version of the service running on the node.
-	Revision string `json:"revision,omitempty"`
+	Revision string
 
-	// State node service state.
-	State map[string]string `json:"state,omitempty"`
+	// State contains application defined key-value pairs.
+	State map[string]string
 }
 
 func (s *NodeState) Copy() NodeState {
