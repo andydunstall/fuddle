@@ -29,7 +29,7 @@ func Example_registerOrdersServiceNode() {
 			ID:       "orders-32eaba4e",
 			Service:  "orders",
 			Locality: "aws.us-east-1-b",
-			Created:  time.Now(),
+			Created:  time.Now().UnixMilli(),
 			Revision: "v5.1.0-812ebbc",
 			State: map[string]string{
 				"status":           "booting",
@@ -51,7 +51,12 @@ func Example_registerOrdersServiceNode() {
 
 	// Once ready update the nodes status to 'active'. This update will be
 	// propagated to the other nodes in the cluster.
-	registry.Update("status", "active")
+	err = registry.UpdateLocalState(map[string]string{
+		"status": "active",
+	})
+	if err != nil {
+		// handle err ...
+	}
 }
 
 // Registers a 'frontend' service and queries the set of active order service
@@ -64,7 +69,7 @@ func Example_lookupOrdersServiceNodes() {
 			ID:       "frontend-9fe2a841",
 			Service:  "frontend",
 			Locality: "aws.us-east-1-c",
-			Created:  time.Now(),
+			Created:  time.Now().UnixMilli(),
 			Revision: "v2.0.1-217cbf1",
 			State: map[string]string{
 				"status":           "active",

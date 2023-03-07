@@ -45,5 +45,9 @@ the node.
 
 Instead of receiving all nodes, clients can optionally filter the nodes based on
 service, locality and state.
+
+# Subscribe
+
+Clients can subscribe to registry updates.
 */
 package sdk

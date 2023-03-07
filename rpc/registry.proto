@@ -10,16 +10,18 @@ enum NodeUpdateType {
 
 // Attributes contain the immutable information about the node.
 message Attributes {
-    // The type of service running on the node.
+	// The type of service running on the node.
 	string service = 1;
-    // The location of the node in the cluster.
+	// The location of the node in the cluster.
 	string locality = 2;
+	// The UNIX timestamp in milliseconds that the node was created.
+	int64 created = 3;
 	// An identifier of the revision running on the node.
-    string revision = 3;
+	string revision = 4;
 }
 
 message NodeUpdate {
-    // A unique identifier of the node in the cluster.
+	// A unique identifier of the node in the cluster.
 	string node_id = 1;
 	NodeUpdateType update_type = 2;
 	// attributes is only defined when the update_type is NODE_JOIN, since they

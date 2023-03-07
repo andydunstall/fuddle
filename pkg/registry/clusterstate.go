@@ -145,6 +145,7 @@ func (s *ClusterState) SubscribeUpdates(rewind bool, cb func(update *rpc.NodeUpd
 				Attributes: &rpc.Attributes{
 					Service:  node.Service,
 					Locality: node.Locality,
+					Created:  node.Created,
 					Revision: node.Revision,
 				},
 				// Copy state since the node state may be modified.
@@ -232,6 +233,7 @@ func (s *ClusterState) applyJoinUpdateLocked(update *rpc.NodeUpdate) error {
 		ID:       update.NodeId,
 		Service:  update.Attributes.Service,
 		Locality: update.Attributes.Locality,
+		Created:  update.Attributes.Created,
 		Revision: update.Attributes.Revision,
 		// Copy the state to avoid modifying the update. If update.State is
 		// nil this returns an empty map.

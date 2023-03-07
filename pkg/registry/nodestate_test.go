@@ -28,6 +28,7 @@ func TestNodeState_Copy(t *testing.T) {
 		ID:       "local-123",
 		Service:  "foo",
 		Locality: "us-east-1-a",
+		Created:  12345,
 		Revision: "v0.1.0",
 		State: map[string]string{
 			"a": "1",

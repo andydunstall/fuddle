@@ -15,23 +15,32 @@
 
 package sdk
 
-// Options contains options for configuring the registry client.
-type Options struct {
-}
+import (
+	"testing"
 
-// Option contains an option for configuring the registry client.
-type Option func(*Options)
+	"github.com/stretchr/testify/assert"
+)
 
-// NodesOptions contains options for querying the nodes in the registry.
-type NodesOptions struct {
-	filter Filter
-}
-
-// NodesOption contains an option for querying the nodes in the registry.
-type NodesOption func(*NodesOptions)
-
-func WithFilter(filter Filter) NodesOption {
-	return func(opts *NodesOptions) {
-		opts.filter = filter
+// Tests NodeState.Copy returns a copy that is equal to the original, and
+// changing state in one won't affect the other.
+func TestNodeState_Copy(t *testing.T) {
+	node := NodeState{
+		ID:       "local-123",
+		Service:  "foo",
+		Locality: "us-east-1-a",
+		Revision: "v0.1.0",
+		State: map[string]string{
+			"a": "1",
+			"b": "2",
+			"c": "3",
+		},
 	}
+
+	// Verify the copy is the same as the original.
+	nodeCopy := node.Copy()
+	assert.Equal(t, node, nodeCopy)
+
+	// Verify changing the state of the original doesn't affect the copy.
+	node.State["a"] = "5"
+	assert.Equal(t, "1", nodeCopy.State["a"])
 }

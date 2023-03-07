@@ -15,10 +15,6 @@
 
 package sdk
 
-import (
-	"time"
-)
-
 // NodeState represents the state of a node in the cluster.
 //
 // It includes both fixed attributes of the node, and mutable application
@@ -33,12 +29,30 @@ type NodeState struct {
 	// Locality is the location of the node in the cluster.
 	Locality string
 
-	// Created is the time the node was created.
-	Created time.Time
+	// Created is the time the node was created in UNIX milliseconds.
+	Created int64
 
 	// Revision identifies the version of the service running on the node.
 	Revision string
 
 	// State contains application defined key-value pairs.
 	State map[string]string
+}
+
+func (s *NodeState) Copy() NodeState {
+	cp := *s
+	cp.State = CopyState(s.State)
+	return cp
+}
+
+func CopyState(s map[string]string) map[string]string {
+	if s == nil {
+		return make(map[string]string)
+	}
+
+	cp := make(map[string]string)
+	for k, v := range s {
+		cp[k] = v
+	}
+	return cp
 }

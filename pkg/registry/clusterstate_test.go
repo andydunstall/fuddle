@@ -28,6 +28,7 @@ func TestClusterState_Node(t *testing.T) {
 		ID:       "local-123",
 		Service:  "foo",
 		Locality: "us-east-1-a",
+		Created:  12345,
 		Revision: "v0.1.0",
 		State:    make(map[string]string),
 	}
@@ -60,6 +61,7 @@ func TestClusterState_NodesNoQuery(t *testing.T) {
 			ID:       "remote-1",
 			Service:  "foo",
 			Locality: "us-east-1-a",
+			Created:  12345,
 			Revision: "v0.1.0",
 			State: map[string]string{
 				"addr.foo": "10.26.104.54:8138",
@@ -70,6 +72,7 @@ func TestClusterState_NodesNoQuery(t *testing.T) {
 			ID:       "remote-2",
 			Service:  "bar",
 			Locality: "us-east-1-a",
+			Created:  12345,
 			Revision: "v0.1.0",
 			State: map[string]string{
 				"addr.foo": "10.26.104.54:8138",
@@ -84,6 +87,7 @@ func TestClusterState_NodesNoQuery(t *testing.T) {
 			Attributes: &rpc.Attributes{
 				Service:  node.Service,
 				Locality: node.Locality,
+				Created:  node.Created,
 				Revision: node.Revision,
 			},
 			State: node.State,
@@ -115,6 +119,7 @@ func TestClusterState_NodesWithQuery(t *testing.T) {
 			ID:       "remote-1",
 			Service:  "foo",
 			Locality: "us-east-1-a",
+			Created:  12345,
 			Revision: "v0.1.0",
 			State: map[string]string{
 				"addr.foo": "10.26.104.54:8138",
@@ -125,6 +130,7 @@ func TestClusterState_NodesWithQuery(t *testing.T) {
 			ID:       "remote-2",
 			Service:  "bar",
 			Locality: "us-east-1-a",
+			Created:  12345,
 			Revision: "v0.1.0",
 			State: map[string]string{
 				"addr.foo": "10.26.104.54:8138",
@@ -139,6 +145,7 @@ func TestClusterState_NodesWithQuery(t *testing.T) {
 			Attributes: &rpc.Attributes{
 				Service:  node.Service,
 				Locality: node.Locality,
+				Created:  node.Created,
 				Revision: node.Revision,
 			},
 			State: node.State,
@@ -155,6 +162,7 @@ func TestClusterState_NodesWithQuery(t *testing.T) {
 		ID:       "remote-1",
 		Service:  "foo",
 		Locality: "us-east-1-a",
+		Created:  12345,
 		Revision: "v0.1.0",
 		State: map[string]string{
 			"addr.bar": "10.26.104.23:1122",
@@ -180,6 +188,7 @@ func TestClusterState_ApplyJoinUpdate(t *testing.T) {
 		ID:       "remote-123",
 		Service:  "foo",
 		Locality: "us-east-1-a",
+		Created:  12345,
 		Revision: "v0.1.0",
 		State: map[string]string{
 			"addr.foo": "10.26.104.54:8138",
@@ -192,6 +201,7 @@ func TestClusterState_ApplyJoinUpdate(t *testing.T) {
 		Attributes: &rpc.Attributes{
 			Service:  joinedNode.Service,
 			Locality: joinedNode.Locality,
+			Created:  joinedNode.Created,
 			Revision: joinedNode.Revision,
 		},
 		State: joinedNode.State,
@@ -510,6 +520,7 @@ func TestClusterState_SubscribeNodes(t *testing.T) {
 			ID:       "remote-1",
 			Service:  "foo",
 			Locality: "us-east-1-a",
+			Created:  12345,
 			Revision: "v0.1.0",
 			State: map[string]string{
 				"addr.foo": "10.26.104.54:8138",
@@ -520,6 +531,7 @@ func TestClusterState_SubscribeNodes(t *testing.T) {
 			ID:       "remote-2",
 			Service:  "bar",
 			Locality: "us-east-1-a",
+			Created:  12345,
 			Revision: "v0.1.0",
 			State: map[string]string{
 				"addr.foo": "10.26.104.54:8138",
@@ -534,6 +546,7 @@ func TestClusterState_SubscribeNodes(t *testing.T) {
 			Attributes: &rpc.Attributes{
 				Service:  node.Service,
 				Locality: node.Locality,
+				Created:  node.Created,
 				Revision: node.Revision,
 			},
 			State: node.State,
@@ -545,6 +558,7 @@ func TestClusterState_SubscribeNodes(t *testing.T) {
 		ID:       "remote-1",
 		Service:  "foo",
 		Locality: "us-east-1-a",
+		Created:  12345,
 		Revision: "v0.1.0",
 		State: map[string]string{
 			"addr.bar": "10.26.104.23:1122",

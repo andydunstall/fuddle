@@ -20,12 +20,19 @@ package registry
 type NodeState struct {
 	// ID is a unique identifier for the node in the cluster.
 	ID string `json:"id,omitempty"`
+
 	// Service is the type of service running on the node.
 	Service string `json:"service,omitempty"`
+
 	// Locality is the location of the node in the cluster.
 	Locality string `json:"locality,omitempty"`
+
+	// Created is the time the node was created in UNIX milliseconds.
+	Created int64
+
 	// Revision identifies the version of the service running on the node.
 	Revision string `json:"revision,omitempty"`
+
 	// State node service state.
 	State map[string]string `json:"state,omitempty"`
 }
