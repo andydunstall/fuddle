@@ -15,23 +15,23 @@
 
 package sdk
 
-// Options contains options for configuring the registry client.
-type Options struct {
-}
-
-// Option contains an option for configuring the registry client.
-type Option func(*Options)
-
-// NodesOptions contains options for querying the nodes in the registry.
-type NodesOptions struct {
+type nodesOptions struct {
 	filter Filter
 }
 
-// NodesOption contains an option for querying the nodes in the registry.
-type NodesOption func(*NodesOptions)
+type NodesOption interface {
+	apply(*nodesOptions)
+}
 
-func WithFilter(filter Filter) NodesOption {
-	return func(opts *NodesOptions) {
-		opts.filter = filter
-	}
+type filterOption struct {
+	filter Filter
+}
+
+func (o filterOption) apply(opts *nodesOptions) {
+	opts.filter = o.filter
+}
+
+// WithFilter filters the returned set of nodes.
+func WithFilter(f Filter) NodesOption {
+	return filterOption{filter: f}
 }
