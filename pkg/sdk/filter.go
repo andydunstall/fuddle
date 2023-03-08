@@ -27,7 +27,7 @@ import (
 // Any nodes whose service don't match any of those listed are discarded.
 type Filter map[string]ServiceFilter
 
-func (f *Filter) Match(node NodeState) bool {
+func (f *Filter) Match(node Node) bool {
 	// Must match at least one service, and all service filters where there
 	// is a service name match.
 	match := false
@@ -53,7 +53,7 @@ type ServiceFilter struct {
 	State StateFilter
 }
 
-func (f *ServiceFilter) Match(node NodeState) bool {
+func (f *ServiceFilter) Match(node Node) bool {
 	// If there are no localites allow all.
 	if f.Locality != nil {
 		// The node locality must match at least one filter locality.
@@ -80,7 +80,7 @@ func (f *ServiceFilter) Match(node NodeState) bool {
 // The filter values may include wildcards, though the keys cannot.
 type StateFilter map[string][]string
 
-func (f *StateFilter) Match(node NodeState) bool {
+func (f *StateFilter) Match(node Node) bool {
 	for filterKey, filterValues := range *f {
 		v, ok := node.State[filterKey]
 		// If the filter key is not in the node, its not a match.

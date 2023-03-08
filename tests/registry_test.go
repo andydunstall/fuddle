@@ -137,7 +137,7 @@ func TestRegistry_ClusterDiscovery(t *testing.T) {
 	assert.Nil(t, err)
 	defer server.GracefulStop()
 
-	var addedNodes []fuddle.NodeState
+	var addedNodes []fuddle.Node
 	var addedRegistries []*fuddle.Registry
 	for i := 0; i != 10; i++ {
 		node := testutils.RandomNode()
@@ -150,7 +150,7 @@ func TestRegistry_ClusterDiscovery(t *testing.T) {
 	}
 
 	// Wait for all nodes to discovery each other and have the same cluster state.
-	var nodes []fuddle.NodeState
+	var nodes []fuddle.Node
 	for _, r := range addedRegistries {
 		discoveredNodes, err := testutils.WaitForNodes(r, 11)
 		assert.Nil(t, err)
@@ -190,7 +190,7 @@ func TestRegistry_AttemptMultipleAddresses(t *testing.T) {
 	defer registry.Unregister()
 }
 
-func nodeIDsSet(nodes []fuddle.NodeState) map[string]interface{} {
+func nodeIDsSet(nodes []fuddle.Node) map[string]interface{} {
 	ids := make(map[string]interface{})
 	for _, node := range nodes {
 		ids[node.ID] = struct{}{}
@@ -198,8 +198,8 @@ func nodeIDsSet(nodes []fuddle.NodeState) map[string]interface{} {
 	return ids
 }
 
-func nodesMap(nodes []fuddle.NodeState) map[string]fuddle.NodeState {
-	nodesMap := make(map[string]fuddle.NodeState)
+func nodesMap(nodes []fuddle.Node) map[string]fuddle.Node {
+	nodesMap := make(map[string]fuddle.Node)
 	for _, node := range nodes {
 		nodesMap[node.ID] = node
 	}

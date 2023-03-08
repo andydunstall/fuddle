@@ -15,11 +15,11 @@
 
 package sdk
 
-// NodeState represents the state of a node in the cluster.
+// Node represents the state of a node in the cluster.
 //
 // It includes both fixed attributes of the node, and mutable application
 // defined state.
-type NodeState struct {
+type Node struct {
 	// ID is a unique identifier for the node in the cluster.
 	ID string
 
@@ -39,7 +39,7 @@ type NodeState struct {
 	State map[string]string
 }
 
-func (s *NodeState) Equal(o NodeState) bool {
+func (s *Node) Equal(o Node) bool {
 	if s.ID != o.ID {
 		return false
 	}
@@ -70,7 +70,7 @@ func (s *NodeState) Equal(o NodeState) bool {
 	return true
 }
 
-func (s *NodeState) Copy() NodeState {
+func (s *Node) Copy() Node {
 	cp := *s
 	cp.State = CopyState(s.State)
 	return cp

@@ -26,7 +26,7 @@ import (
 
 // Tests adding a local node to the cluster and looking it up.
 func TestCluster_LookupNode(t *testing.T) {
-	node := NodeState{
+	node := Node{
 		ID:       "123",
 		Service:  "foo",
 		Locality: "aws.us-east-1-b",
@@ -39,20 +39,20 @@ func TestCluster_LookupNode(t *testing.T) {
 	cluster := newCluster(node)
 
 	nodes := cluster.Nodes()
-	assert.Equal(t, []NodeState{node}, nodes)
+	assert.Equal(t, []Node{node}, nodes)
 
 	// Verify Nodes returns a copy of each node.
 	nodes[0].ID = "456"
 	nodes[0].State["foo"] = "abc"
 
-	assert.Equal(t, []NodeState{node}, cluster.Nodes())
+	assert.Equal(t, []Node{node}, cluster.Nodes())
 }
 
 func TestCluster_NodesLookupWithFilter(t *testing.T) {
 	tests := []struct {
 		Filter        Filter
-		AddedNodes    []NodeState
-		FilteredNodes []NodeState
+		AddedNodes    []Node
+		FilteredNodes []Node
 	}{
 		// Filter no nodes.
 		{
@@ -70,8 +70,8 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 					},
 				},
 			},
-			AddedNodes: []NodeState{
-				NodeState{
+			AddedNodes: []Node{
+				Node{
 					ID:       "1",
 					Service:  "service-1",
 					Locality: "eu-west-2-c",
@@ -79,7 +79,7 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 						"foo": "car",
 					},
 				},
-				NodeState{
+				Node{
 					ID:       "2",
 					Service:  "service-2",
 					Locality: "us-east-1-c",
@@ -88,8 +88,8 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 					},
 				},
 			},
-			FilteredNodes: []NodeState{
-				NodeState{
+			FilteredNodes: []Node{
+				Node{
 					ID:       "1",
 					Service:  "service-1",
 					Locality: "eu-west-2-c",
@@ -97,7 +97,7 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 						"foo": "car",
 					},
 				},
-				NodeState{
+				Node{
 					ID:       "2",
 					Service:  "service-2",
 					Locality: "us-east-1-c",
@@ -118,8 +118,8 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 					},
 				},
 			},
-			AddedNodes: []NodeState{
-				NodeState{
+			AddedNodes: []Node{
+				Node{
 					ID:       "1",
 					Service:  "service-1",
 					Locality: "eu-west-2-c",
@@ -127,7 +127,7 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 						"foo": "car",
 					},
 				},
-				NodeState{
+				Node{
 					ID:       "2",
 					Service:  "service-2",
 					Locality: "us-east-1-c",
@@ -136,8 +136,8 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 					},
 				},
 			},
-			FilteredNodes: []NodeState{
-				NodeState{
+			FilteredNodes: []Node{
+				Node{
 					ID:       "1",
 					Service:  "service-1",
 					Locality: "eu-west-2-c",
@@ -151,8 +151,8 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 		// Filter all nodes.
 		{
 			Filter: Filter{},
-			AddedNodes: []NodeState{
-				NodeState{
+			AddedNodes: []Node{
+				Node{
 					ID:       "1",
 					Service:  "service-1",
 					Locality: "eu-west-2-c",
@@ -160,7 +160,7 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 						"foo": "car",
 					},
 				},
-				NodeState{
+				Node{
 					ID:       "2",
 					Service:  "service-2",
 					Locality: "us-east-1-c",
@@ -169,7 +169,7 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 					},
 				},
 			},
-			FilteredNodes: []NodeState{},
+			FilteredNodes: []Node{},
 		},
 	}
 
@@ -188,7 +188,7 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 }
 
 func TestCluster_UpdateNodeLocalState(t *testing.T) {
-	node := NodeState{
+	node := Node{
 		ID:       "123",
 		Service:  "foo",
 		Locality: "aws.us-east-1-b",
@@ -208,14 +208,14 @@ func TestCluster_UpdateNodeLocalState(t *testing.T) {
 	node.State["foo"] = "car"
 	node.State["bar"] = "boo"
 	nodes := cluster.Nodes()
-	assert.Equal(t, []NodeState{node}, nodes)
+	assert.Equal(t, []Node{node}, nodes)
 }
 
 func TestCluster_AddNode(t *testing.T) {
 	localNode := randomNode()
 	cluster := newCluster(localNode)
 
-	var addedNodes []NodeState
+	var addedNodes []Node
 	for i := 0; i != 10; i++ {
 		node := randomNode()
 		assert.Nil(t, cluster.AddNode(node))
@@ -240,14 +240,14 @@ func TestCluster_AddNode(t *testing.T) {
 func TestCluster_AddNodeMissingID(t *testing.T) {
 	cluster := newCluster(randomNode())
 
-	assert.NotNil(t, cluster.AddNode(NodeState{}))
+	assert.NotNil(t, cluster.AddNode(Node{}))
 }
 
 func TestCluster_RemoveNode(t *testing.T) {
 	localNode := randomNode()
 	cluster := newCluster(localNode)
 
-	var addedNodes []NodeState
+	var addedNodes []Node
 	for i := 0; i != 10; i++ {
 		node := randomNode()
 		assert.Nil(t, cluster.AddNode(node))
@@ -258,7 +258,7 @@ func TestCluster_RemoveNode(t *testing.T) {
 		cluster.RemoveNode(node.ID)
 	}
 
-	assert.Equal(t, []NodeState{localNode}, cluster.Nodes())
+	assert.Equal(t, []Node{localNode}, cluster.Nodes())
 }
 
 func TestCluster_Subscribe(t *testing.T) {
@@ -266,7 +266,7 @@ func TestCluster_Subscribe(t *testing.T) {
 	cluster := newCluster(localNode)
 
 	count := 0
-	unsubscribe := cluster.Subscribe(func(nodes []NodeState) {
+	unsubscribe := cluster.Subscribe(func(nodes []Node) {
 		count++
 	})
 	defer unsubscribe()
@@ -280,8 +280,8 @@ func TestCluster_Subscribe(t *testing.T) {
 }
 
 // randomNode returns a node with random attributes and state.
-func randomNode() NodeState {
-	return NodeState{
+func randomNode() Node {
+	return Node{
 		ID:       uuid.New().String(),
 		Service:  uuid.New().String(),
 		Locality: uuid.New().String(),

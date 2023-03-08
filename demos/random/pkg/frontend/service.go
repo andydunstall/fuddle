@@ -49,7 +49,7 @@ func NewService(conf *Config, logger *zap.Logger) *Service {
 
 func (s *Service) Start() error {
 	registry, err := fuddle.Register([]string{"localhost:8220"},
-		fuddle.NodeState{
+		fuddle.Node{
 			ID:       s.conf.ID,
 			Service:  "frontend",
 			Locality: "aws.us-east-1.us-east-1-a",
@@ -68,7 +68,7 @@ func (s *Service) Start() error {
 	filter := fuddle.Filter{
 		"random": {},
 	}
-	registry.Subscribe(func(nodes []fuddle.NodeState) {
+	registry.Subscribe(func(nodes []fuddle.Node) {
 		addrs := []string{}
 		for _, node := range nodes {
 			addrs = append(addrs, node.State["addr"])

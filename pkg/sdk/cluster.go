@@ -22,7 +22,7 @@ import (
 
 // subHandle is a handle for a cluster update subscriber.
 type subHandle struct {
-	Callback func(nodes []NodeState)
+	Callback func(nodes []Node)
 	Options  []NodesOption
 }
 
@@ -30,7 +30,7 @@ type subHandle struct {
 type cluster struct {
 	localID string
 
-	nodes map[string]NodeState
+	nodes map[string]Node
 
 	subs map[*subHandle]interface{}
 
@@ -39,8 +39,8 @@ type cluster struct {
 }
 
 // newCluster returns a cluster containing only the given local node state.
-func newCluster(node NodeState) *cluster {
-	nodes := map[string]NodeState{
+func newCluster(node Node) *cluster {
+	nodes := map[string]Node{
 		node.ID: node.Copy(),
 	}
 	return &cluster{
@@ -52,7 +52,7 @@ func newCluster(node NodeState) *cluster {
 }
 
 // Nodes returns the set of nodes in the cluster.
-func (c *cluster) Nodes(opts ...NodesOption) []NodeState {
+func (c *cluster) Nodes(opts ...NodesOption) []Node {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -65,7 +65,7 @@ func (c *cluster) Nodes(opts ...NodesOption) []NodeState {
 // Note the callback is called synchronously with the registry mutex held,
 // therefore it must NOT block or callback to the registry (or it will
 // deadlock).
-func (c *cluster) Subscribe(cb func(nodes []NodeState), opts ...NodesOption) func() {
+func (c *cluster) Subscribe(cb func(nodes []Node), opts ...NodesOption) func() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -90,7 +90,7 @@ func (c *cluster) UpdateLocalState(update map[string]string) error {
 }
 
 // AddNode adds the given node to the cluster.
-func (c *cluster) AddNode(node NodeState) error {
+func (c *cluster) AddNode(node Node) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -127,13 +127,13 @@ func (c *cluster) UpdateState(id string, update map[string]string) error {
 	return nil
 }
 
-func (c *cluster) nodesLocked(opts ...NodesOption) []NodeState {
+func (c *cluster) nodesLocked(opts ...NodesOption) []Node {
 	options := &nodesOptions{}
 	for _, o := range opts {
 		o.apply(options)
 	}
 
-	nodes := make([]NodeState, 0, len(c.nodes))
+	nodes := make([]Node, 0, len(c.nodes))
 	for _, n := range c.nodes {
 		if options.filter == nil || options.filter.Match(n) {
 			nodes = append(nodes, n.Copy())

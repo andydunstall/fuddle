@@ -23,10 +23,10 @@ import (
 	"github.com/google/uuid"
 )
 
-func WaitForNodes(registry *fuddle.Registry, count int) ([]fuddle.NodeState, error) {
+func WaitForNodes(registry *fuddle.Registry, count int) ([]fuddle.Node, error) {
 	recvCh := make(chan interface{})
-	var nodes []fuddle.NodeState
-	unsubscribe := registry.Subscribe(func(n []fuddle.NodeState) {
+	var nodes []fuddle.Node
+	unsubscribe := registry.Subscribe(func(n []fuddle.Node) {
 		if len(n) == count {
 			nodes = n
 			close(recvCh)
@@ -40,9 +40,9 @@ func WaitForNodes(registry *fuddle.Registry, count int) ([]fuddle.NodeState, err
 	return nodes, nil
 }
 
-func WaitForNode(registry *fuddle.Registry, node fuddle.NodeState) error {
+func WaitForNode(registry *fuddle.Registry, node fuddle.Node) error {
 	recvCh := make(chan interface{})
-	unsubscribe := registry.Subscribe(func(nodes []fuddle.NodeState) {
+	unsubscribe := registry.Subscribe(func(nodes []fuddle.Node) {
 		for _, n := range nodes {
 			if n.Equal(node) {
 				close(recvCh)
@@ -58,8 +58,8 @@ func WaitForNode(registry *fuddle.Registry, node fuddle.NodeState) error {
 }
 
 // RandomNode returns a node with random attributes and state.
-func RandomNode() fuddle.NodeState {
-	return fuddle.NodeState{
+func RandomNode() fuddle.Node {
+	return fuddle.Node{
 		ID:       uuid.New().String(),
 		Service:  uuid.New().String(),
 		Locality: uuid.New().String(),

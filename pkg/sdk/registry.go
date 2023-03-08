@@ -49,7 +49,7 @@ type Registry struct {
 // updates to maintain a local eventually consistent view of the cluster.
 //
 // The given addresses are a set of seed addresses for Fuddle nodes.
-func Register(addrs []string, node NodeState) (*Registry, error) {
+func Register(addrs []string, node Node) (*Registry, error) {
 	conn, stream, err := connect(addrs)
 	if err != nil {
 		return nil, fmt.Errorf("registry: %w", err)
@@ -74,7 +74,7 @@ func Register(addrs []string, node NodeState) (*Registry, error) {
 }
 
 // Nodes returns the set of nodes in the cluster.
-func (r *Registry) Nodes(opts ...NodesOption) []NodeState {
+func (r *Registry) Nodes(opts ...NodesOption) []Node {
 	return r.cluster.Nodes(opts...)
 }
 
@@ -87,7 +87,7 @@ func (r *Registry) Nodes(opts ...NodesOption) []NodeState {
 // Note the callback is called synchronously with the registry mutex held,
 // therefore it must NOT block or callback to the registry (or it will
 // deadlock).
-func (r *Registry) Subscribe(cb func(nodes []NodeState), opts ...NodesOption) func() {
+func (r *Registry) Subscribe(cb func(nodes []Node), opts ...NodesOption) func() {
 	return r.cluster.Subscribe(cb, opts...)
 }
 
@@ -137,7 +137,7 @@ func (r *Registry) sync() {
 	}
 }
 
-func (r *Registry) sendJoinRPC(node NodeState) error {
+func (r *Registry) sendJoinRPC(node Node) error {
 	rpcUpdate := &rpc.NodeUpdate{
 		NodeId:     node.ID,
 		UpdateType: rpc.NodeUpdateType_JOIN,
@@ -206,7 +206,7 @@ func (r *Registry) applyJoinUpdateLocked(update *rpc.NodeUpdate) error {
 		return fmt.Errorf("cluster: join update: missing attributes")
 	}
 
-	node := NodeState{
+	node := Node{
 		ID:       update.NodeId,
 		Service:  update.Attributes.Service,
 		Locality: update.Attributes.Locality,
