@@ -81,11 +81,14 @@ func (r *Registry) Nodes(opts ...NodesOption) []NodeState {
 // Subscribe registers the given callback to fire when the registry state
 // changes.
 //
+// The callback will be called immediately after registering with the current
+// node state.
+//
 // Note the callback is called synchronously with the registry mutex held,
 // therefore it must NOT block or callback to the registry (or it will
 // deadlock).
-func (r *Registry) Subscribe(cb func()) func() {
-	return r.cluster.Subscribe(cb)
+func (r *Registry) Subscribe(cb func(nodes []NodeState), opts ...NodesOption) func() {
+	return r.cluster.Subscribe(cb, opts...)
 }
 
 // UpdateLocalState will update the state of this node, which will be propagated

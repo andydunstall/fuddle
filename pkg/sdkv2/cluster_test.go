@@ -263,7 +263,7 @@ func TestCluster_Subscribe(t *testing.T) {
 	cluster := newCluster(localNode)
 
 	count := 0
-	unsubscribe := cluster.Subscribe(func() {
+	unsubscribe := cluster.Subscribe(func(nodes []NodeState) {
 		count++
 	})
 	defer unsubscribe()
@@ -273,7 +273,7 @@ func TestCluster_Subscribe(t *testing.T) {
 	assert.Nil(t, cluster.UpdateState(node.ID, map[string]string{"foo": "bar"}))
 	cluster.RemoveNode(node.ID)
 
-	assert.Equal(t, 3, count)
+	assert.Equal(t, 4, count)
 }
 
 // randomNode returns a node with random attributes and state.

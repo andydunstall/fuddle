@@ -66,18 +66,7 @@ func Example_lookupOrdersServiceNodes() {
 		// Seed addresses of Fuddle servers.
 		[]string{"192.168.1.1:8220", "192.168.1.2:8220", "192.168.1.3:8220"},
 		NodeState{
-			ID:       "frontend-9fe2a841",
-			Service:  "frontend",
-			Locality: "aws.us-east-1-c",
-			Created:  time.Now().UnixMilli(),
-			Revision: "v2.0.1-217cbf1",
-			State: map[string]string{
-				"status":           "active",
-				"addr.http.ip":     "192.168.3.155",
-				"addr.http.port":   "8080",
-				"protocol.version": "3",
-				"instance":         "i-0b78b6770d3068dea",
-			},
+			// ...
 		},
 	)
 	if err != nil {
@@ -105,4 +94,43 @@ func Example_lookupOrdersServiceNodes() {
 	// ...
 
 	fmt.Println("order service:", addrs)
+}
+
+// Registers a 'frontend' service and subscribes to the set of active order
+// service nodes in us-east-1.
+func Example_subscribeToOrdersServiceNodes() {
+	registry, err := Register(
+		// Seed addresses of Fuddle servers.
+		[]string{"192.168.1.1:8220", "192.168.1.2:8220", "192.168.1.3:8220"},
+		NodeState{
+			// ...
+		},
+	)
+	if err != nil {
+		// handle err ...
+	}
+	defer registry.Unregister()
+
+	filter := Filter{
+		"order": {
+			Locality: []string{"aws.us-east-1-*"},
+			State: StateFilter{
+				"status":           []string{"active"},
+				"protocol.version": []string{"2", "3"},
+			},
+		},
+	}
+
+	// Filter to only include order service nodes in us-east-1 whose status
+	// is active and protocol version is either 2 or 3.
+	var addrs []string
+	registry.Subscribe(func(orderNodes []NodeState) {
+		addrs = nil
+		for _, node := range orderNodes {
+			addr := node.State["addr.rpc.ip"] + ":" + node.State["addr.rpc.port"]
+			addrs = append(addrs, addr)
+		}
+
+		fmt.Println("order service:", addrs)
+	}, WithFilter(filter))
 }
