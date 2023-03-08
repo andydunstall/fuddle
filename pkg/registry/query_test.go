@@ -23,14 +23,14 @@ import (
 
 func TestQuery_MatchingState(t *testing.T) {
 	tests := []struct {
-		Node          NodeState
+		Node          Node
 		Query         Query
 		ExpectedMatch bool
 		ExpectedState map[string]string
 	}{
 		// Matching service with state filtered.
 		{
-			Node: NodeState{
+			Node: Node{
 				Service: "xyz",
 				State: map[string]string{
 					"foo": "a",
@@ -51,7 +51,7 @@ func TestQuery_MatchingState(t *testing.T) {
 		},
 		// Matching service with no matching state.
 		{
-			Node: NodeState{
+			Node: Node{
 				Service: "xyz",
 				State: map[string]string{
 					"foo": "a",
@@ -68,7 +68,7 @@ func TestQuery_MatchingState(t *testing.T) {
 		},
 		// Matching service with no state query.
 		{
-			Node: NodeState{
+			Node: Node{
 				Service: "xyz",
 				State: map[string]string{
 					"foo": "a",
@@ -88,7 +88,7 @@ func TestQuery_MatchingState(t *testing.T) {
 		},
 		// Matching service with no state query fields.
 		{
-			Node: NodeState{
+			Node: Node{
 				Service: "xyz",
 				State: map[string]string{
 					"foo": "a",
@@ -104,7 +104,7 @@ func TestQuery_MatchingState(t *testing.T) {
 		},
 		// Matching service with no state query fields.
 		{
-			Node: NodeState{
+			Node: Node{
 				Service: "xyz",
 				State: map[string]string{
 					"foo": "a",
@@ -122,7 +122,7 @@ func TestQuery_MatchingState(t *testing.T) {
 		},
 		// No matching service.
 		{
-			Node: NodeState{
+			Node: Node{
 				Service: "abc",
 				State: map[string]string{
 					"foo": "a",

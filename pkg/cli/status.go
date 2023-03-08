@@ -111,7 +111,7 @@ func runNodeStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func displayNodes(nodes []*registry.NodeState) {
+func displayNodes(nodes []*registry.Node) {
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].ID < nodes[j].ID
 	})

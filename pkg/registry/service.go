@@ -37,7 +37,7 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 	})
 	metricsRegistry.MustRegister(nodeCountGauge)
 
-	clusterState := NewClusterState(NodeState{
+	clusterState := NewClusterState(Node{
 		ID:       conf.ID,
 		Service:  "fuddle",
 		Locality: "",

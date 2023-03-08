@@ -29,7 +29,7 @@ type updateSubHandle struct {
 
 // nodesSubHandle is a handle for an nodes subscriber.
 type nodesSubHandle struct {
-	Callback func(nodes []NodeState)
+	Callback func(nodes []Node)
 	Query    *Query
 }
 
@@ -37,7 +37,7 @@ type nodesSubHandle struct {
 type ClusterState struct {
 	// nodes contains the node state for the nodes in the cluster, indexed by
 	// node ID.
-	nodes map[string]NodeState
+	nodes map[string]Node
 
 	// updateSubs contains a set of active RPC update subscribers.
 	updateSubs map[*updateSubHandle]interface{}
@@ -50,8 +50,8 @@ type ClusterState struct {
 }
 
 // NewClusterState returns a cluster state containing only the given local node.
-func NewClusterState(localNode NodeState) *ClusterState {
-	nodes := map[string]NodeState{
+func NewClusterState(localNode Node) *ClusterState {
+	nodes := map[string]Node{
 		localNode.ID: localNode,
 	}
 	return &ClusterState{
@@ -63,18 +63,18 @@ func NewClusterState(localNode NodeState) *ClusterState {
 }
 
 // Node returns the state of the node in the cluster with the given ID.
-func (s *ClusterState) Node(id string) (NodeState, bool) {
+func (s *ClusterState) Node(id string) (Node, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	node, ok := s.nodes[id]
 	if !ok {
-		return NodeState{}, false
+		return Node{}, false
 	}
 	return node.Copy(), true
 }
 
-func (s *ClusterState) Nodes(query *Query) []NodeState {
+func (s *ClusterState) Nodes(query *Query) []Node {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -168,7 +168,7 @@ func (s *ClusterState) SubscribeUpdates(rewind bool, cb func(update *rpc.NodeUpd
 // SubscribeNodes subscribes too state updates matching the given node.
 //
 // Returns a function to unsubscribe.
-func (s *ClusterState) SubscribeNodes(query *Query, cb func([]NodeState)) func() {
+func (s *ClusterState) SubscribeNodes(query *Query, cb func([]Node)) func() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -185,8 +185,8 @@ func (s *ClusterState) SubscribeNodes(query *Query, cb func([]NodeState)) func()
 	}
 }
 
-func (s *ClusterState) nodesLocked(query *Query) []NodeState {
-	var nodes []NodeState
+func (s *ClusterState) nodesLocked(query *Query) []Node {
+	var nodes []Node
 	for _, node := range s.nodes {
 		// If the query is nil include all nodes.
 		if query == nil {
@@ -229,7 +229,7 @@ func (s *ClusterState) applyJoinUpdateLocked(update *rpc.NodeUpdate) error {
 		return fmt.Errorf("cluster state: join update: missing attributes")
 	}
 
-	node := NodeState{
+	node := Node{
 		ID:       update.NodeId,
 		Service:  update.Attributes.Service,
 		Locality: update.Attributes.Locality,

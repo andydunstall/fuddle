@@ -15,9 +15,9 @@
 
 package registry
 
-// NodeState represents the state of a node that is propagated to other nodes
+// Node represents the state of a node that is propagated to other nodes
 // in the cluster.
-type NodeState struct {
+type Node struct {
 	// ID is a unique identifier for the node in the cluster.
 	ID string `json:"id,omitempty"`
 
@@ -37,7 +37,7 @@ type NodeState struct {
 	State map[string]string `json:"state,omitempty"`
 }
 
-func (s *NodeState) Copy() NodeState {
+func (s *Node) Copy() Node {
 	cp := *s
 	cp.State = CopyState(s.State)
 	return cp

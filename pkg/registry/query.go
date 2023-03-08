@@ -39,7 +39,7 @@ type Query map[string]*ServiceQuery
 
 // MatchingState returns all the given nodes state that matches the query, or
 // false if either the node doesn't match or none of the nodes state matches.
-func (q *Query) MatchingState(node NodeState) (state map[string]string, match bool) {
+func (q *Query) MatchingState(node Node) (state map[string]string, match bool) {
 	serviceQuery, ok := (*q)[node.Service]
 	// If the service is not in the query discard the node.
 	if !ok {
