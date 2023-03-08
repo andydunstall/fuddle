@@ -16,128 +16,51 @@
 package tests
 
 import (
-	"fmt"
-	"sort"
 	"testing"
 	"time"
 
-	"github.com/andydunstall/fuddle/pkg/registry"
-	"github.com/andydunstall/fuddle/pkg/rpc"
-	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
-	"github.com/andydunstall/fuddle/pkg/server"
+	fuddle "github.com/andydunstall/fuddle/pkg/sdkv2"
+	"github.com/andydunstall/fuddle/pkg/testutils"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 )
 
-// Tests registering a node checks the node is in the clients node map.
+// Tests registering a node. The node should register itself and receive a
+// update about the fuddle server joining the cluster.
 func TestRegistry_RegisterNode(t *testing.T) {
-	conf := testConfig()
-	server := server.NewServer(conf, zap.NewNop())
-	assert.Nil(t, server.Start())
+	server, err := testutils.StartServer()
+	assert.Nil(t, err)
 	defer server.GracefulStop()
 
-	client, err := fuddle.Register(conf.AdvAddr, registry.NodeState{
-		ID: "node-1",
-	}, zap.NewNop())
+	localNode := testutils.RandomNode()
+	registry, err := fuddle.Register([]string{server.RPCAddr()}, localNode)
 	assert.Nil(t, err)
-	defer func() {
-		assert.Nil(t, client.Unregister())
-	}()
+	defer registry.Unregister()
 
-	// Check when subscribing with rewind we receive ourselves.
-	updates := make(chan *rpc.NodeUpdate, 1)
-	client.SubscribeUpdates(true, func(update *rpc.NodeUpdate) {
-		updates <- update
+	// Subscribe and wait until the registry client knows about two nodes
+	// (itself and the fuddle server).
+	recvCh := make(chan interface{}, 1)
+	unsubscribe := registry.Subscribe(func(nodes []fuddle.NodeState) {
+		if len(nodes) == 2 {
+			close(recvCh)
+		}
 	})
-	update := waitWithTimeout(updates)
-	assert.Equal(t, "node-1", update.NodeId)
-	assert.Equal(t, rpc.NodeUpdateType_JOIN, update.UpdateType)
+	defer unsubscribe()
 
-	assert.Nil(t, err)
+	assert.Nil(t, testutils.WaitWithTimeout(recvCh, time.Second))
+
+	// Verify the registry now has both the local node and server node.
+	expectedNodeIDs := map[string]interface{}{
+		localNode.ID: struct{}{},
+		server.ID():  struct{}{},
+	}
+	nodeIDs := nodeIDsSet(registry.Nodes())
+	assert.Equal(t, expectedNodeIDs, nodeIDs)
 }
 
-func TestRegistry_SubscribeToClusterUpdates(t *testing.T) {
-	conf := testConfig()
-	server := server.NewServer(conf, zap.NewNop())
-	assert.Nil(t, server.Start())
-	defer server.GracefulStop()
-
-	client, err := fuddle.Register(conf.AdvAddr, registry.NodeState{
-		ID: "local-node",
-	}, zap.NewNop())
-	assert.Nil(t, err)
-	defer func() {
-		assert.Nil(t, client.Unregister())
-	}()
-
-	updates := make(chan *rpc.NodeUpdate, 64)
-	client.SubscribeUpdates(false, func(update *rpc.NodeUpdate) {
-		updates <- update
-	})
-
-	// Check the node receives the fuddle service node.
-	update := waitWithTimeout(updates)
-	assert.Equal(t, "fuddle-123", update.NodeId)
-	assert.Equal(t, rpc.NodeUpdateType_JOIN, update.UpdateType)
-
-	// Add more nodes to the registry, and check the first node receives
-	// updates for each.
-
-	var ids []string
-	var clients []*fuddle.Fuddle
-	for i := 0; i != 5; i++ {
-		id := fmt.Sprintf("node-%d", i)
-		ids = append(ids, id)
-		client, err := fuddle.Register(conf.AdvAddr, registry.NodeState{
-			ID: id,
-		}, zap.NewNop())
-		clients = append(clients, client)
-		assert.Nil(t, err)
+func nodeIDsSet(nodes []fuddle.NodeState) map[string]interface{} {
+	ids := make(map[string]interface{})
+	for _, node := range nodes {
+		ids[node.ID] = struct{}{}
 	}
-
-	for _, id := range ids {
-		update := waitWithTimeout(updates)
-		assert.Equal(t, id, update.NodeId)
-		assert.Equal(t, rpc.NodeUpdateType_JOIN, update.UpdateType)
-	}
-
-	// Update each node.
-
-	for _, client := range clients {
-		assert.Nil(t, client.Update("foo", "bar"))
-	}
-
-	var updatedIDs []string
-	for _, id := range ids {
-		update := waitWithTimeout(updates)
-		assert.Equal(t, rpc.NodeUpdateType_STATE, update.UpdateType)
-		updatedIDs = append(updatedIDs, id)
-	}
-	sort.Strings(updatedIDs)
-	assert.Equal(t, ids, updatedIDs)
-
-	// Remove each of the nodes in the registry, and check the first node
-	// receives leave updates for each.
-
-	for _, client := range clients {
-		assert.Nil(t, client.Unregister())
-	}
-
-	var leftIDs []string
-	for _, id := range ids {
-		update := waitWithTimeout(updates)
-		assert.Equal(t, rpc.NodeUpdateType_LEAVE, update.UpdateType)
-		leftIDs = append(leftIDs, id)
-	}
-	sort.Strings(leftIDs)
-	assert.Equal(t, ids, leftIDs)
-}
-
-func waitWithTimeout(c chan *rpc.NodeUpdate) *rpc.NodeUpdate {
-	select {
-	case update := <-c:
-		return update
-	case <-time.After(time.Second):
-		return nil
-	}
+	return ids
 }
