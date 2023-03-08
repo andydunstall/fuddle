@@ -25,14 +25,14 @@ import (
 
 // Server exposes gRPC endpoints for the registry.
 type Server struct {
-	clusterState *ClusterState
+	clusterState *Cluster
 
 	logger *zap.Logger
 
 	rpc.UnimplementedRegistryServer
 }
 
-func NewServer(clusterState *ClusterState, logger *zap.Logger) *Server {
+func NewServer(clusterState *Cluster, logger *zap.Logger) *Server {
 	return &Server{
 		clusterState: clusterState,
 		logger:       logger,

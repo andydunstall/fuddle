@@ -30,13 +30,13 @@ import (
 )
 
 type server struct {
-	clusterState *registry.ClusterState
+	clusterState *registry.Cluster
 	httpServer   *http.Server
 
 	logger *zap.Logger
 }
 
-func newServer(addr string, clusterState *registry.ClusterState, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
+func newServer(addr string, clusterState *registry.Cluster, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
 	server := &server{
 		clusterState: clusterState,
 		logger:       logger,

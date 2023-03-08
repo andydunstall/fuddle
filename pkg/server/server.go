@@ -43,7 +43,7 @@ func NewServer(conf *config.Config, logger *zap.Logger) *Server {
 	metricsRegistry.MustRegister(collectors.NewGoCollector())
 
 	registryService := registry.NewService(conf, metricsRegistry, logger)
-	adminService := admin.NewService(registryService.ClusterState(), conf, metricsRegistry, logger)
+	adminService := admin.NewService(registryService.Cluster(), conf, metricsRegistry, logger)
 
 	grpcServer := newGRPCServer(conf.BindAddr, logger)
 	rpc.RegisterRegistryServer(grpcServer.GRPCServer(), registryService.Server())

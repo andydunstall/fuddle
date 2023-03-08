@@ -33,8 +33,8 @@ type nodesSubHandle struct {
 	Query    *Query
 }
 
-// ClusterState represents the shared view of the nodes in the cluster.
-type ClusterState struct {
+// Cluster represents the shared view of the nodes in the cluster.
+type Cluster struct {
 	// nodes contains the node state for the nodes in the cluster, indexed by
 	// node ID.
 	nodes map[string]Node
@@ -49,12 +49,12 @@ type ClusterState struct {
 	mu sync.Mutex
 }
 
-// NewClusterState returns a cluster state containing only the given local node.
-func NewClusterState(localNode Node) *ClusterState {
+// NewCluster returns a cluster state containing only the given local node.
+func NewCluster(localNode Node) *Cluster {
 	nodes := map[string]Node{
 		localNode.ID: localNode,
 	}
-	return &ClusterState{
+	return &Cluster{
 		nodes:      nodes,
 		updateSubs: make(map[*updateSubHandle]interface{}),
 		nodesSubs:  make(map[*nodesSubHandle]interface{}),
@@ -63,7 +63,7 @@ func NewClusterState(localNode Node) *ClusterState {
 }
 
 // Node returns the state of the node in the cluster with the given ID.
-func (s *ClusterState) Node(id string) (Node, bool) {
+func (s *Cluster) Node(id string) (Node, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -74,7 +74,7 @@ func (s *ClusterState) Node(id string) (Node, bool) {
 	return node.Copy(), true
 }
 
-func (s *ClusterState) Nodes(query *Query) []Node {
+func (s *Cluster) Nodes(query *Query) []Node {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -83,7 +83,7 @@ func (s *ClusterState) Nodes(query *Query) []Node {
 
 // ApplyUpdate applies the given node state update and sends it to the
 // subscribers.
-func (s *ClusterState) ApplyUpdate(update *rpc.NodeUpdate) error {
+func (s *Cluster) ApplyUpdate(update *rpc.NodeUpdate) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -130,7 +130,7 @@ func (s *ClusterState) ApplyUpdate(update *rpc.NodeUpdate) error {
 // transaction.
 //
 // Returns a function to unsubscribe.
-func (s *ClusterState) SubscribeUpdates(rewind bool, cb func(update *rpc.NodeUpdate)) func() {
+func (s *Cluster) SubscribeUpdates(rewind bool, cb func(update *rpc.NodeUpdate)) func() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -168,7 +168,7 @@ func (s *ClusterState) SubscribeUpdates(rewind bool, cb func(update *rpc.NodeUpd
 // SubscribeNodes subscribes too state updates matching the given node.
 //
 // Returns a function to unsubscribe.
-func (s *ClusterState) SubscribeNodes(query *Query, cb func([]Node)) func() {
+func (s *Cluster) SubscribeNodes(query *Query, cb func([]Node)) func() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -185,7 +185,7 @@ func (s *ClusterState) SubscribeNodes(query *Query, cb func([]Node)) func() {
 	}
 }
 
-func (s *ClusterState) nodesLocked(query *Query) []Node {
+func (s *Cluster) nodesLocked(query *Query) []Node {
 	var nodes []Node
 	for _, node := range s.nodes {
 		// If the query is nil include all nodes.
@@ -206,21 +206,21 @@ func (s *ClusterState) nodesLocked(query *Query) []Node {
 	return nodes
 }
 
-func (s *ClusterState) unsubscribeUpdates(handle *updateSubHandle) {
+func (s *Cluster) unsubscribeUpdates(handle *updateSubHandle) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	delete(s.updateSubs, handle)
 }
 
-func (s *ClusterState) unsubscribeNodes(handle *nodesSubHandle) {
+func (s *Cluster) unsubscribeNodes(handle *nodesSubHandle) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	delete(s.nodesSubs, handle)
 }
 
-func (s *ClusterState) applyJoinUpdateLocked(update *rpc.NodeUpdate) error {
+func (s *Cluster) applyJoinUpdateLocked(update *rpc.NodeUpdate) error {
 	if update.NodeId == "" {
 		return fmt.Errorf("cluster state: join update: missing id")
 	}
@@ -244,13 +244,13 @@ func (s *ClusterState) applyJoinUpdateLocked(update *rpc.NodeUpdate) error {
 	return nil
 }
 
-func (s *ClusterState) applyLeaveUpdateLocked(update *rpc.NodeUpdate) error {
+func (s *Cluster) applyLeaveUpdateLocked(update *rpc.NodeUpdate) error {
 	delete(s.nodes, update.NodeId)
 
 	return nil
 }
 
-func (s *ClusterState) applyStateUpdateLocked(update *rpc.NodeUpdate) error {
+func (s *Cluster) applyStateUpdateLocked(update *rpc.NodeUpdate) error {
 	node, ok := s.nodes[update.NodeId]
 	if !ok {
 		return fmt.Errorf("cluster state: state update: node does not exist")
