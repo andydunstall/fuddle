@@ -27,12 +27,6 @@ type updateSubHandle struct {
 	Callback func(update *rpc.NodeUpdate)
 }
 
-// nodesSubHandle is a handle for an nodes subscriber.
-type nodesSubHandle struct {
-	Callback func(nodes []Node)
-	Query    *Query
-}
-
 // Cluster represents the shared view of the nodes in the cluster.
 type Cluster struct {
 	// nodes contains the node state for the nodes in the cluster, indexed by
@@ -41,9 +35,6 @@ type Cluster struct {
 
 	// updateSubs contains a set of active RPC update subscribers.
 	updateSubs map[*updateSubHandle]interface{}
-
-	// nodesSubs contains a set of active nodes subscribers.
-	nodesSubs map[*nodesSubHandle]interface{}
 
 	// mu protects the above fields.
 	mu sync.Mutex
@@ -57,7 +48,6 @@ func NewCluster(localNode Node) *Cluster {
 	return &Cluster{
 		nodes:      nodes,
 		updateSubs: make(map[*updateSubHandle]interface{}),
-		nodesSubs:  make(map[*nodesSubHandle]interface{}),
 		mu:         sync.Mutex{},
 	}
 }
@@ -74,11 +64,11 @@ func (s *Cluster) Node(id string) (Node, bool) {
 	return node.Copy(), true
 }
 
-func (s *Cluster) Nodes(query *Query) []Node {
+func (s *Cluster) Nodes() []Node {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.nodesLocked(query)
+	return s.nodesLocked()
 }
 
 // ApplyUpdate applies the given node state update and sends it to the
@@ -108,13 +98,6 @@ func (s *Cluster) ApplyUpdate(update *rpc.NodeUpdate) error {
 	// guarantee ordering.
 	for sub := range s.updateSubs {
 		sub.Callback(update)
-	}
-
-	for sub := range s.nodesSubs {
-		nodes := s.nodesLocked(sub.Query)
-		if len(nodes) != 0 {
-			sub.Callback(nodes)
-		}
 	}
 
 	return nil
@@ -165,44 +148,11 @@ func (s *Cluster) SubscribeUpdates(rewind bool, cb func(update *rpc.NodeUpdate))
 	}
 }
 
-// SubscribeNodes subscribes too state updates matching the given node.
-//
-// Returns a function to unsubscribe.
-func (s *Cluster) SubscribeNodes(query *Query, cb func([]Node)) func() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cb(s.nodesLocked(query))
-
-	handle := &nodesSubHandle{
-		Callback: cb,
-		Query:    query,
-	}
-	s.nodesSubs[handle] = struct{}{}
-
-	return func() {
-		s.unsubscribeNodes(handle)
-	}
-}
-
-func (s *Cluster) nodesLocked(query *Query) []Node {
+func (s *Cluster) nodesLocked() []Node {
 	var nodes []Node
 	for _, node := range s.nodes {
-		// If the query is nil include all nodes.
-		if query == nil {
-			nodes = append(nodes, node.Copy())
-			continue
-		}
-
-		state, match := query.MatchingState(node)
-		if !match {
-			continue
-		}
-
-		node.State = state
-		nodes = append(nodes, node)
+		nodes = append(nodes, node.Copy())
 	}
-
 	return nodes
 }
 
@@ -211,13 +161,6 @@ func (s *Cluster) unsubscribeUpdates(handle *updateSubHandle) {
 	defer s.mu.Unlock()
 
 	delete(s.updateSubs, handle)
-}
-
-func (s *Cluster) unsubscribeNodes(handle *nodesSubHandle) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	delete(s.nodesSubs, handle)
 }
 
 func (s *Cluster) applyJoinUpdateLocked(update *rpc.NodeUpdate) error {
