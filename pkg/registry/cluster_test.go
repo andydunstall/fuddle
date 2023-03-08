@@ -269,7 +269,7 @@ func TestCluster_ApplyUnknownUpdate(t *testing.T) {
 
 // Tests subscribing to cluster state updates by applying the applied updates to
 // another cluster state and checking they are equal.
-func TestCluster_SubscribeUpdates(t *testing.T) {
+func TestCluster_Subscribe(t *testing.T) {
 	cs1 := NewCluster(Node{
 		ID: "local-node",
 	})
@@ -278,7 +278,7 @@ func TestCluster_SubscribeUpdates(t *testing.T) {
 	})
 	// Subscribe to updates from the first cluster state and apply to the
 	// second.
-	cs1.SubscribeUpdates(false, func(update *rpc.NodeUpdate) {
+	cs1.Subscribe(false, func(update *rpc.NodeUpdate) {
 		assert.Nil(t, cs2.ApplyUpdate(update))
 	})
 
@@ -359,7 +359,7 @@ func TestCluster_SubscribeUpdates(t *testing.T) {
 
 // Tests subscribing to cluster state with rewind and applying updates to the
 // other cluster has the same state.
-func TestCluster_SubscribeUpdatesWithRewind(t *testing.T) {
+func TestCluster_SubscribeWithRewind(t *testing.T) {
 	cs1 := NewCluster(Node{
 		ID: "local-node",
 	})
@@ -391,7 +391,7 @@ func TestCluster_SubscribeUpdatesWithRewind(t *testing.T) {
 
 	// Subscribe to updates from the first cluster with rewind and apply to
 	// the second. Note only subscribing after the state updates.
-	cs1.SubscribeUpdates(true, func(update *rpc.NodeUpdate) {
+	cs1.Subscribe(true, func(update *rpc.NodeUpdate) {
 		assert.Nil(t, cs2.ApplyUpdate(update))
 	})
 

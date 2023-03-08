@@ -22,8 +22,8 @@ import (
 	"github.com/andydunstall/fuddle/pkg/rpc"
 )
 
-// updateSubHandle is a handle for an RPC update subscriber.
-type updateSubHandle struct {
+// subHandle is a handle for an RPC update subscriber.
+type subHandle struct {
 	Callback func(update *rpc.NodeUpdate)
 }
 
@@ -33,8 +33,8 @@ type Cluster struct {
 	// node ID.
 	nodes map[string]Node
 
-	// updateSubs contains a set of active RPC update subscribers.
-	updateSubs map[*updateSubHandle]interface{}
+	// subs contains a set of active RPC update subscribers.
+	subs map[*subHandle]interface{}
 
 	// mu protects the above fields.
 	mu sync.Mutex
@@ -46,9 +46,9 @@ func NewCluster(localNode Node) *Cluster {
 		localNode.ID: localNode,
 	}
 	return &Cluster{
-		nodes:      nodes,
-		updateSubs: make(map[*updateSubHandle]interface{}),
-		mu:         sync.Mutex{},
+		nodes: nodes,
+		subs:  make(map[*subHandle]interface{}),
+		mu:    sync.Mutex{},
 	}
 }
 
@@ -96,14 +96,14 @@ func (s *Cluster) ApplyUpdate(update *rpc.NodeUpdate) error {
 
 	// Notify the subscribers of the update. Note keeping mutex locked to
 	// guarantee ordering.
-	for sub := range s.updateSubs {
+	for sub := range s.subs {
 		sub.Callback(update)
 	}
 
 	return nil
 }
 
-// SubscribeUpdates subscribes to RPC to updates.
+// Subscribe subscribes to RPC to updates.
 //
 // The callback is called with the cluster state mutex held (to guarantee
 // ordering) so it MUST NOT block and MUST NOT call back to the cluster state.
@@ -113,7 +113,7 @@ func (s *Cluster) ApplyUpdate(update *rpc.NodeUpdate) error {
 // transaction.
 //
 // Returns a function to unsubscribe.
-func (s *Cluster) SubscribeUpdates(rewind bool, cb func(update *rpc.NodeUpdate)) func() {
+func (s *Cluster) Subscribe(rewind bool, cb func(update *rpc.NodeUpdate)) func() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -138,10 +138,10 @@ func (s *Cluster) SubscribeUpdates(rewind bool, cb func(update *rpc.NodeUpdate))
 		}
 	}
 
-	handle := &updateSubHandle{
+	handle := &subHandle{
 		Callback: cb,
 	}
-	s.updateSubs[handle] = struct{}{}
+	s.subs[handle] = struct{}{}
 
 	return func() {
 		s.unsubscribeUpdates(handle)
@@ -156,11 +156,11 @@ func (s *Cluster) nodesLocked() []Node {
 	return nodes
 }
 
-func (s *Cluster) unsubscribeUpdates(handle *updateSubHandle) {
+func (s *Cluster) unsubscribeUpdates(handle *subHandle) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	delete(s.updateSubs, handle)
+	delete(s.subs, handle)
 }
 
 func (s *Cluster) applyJoinUpdateLocked(update *rpc.NodeUpdate) error {
