@@ -16,7 +16,7 @@
 package sdk
 
 type nodesOptions struct {
-	filter Filter
+	filter *Filter
 }
 
 type NodesOption interface {
@@ -24,7 +24,7 @@ type NodesOption interface {
 }
 
 type filterOption struct {
-	filter Filter
+	filter *Filter
 }
 
 func (o filterOption) apply(opts *nodesOptions) {
@@ -33,5 +33,5 @@ func (o filterOption) apply(opts *nodesOptions) {
 
 // WithFilter filters the returned set of nodes.
 func WithFilter(f Filter) NodesOption {
-	return filterOption{filter: f}
+	return filterOption{filter: &f}
 }

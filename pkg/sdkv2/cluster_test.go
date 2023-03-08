@@ -48,6 +48,142 @@ func TestCluster_LookupNode(t *testing.T) {
 	assert.Equal(t, []NodeState{node}, cluster.Nodes())
 }
 
+func TestCluster_NodesLookupWithFilter(t *testing.T) {
+	tests := []struct {
+		Filter        Filter
+		AddedNodes    []NodeState
+		FilteredNodes []NodeState
+	}{
+		// Filter no nodes.
+		{
+			Filter: Filter{
+				"service-1": {
+					Locality: []string{"eu-west-1-*", "eu-west-2-*"},
+					State: StateFilter{
+						"foo": []string{"bar", "car", "boo"},
+					},
+				},
+				"service-2": {
+					Locality: []string{"us-east-1-*", "eu-west-2-*"},
+					State: StateFilter{
+						"bar": []string{"bar", "car", "boo"},
+					},
+				},
+			},
+			AddedNodes: []NodeState{
+				NodeState{
+					ID:       "1",
+					Service:  "service-1",
+					Locality: "eu-west-2-c",
+					State: map[string]string{
+						"foo": "car",
+					},
+				},
+				NodeState{
+					ID:       "2",
+					Service:  "service-2",
+					Locality: "us-east-1-c",
+					State: map[string]string{
+						"bar": "boo",
+					},
+				},
+			},
+			FilteredNodes: []NodeState{
+				NodeState{
+					ID:       "1",
+					Service:  "service-1",
+					Locality: "eu-west-2-c",
+					State: map[string]string{
+						"foo": "car",
+					},
+				},
+				NodeState{
+					ID:       "2",
+					Service:  "service-2",
+					Locality: "us-east-1-c",
+					State: map[string]string{
+						"bar": "boo",
+					},
+				},
+			},
+		},
+
+		// Filter partial nodes.
+		{
+			Filter: Filter{
+				"service-1": {
+					Locality: []string{"eu-west-1-*", "eu-west-2-*"},
+					State: StateFilter{
+						"foo": []string{"bar", "car", "boo"},
+					},
+				},
+			},
+			AddedNodes: []NodeState{
+				NodeState{
+					ID:       "1",
+					Service:  "service-1",
+					Locality: "eu-west-2-c",
+					State: map[string]string{
+						"foo": "car",
+					},
+				},
+				NodeState{
+					ID:       "2",
+					Service:  "service-2",
+					Locality: "us-east-1-c",
+					State: map[string]string{
+						"bar": "boo",
+					},
+				},
+			},
+			FilteredNodes: []NodeState{
+				NodeState{
+					ID:       "1",
+					Service:  "service-1",
+					Locality: "eu-west-2-c",
+					State: map[string]string{
+						"foo": "car",
+					},
+				},
+			},
+		},
+
+		// Filter all nodes.
+		{
+			Filter: Filter{},
+			AddedNodes: []NodeState{
+				NodeState{
+					ID:       "1",
+					Service:  "service-1",
+					Locality: "eu-west-2-c",
+					State: map[string]string{
+						"foo": "car",
+					},
+				},
+				NodeState{
+					ID:       "2",
+					Service:  "service-2",
+					Locality: "us-east-1-c",
+					State: map[string]string{
+						"bar": "boo",
+					},
+				},
+			},
+			FilteredNodes: []NodeState{},
+		},
+	}
+
+	for _, tt := range tests {
+		cluster := newCluster(tt.AddedNodes[0])
+		for i := 1; i != len(tt.AddedNodes); i++ {
+			assert.Nil(t, cluster.AddNode(tt.AddedNodes[i]))
+		}
+
+		nodes := cluster.Nodes(WithFilter(tt.Filter))
+		assert.Equal(t, tt.FilteredNodes, nodes)
+	}
+}
+
 func TestCluster_UpdateNodeLocalState(t *testing.T) {
 	node := NodeState{
 		ID:       "123",
