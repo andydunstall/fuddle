@@ -54,15 +54,18 @@ type ServiceFilter struct {
 }
 
 func (f *ServiceFilter) Match(node NodeState) bool {
-	// The node locality must match at least one filter locality.
-	match := false
-	for _, filterLoc := range f.Locality {
-		if wildcard.Match(filterLoc, node.Locality) {
-			match = true
+	// If there are no localites allow all.
+	if f.Locality != nil {
+		// The node locality must match at least one filter locality.
+		match := false
+		for _, filterLoc := range f.Locality {
+			if wildcard.Match(filterLoc, node.Locality) {
+				match = true
+			}
 		}
-	}
-	if !match {
-		return false
+		if !match {
+			return false
+		}
 	}
 
 	return f.State.Match(node)

@@ -27,15 +27,10 @@ func TestFilter(t *testing.T) {
 		Node   NodeState
 		Match  bool
 	}{
-		// TMP.
+		// Empty service filter.
 		{
 			Filter: Filter{
-				"service-2": {
-					Locality: []string{"us-east-1-*", "eu-west-2-*"},
-					State: StateFilter{
-						"bar": []string{"bar", "car", "boo"},
-					},
-				},
+				"service-2": {},
 			},
 			Node: NodeState{
 				Service:  "service-2",
