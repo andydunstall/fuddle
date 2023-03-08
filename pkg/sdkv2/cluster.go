@@ -22,7 +22,8 @@ import (
 
 // subHandle is a handle for a cluster update subscriber.
 type subHandle struct {
-	Callback func()
+	Callback func(nodes []NodeState)
+	Options  []NodesOption
 }
 
 // cluster maintains the registry clients view of the cluster.
@@ -55,18 +56,7 @@ func (c *cluster) Nodes(opts ...NodesOption) []NodeState {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	options := &nodesOptions{}
-	for _, o := range opts {
-		o.apply(options)
-	}
-
-	nodes := make([]NodeState, 0, len(c.nodes))
-	for _, n := range c.nodes {
-		if options.filter == nil || options.filter.Match(n) {
-			nodes = append(nodes, n.Copy())
-		}
-	}
-	return nodes
+	return c.nodesLocked(opts...)
 }
 
 // Subscribe registers the given callback to fire when the registry state
@@ -75,14 +65,18 @@ func (c *cluster) Nodes(opts ...NodesOption) []NodeState {
 // Note the callback is called synchronously with the registry mutex held,
 // therefore it must NOT block or callback to the registry (or it will
 // deadlock).
-func (c *cluster) Subscribe(cb func()) func() {
+func (c *cluster) Subscribe(cb func(nodes []NodeState), opts ...NodesOption) func() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	handle := &subHandle{
 		Callback: cb,
+		Options:  opts,
 	}
 	c.subs[handle] = struct{}{}
+
+	// Call the callback with the current cluster state.
+	cb(c.nodesLocked(opts...))
 
 	return func() {
 		c.unsubscribe(handle)
@@ -133,9 +127,24 @@ func (c *cluster) UpdateState(id string, update map[string]string) error {
 	return nil
 }
 
+func (c *cluster) nodesLocked(opts ...NodesOption) []NodeState {
+	options := &nodesOptions{}
+	for _, o := range opts {
+		o.apply(options)
+	}
+
+	nodes := make([]NodeState, 0, len(c.nodes))
+	for _, n := range c.nodes {
+		if options.filter == nil || options.filter.Match(n) {
+			nodes = append(nodes, n.Copy())
+		}
+	}
+	return nodes
+}
+
 func (c *cluster) notifySubscribersLocked() {
 	for sub := range c.subs {
-		sub.Callback()
+		sub.Callback(c.nodesLocked(sub.Options...))
 	}
 }
 
