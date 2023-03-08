@@ -17,10 +17,45 @@ package testutils
 
 import (
 	"math/rand"
+	"time"
 
 	fuddle "github.com/andydunstall/fuddle/pkg/sdkv2"
 	"github.com/google/uuid"
 )
+
+func WaitForNodes(registry *fuddle.Registry, count int) ([]fuddle.NodeState, error) {
+	recvCh := make(chan interface{})
+	var nodes []fuddle.NodeState
+	unsubscribe := registry.Subscribe(func(n []fuddle.NodeState) {
+		if len(n) == count {
+			nodes = n
+			close(recvCh)
+		}
+	})
+	defer unsubscribe()
+
+	if err := WaitWithTimeout(recvCh, time.Millisecond*500); err != nil {
+		return nil, err
+	}
+	return nodes, nil
+}
+
+func WaitForNode(registry *fuddle.Registry, node fuddle.NodeState) error {
+	recvCh := make(chan interface{})
+	unsubscribe := registry.Subscribe(func(nodes []fuddle.NodeState) {
+		for _, n := range nodes {
+			if n.Equal(node) {
+				close(recvCh)
+			}
+		}
+	})
+	defer unsubscribe()
+
+	if err := WaitWithTimeout(recvCh, time.Millisecond*500); err != nil {
+		return err
+	}
+	return nil
+}
 
 // RandomNode returns a node with random attributes and state.
 func RandomNode() fuddle.NodeState {
@@ -30,12 +65,16 @@ func RandomNode() fuddle.NodeState {
 		Locality: uuid.New().String(),
 		Created:  rand.Int63(),
 		Revision: uuid.New().String(),
-		State: map[string]string{
-			uuid.New().String(): uuid.New().String(),
-			uuid.New().String(): uuid.New().String(),
-			uuid.New().String(): uuid.New().String(),
-			uuid.New().String(): uuid.New().String(),
-			uuid.New().String(): uuid.New().String(),
-		},
+		State:    RandomState(),
+	}
+}
+
+func RandomState() map[string]string {
+	return map[string]string{
+		uuid.New().String(): uuid.New().String(),
+		uuid.New().String(): uuid.New().String(),
+		uuid.New().String(): uuid.New().String(),
+		uuid.New().String(): uuid.New().String(),
+		uuid.New().String(): uuid.New().String(),
 	}
 }
