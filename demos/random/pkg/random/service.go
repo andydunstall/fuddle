@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/andydunstall/fuddle/pkg/build"
-	fuddle "github.com/andydunstall/fuddle/pkg/sdkv2"
+	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
 	"go.uber.org/zap"
 )
 
