@@ -28,7 +28,7 @@ type Node struct {
 	Locality string `json:"locality,omitempty"`
 
 	// Created is the time the node was created in UNIX milliseconds.
-	Created int64
+	Created int64 `json:"created,omitempty"`
 
 	// Revision identifies the version of the service running on the node.
 	Revision string `json:"revision,omitempty"`

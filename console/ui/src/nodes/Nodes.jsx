@@ -2,6 +2,13 @@ import React, { useEffect, useState } from 'react';
 
 import './Nodes.css';
 
+function trimRevision(revision) {
+  if (revision?.length > 10) {
+    return `${revision.substring(0, 10)}...`;
+  }
+  return revision;
+}
+
 export default function Nodes() {
   const [nodes, setNodes] = useState([]);
 
@@ -17,6 +24,7 @@ export default function Nodes() {
       })
       .catch(console.error);
   }, []);
+
   return (
     <div className="nodes">
       <h2>Nodes</h2>
@@ -26,15 +34,17 @@ export default function Nodes() {
             <th>ID</th>
             <th>Service</th>
             <th>Locality</th>
+            <th>Created</th>
             <th>Revision</th>
           </tr>
           {
             nodes.map((n) => (
-              <tr>
+              <tr id="node">
                 <td>{n.id}</td>
                 <td>{n.service}</td>
                 <td>{n.locality}</td>
-                <td>{n.revision}</td>
+                <td>{new Date(n.created).toLocaleString() }</td>
+                <td>{trimRevision(n.revision)}</td>
               </tr>
             ))
           }

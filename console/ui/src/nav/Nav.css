@@ -1,6 +1,7 @@
 .nav {
   background-color: #ffffff;
   height: 100px;
+  border-bottom: 2px solid #21bbd7;
 }
 
 .nav .title img {
