@@ -55,9 +55,16 @@ func (c *cluster) Nodes(opts ...NodesOption) []NodeState {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	options := &nodesOptions{}
+	for _, o := range opts {
+		o.apply(options)
+	}
+
 	nodes := make([]NodeState, 0, len(c.nodes))
 	for _, n := range c.nodes {
-		nodes = append(nodes, n.Copy())
+		if options.filter == nil || options.filter.Match(n) {
+			nodes = append(nodes, n.Copy())
+		}
 	}
 	return nodes
 }

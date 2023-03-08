@@ -49,7 +49,7 @@ type Registry struct {
 // updates to maintain a local eventually consistent view of the cluster.
 //
 // The given addresses are a set of seed addresses for Fuddle nodes.
-func Register(addrs []string, node NodeState, opts ...Option) (*Registry, error) {
+func Register(addrs []string, node NodeState) (*Registry, error) {
 	conn, stream, err := connect(addrs)
 	if err != nil {
 		return nil, fmt.Errorf("registry: %w", err)

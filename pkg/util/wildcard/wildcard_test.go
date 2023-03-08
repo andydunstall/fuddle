@@ -13,25 +13,50 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package sdk
+package wildcard
 
-type nodesOptions struct {
-	filter *Filter
-}
+import (
+	"fmt"
+	"testing"
 
-type NodesOption interface {
-	apply(*nodesOptions)
-}
+	"github.com/stretchr/testify/assert"
+)
 
-type filterOption struct {
-	filter *Filter
-}
-
-func (o filterOption) apply(opts *nodesOptions) {
-	opts.filter = o.filter
-}
-
-// WithFilter filters the returned set of nodes.
-func WithFilter(f Filter) NodesOption {
-	return filterOption{filter: &f}
+func TestWildcard(t *testing.T) {
+	tests := []struct {
+		Pattern string
+		Value   string
+		Match   bool
+	}{
+		{
+			"*", "foo", true,
+		},
+		{
+			"foo.*.car", "foo.bar.car", true,
+		},
+		{
+			"foo.*", "foo.bar.car", true,
+		},
+		{
+			"*.car", "foo.bar.car", true,
+		},
+		{
+			"bar*", "foo", false,
+		},
+		{
+			"foo", "foo", true,
+		},
+		{
+			"(foo)", "foo", false,
+		},
+		{
+			"[*]", "[foo]", true,
+		},
+	}
+	for _, tt := range tests {
+		name := fmt.Sprintf("match(%s,%s)", tt.Pattern, tt.Value)
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tt.Match, Match(tt.Pattern, tt.Value))
+		})
+	}
 }

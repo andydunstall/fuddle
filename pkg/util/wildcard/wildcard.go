@@ -13,25 +13,32 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package sdk
+package wildcard
 
-type nodesOptions struct {
-	filter *Filter
+import (
+	"regexp"
+	"strings"
+)
+
+func wildcardToRegex(pattern string) string {
+	components := strings.Split(pattern, "*")
+	if len(components) == 1 {
+		return "^" + regexp.QuoteMeta(pattern) + "$"
+	}
+	var regex strings.Builder
+	for i, component := range components {
+		// Replace * with .*
+		if i > 0 {
+			regex.WriteString(".*")
+		}
+		regex.WriteString(regexp.QuoteMeta(component))
+	}
+	return "^" + regex.String() + "$"
 }
 
-type NodesOption interface {
-	apply(*nodesOptions)
-}
-
-type filterOption struct {
-	filter *Filter
-}
-
-func (o filterOption) apply(opts *nodesOptions) {
-	opts.filter = o.filter
-}
-
-// WithFilter filters the returned set of nodes.
-func WithFilter(f Filter) NodesOption {
-	return filterOption{filter: &f}
+// Match returns true if the wildcard pattern matches the given value, false
+// otherwise.
+func Match(pattern string, value string) bool {
+	match, _ := regexp.MatchString(wildcardToRegex(pattern), value)
+	return match
 }
