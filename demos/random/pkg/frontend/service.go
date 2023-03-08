@@ -16,8 +16,9 @@
 package frontend
 
 import (
+	"time"
+
 	"github.com/andydunstall/fuddle/pkg/build"
-	"github.com/andydunstall/fuddle/pkg/registry"
 	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
 	"go.uber.org/zap"
 )
@@ -25,8 +26,8 @@ import (
 type Service struct {
 	server *server
 
-	fuddleRegistry *fuddle.Fuddle
-	loadBalancer   *loadBalancer
+	registry     *fuddle.Registry
+	loadBalancer *loadBalancer
 
 	conf   *Config
 	logger *zap.Logger
@@ -38,52 +39,52 @@ func NewService(conf *Config, logger *zap.Logger) *Service {
 	loadBalancer := newLoadBalancer()
 	server := newServer(conf.Addr, loadBalancer, logger)
 	return &Service{
-		server:         server,
-		loadBalancer:   loadBalancer,
-		fuddleRegistry: nil,
-		conf:           conf,
-		logger:         logger,
+		server:       server,
+		loadBalancer: loadBalancer,
+		registry:     nil,
+		conf:         conf,
+		logger:       logger,
 	}
 }
 
 func (s *Service) Start() error {
-	state := map[string]string{
-		"addr": s.conf.Addr,
-	}
-	fuddleRegistry, err := fuddle.Register("localhost:8220", registry.NodeState{
-		ID:       s.conf.ID,
-		Service:  "frontend",
-		Locality: "aws.us-east-1.us-east-1-a",
-		Revision: build.Revision,
-		State:    state,
-	}, zap.NewNop())
+	registry, err := fuddle.Register([]string{"localhost:8220"},
+		fuddle.NodeState{
+			ID:       s.conf.ID,
+			Service:  "frontend",
+			Locality: "aws.us-east-1.us-east-1-a",
+			Created:  time.Now().UnixMilli(),
+			Revision: build.Revision,
+			State: map[string]string{
+				"addr": s.conf.Addr,
+			},
+		},
+	)
 	if err != nil {
 		return err
 	}
 
-	// Query only 'addr' state updates for random service nodes.
-	query := &registry.Query{
-		"random": &registry.ServiceQuery{
-			State: []string{"addr"},
-		},
+	// Subscribe to only random nodes.
+	filter := fuddle.Filter{
+		"random": {},
 	}
-	fuddleRegistry.SubscribeNodes(query, func(nodes []registry.NodeState) {
+	registry.Subscribe(func(nodes []fuddle.NodeState) {
 		addrs := []string{}
 		for _, node := range nodes {
 			addrs = append(addrs, node.State["addr"])
 		}
 		s.loadBalancer.SetAddrs(addrs)
-	})
+	}, fuddle.WithFilter(filter))
 
-	s.fuddleRegistry = fuddleRegistry
+	s.registry = registry
 
 	return s.server.Start()
 }
 
 func (s *Service) GracefulStop() {
 	s.server.GracefulStop()
-	if s.fuddleRegistry != nil {
-		if err := s.fuddleRegistry.Unregister(); err != nil {
+	if s.registry != nil {
+		if err := s.registry.Unregister(); err != nil {
 			s.logger.Error("failed to unregister", zap.Error(err))
 		}
 	}
