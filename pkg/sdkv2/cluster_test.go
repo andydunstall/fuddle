@@ -180,6 +180,9 @@ func TestCluster_NodesLookupWithFilter(t *testing.T) {
 		}
 
 		nodes := cluster.Nodes(WithFilter(tt.Filter))
+		sort.Slice(nodes, func(i, j int) bool {
+			return nodes[i].ID < nodes[j].ID
+		})
 		assert.Equal(t, tt.FilteredNodes, nodes)
 	}
 }

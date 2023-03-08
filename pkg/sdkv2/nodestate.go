@@ -39,6 +39,37 @@ type NodeState struct {
 	State map[string]string
 }
 
+func (s *NodeState) Equal(o NodeState) bool {
+	if s.ID != o.ID {
+		return false
+	}
+	if s.Service != o.Service {
+		return false
+	}
+	if s.Locality != o.Locality {
+		return false
+	}
+	if s.Created != o.Created {
+		return false
+	}
+	if s.Revision != o.Revision {
+		return false
+	}
+	if len(s.State) != len(o.State) {
+		return false
+	}
+	for k, v1 := range s.State {
+		v2, ok := o.State[k]
+		if !ok {
+			return false
+		}
+		if v1 != v2 {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *NodeState) Copy() NodeState {
 	cp := *s
 	cp.State = CopyState(s.State)

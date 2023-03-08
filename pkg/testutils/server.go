@@ -13,18 +13,53 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package tests
+package testutils
 
 import (
 	"net"
 
 	"github.com/andydunstall/fuddle/pkg/config"
+	"github.com/andydunstall/fuddle/pkg/server"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
+
+type Server struct {
+	id      string
+	rpcAddr string
+
+	server *server.Server
+}
+
+func StartServer() (*Server, error) {
+	conf := testConfig()
+	s := &Server{
+		id:      conf.ID,
+		rpcAddr: conf.AdvAddr,
+		server:  server.NewServer(conf, zap.NewNop()),
+	}
+	if err := s.server.Start(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func (s *Server) ID() string {
+	return s.id
+}
+
+func (s *Server) RPCAddr() string {
+	return s.rpcAddr
+}
+
+func (s *Server) GracefulStop() {
+	s.server.GracefulStop()
+}
 
 func testConfig() *config.Config {
 	conf := &config.Config{}
 
-	conf.ID = "fuddle-123"
+	conf.ID = "fuddle-" + uuid.New().String()[:8]
 
 	conf.BindAddr = getSystemAddress()
 	conf.AdvAddr = conf.BindAddr
