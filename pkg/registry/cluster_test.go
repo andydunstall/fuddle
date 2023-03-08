@@ -23,8 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClusterState_Node(t *testing.T) {
-	local := NodeState{
+func TestCluster_Node(t *testing.T) {
+	local := Node{
 		ID:       "local-123",
 		Service:  "foo",
 		Locality: "us-east-1-a",
@@ -32,9 +32,9 @@ func TestClusterState_Node(t *testing.T) {
 		Revision: "v0.1.0",
 		State:    make(map[string]string),
 	}
-	cs := NewClusterState(local)
+	cs := NewCluster(local)
 
-	// Verify ClusterState.Node returns the node with the given ID.
+	// Verify Cluster.Node returns the node with the given ID.
 	node, ok := cs.Node("local-123")
 	assert.True(t, ok)
 	assert.Equal(t, local, node)
@@ -47,16 +47,16 @@ func TestClusterState_Node(t *testing.T) {
 	assert.Equal(t, local, nodeCopy)
 }
 
-func TestClusterState_NodesNoQuery(t *testing.T) {
-	local := NodeState{
+func TestCluster_Nodes(t *testing.T) {
+	local := Node{
 		ID: "local-123",
 		State: map[string]string{
 			"foo": "bar",
 		},
 	}
-	cs := NewClusterState(local)
+	cs := NewCluster(local)
 
-	joinedNodes := []NodeState{
+	joinedNodes := []Node{
 		{
 			ID:       "remote-1",
 			Service:  "foo",
@@ -96,82 +96,17 @@ func TestClusterState_NodesNoQuery(t *testing.T) {
 	}
 
 	// Check Nodes returns all joined nodes and the local node.
-	joinedNodes = append([]NodeState{local}, joinedNodes...)
+	joinedNodes = append([]Node{local}, joinedNodes...)
 
-	nodes := cs.Nodes(nil)
+	nodes := cs.Nodes()
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].ID < nodes[j].ID
 	})
 	assert.Equal(t, joinedNodes, nodes)
 }
 
-func TestClusterState_NodesWithQuery(t *testing.T) {
-	local := NodeState{
-		ID: "local-123",
-		State: map[string]string{
-			"foo": "bar",
-		},
-	}
-	cs := NewClusterState(local)
-
-	joinedNodes := []NodeState{
-		{
-			ID:       "remote-1",
-			Service:  "foo",
-			Locality: "us-east-1-a",
-			Created:  12345,
-			Revision: "v0.1.0",
-			State: map[string]string{
-				"addr.foo": "10.26.104.54:8138",
-				"addr.bar": "10.26.104.23:1122",
-			},
-		},
-		{
-			ID:       "remote-2",
-			Service:  "bar",
-			Locality: "us-east-1-a",
-			Created:  12345,
-			Revision: "v0.1.0",
-			State: map[string]string{
-				"addr.foo": "10.26.104.54:8138",
-				"addr.bar": "10.26.104.23:1122",
-			},
-		},
-	}
-	for _, node := range joinedNodes {
-		update := &rpc.NodeUpdate{
-			NodeId:     node.ID,
-			UpdateType: rpc.NodeUpdateType_JOIN,
-			Attributes: &rpc.Attributes{
-				Service:  node.Service,
-				Locality: node.Locality,
-				Created:  node.Created,
-				Revision: node.Revision,
-			},
-			State: node.State,
-		}
-		assert.Nil(t, cs.ApplyUpdate(update))
-	}
-
-	nodes := cs.Nodes(&Query{
-		"foo": &ServiceQuery{
-			State: []string{"addr.bar"},
-		},
-	})
-	assert.Equal(t, []NodeState{{
-		ID:       "remote-1",
-		Service:  "foo",
-		Locality: "us-east-1-a",
-		Created:  12345,
-		Revision: "v0.1.0",
-		State: map[string]string{
-			"addr.bar": "10.26.104.23:1122",
-		},
-	}}, nodes)
-}
-
-func TestClusterState_NodeNotFound(t *testing.T) {
-	cs := NewClusterState(NodeState{
+func TestCluster_NodeNotFound(t *testing.T) {
+	cs := NewCluster(Node{
 		ID: "local-123",
 	})
 	_, ok := cs.Node("not-found")
@@ -179,12 +114,12 @@ func TestClusterState_NodeNotFound(t *testing.T) {
 }
 
 // Tests applying a join update adds the node to the cluster state.
-func TestClusterState_ApplyJoinUpdate(t *testing.T) {
-	cs := NewClusterState(NodeState{
+func TestCluster_ApplyJoinUpdate(t *testing.T) {
+	cs := NewCluster(Node{
 		ID: "local-123",
 	})
 
-	joinedNode := NodeState{
+	joinedNode := Node{
 		ID:       "remote-123",
 		Service:  "foo",
 		Locality: "us-east-1-a",
@@ -208,15 +143,15 @@ func TestClusterState_ApplyJoinUpdate(t *testing.T) {
 	}
 	assert.Nil(t, cs.ApplyUpdate(update))
 
-	// Verify ClusterState.Node returns the added node.
+	// Verify Cluster.Node returns the added node.
 	node, ok := cs.Node("remote-123")
 	assert.True(t, ok)
 	assert.Equal(t, joinedNode, node)
 }
 
 // Tests applying a join update with no ID returns an error.
-func TestClusterState_ApplyJoinUpdateMissingID(t *testing.T) {
-	cs := NewClusterState(NodeState{
+func TestCluster_ApplyJoinUpdateMissingID(t *testing.T) {
+	cs := NewCluster(Node{
 		ID: "local-123",
 	})
 	err := cs.ApplyUpdate(&rpc.NodeUpdate{
@@ -227,8 +162,8 @@ func TestClusterState_ApplyJoinUpdateMissingID(t *testing.T) {
 }
 
 // Tests applying a join update with no attributes returns an error.
-func TestClusterState_ApplyJoinUpdateMissingAttributes(t *testing.T) {
-	cs := NewClusterState(NodeState{
+func TestCluster_ApplyJoinUpdateMissingAttributes(t *testing.T) {
+	cs := NewCluster(Node{
 		ID: "local-123",
 	})
 	err := cs.ApplyUpdate(&rpc.NodeUpdate{
@@ -239,8 +174,8 @@ func TestClusterState_ApplyJoinUpdateMissingAttributes(t *testing.T) {
 }
 
 // Tests applying a leave update removes the node to the cluster state.
-func TestClusterState_ApplyLeaveUpdate(t *testing.T) {
-	cs := NewClusterState(NodeState{
+func TestCluster_ApplyLeaveUpdate(t *testing.T) {
+	cs := NewCluster(Node{
 		ID: "local-123",
 	})
 
@@ -264,8 +199,8 @@ func TestClusterState_ApplyLeaveUpdate(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestClusterState_ApplyStateUpdate(t *testing.T) {
-	cs := NewClusterState(NodeState{
+func TestCluster_ApplyStateUpdate(t *testing.T) {
+	cs := NewCluster(Node{
 		ID: "local-123",
 	})
 
@@ -306,8 +241,8 @@ func TestClusterState_ApplyStateUpdate(t *testing.T) {
 }
 
 // Tests applying a state update where the node is not found.
-func TestClusterState_ApplyStateUpdateNodeNotFound(t *testing.T) {
-	cs := NewClusterState(NodeState{
+func TestCluster_ApplyStateUpdateNodeNotFound(t *testing.T) {
+	cs := NewCluster(Node{
 		ID: "local-123",
 	})
 
@@ -322,8 +257,8 @@ func TestClusterState_ApplyStateUpdateNodeNotFound(t *testing.T) {
 }
 
 // Tests applying an update of unknown type returns an error.
-func TestClusterState_ApplyUnknownUpdate(t *testing.T) {
-	cs := NewClusterState(NodeState{
+func TestCluster_ApplyUnknownUpdate(t *testing.T) {
+	cs := NewCluster(Node{
 		ID: "local-123",
 	})
 	err := cs.ApplyUpdate(&rpc.NodeUpdate{
@@ -334,16 +269,16 @@ func TestClusterState_ApplyUnknownUpdate(t *testing.T) {
 
 // Tests subscribing to cluster state updates by applying the applied updates to
 // another cluster state and checking they are equal.
-func TestClusterState_SubscribeUpdates(t *testing.T) {
-	cs1 := NewClusterState(NodeState{
+func TestCluster_Subscribe(t *testing.T) {
+	cs1 := NewCluster(Node{
 		ID: "local-node",
 	})
-	cs2 := NewClusterState(NodeState{
+	cs2 := NewCluster(Node{
 		ID: "local-node",
 	})
 	// Subscribe to updates from the first cluster state and apply to the
 	// second.
-	cs1.SubscribeUpdates(false, func(update *rpc.NodeUpdate) {
+	cs1.Subscribe(false, func(update *rpc.NodeUpdate) {
 		assert.Nil(t, cs2.ApplyUpdate(update))
 	})
 
@@ -369,11 +304,11 @@ func TestClusterState_SubscribeUpdates(t *testing.T) {
 		},
 	}))
 
-	nodes1 := cs1.Nodes(nil)
+	nodes1 := cs1.Nodes()
 	sort.Slice(nodes1, func(i, j int) bool {
 		return nodes1[i].ID < nodes1[j].ID
 	})
-	nodes2 := cs2.Nodes(nil)
+	nodes2 := cs2.Nodes()
 	sort.Slice(nodes2, func(i, j int) bool {
 		return nodes2[i].ID < nodes2[j].ID
 	})
@@ -395,11 +330,11 @@ func TestClusterState_SubscribeUpdates(t *testing.T) {
 		},
 	}))
 
-	nodes1 = cs1.Nodes(nil)
+	nodes1 = cs1.Nodes()
 	sort.Slice(nodes1, func(i, j int) bool {
 		return nodes1[i].ID < nodes1[j].ID
 	})
-	nodes2 = cs2.Nodes(nil)
+	nodes2 = cs2.Nodes()
 	sort.Slice(nodes2, func(i, j int) bool {
 		return nodes2[i].ID < nodes2[j].ID
 	})
@@ -411,11 +346,11 @@ func TestClusterState_SubscribeUpdates(t *testing.T) {
 		UpdateType: rpc.NodeUpdateType_LEAVE,
 	}))
 
-	nodes1 = cs1.Nodes(nil)
+	nodes1 = cs1.Nodes()
 	sort.Slice(nodes1, func(i, j int) bool {
 		return nodes1[i].ID < nodes1[j].ID
 	})
-	nodes2 = cs2.Nodes(nil)
+	nodes2 = cs2.Nodes()
 	sort.Slice(nodes2, func(i, j int) bool {
 		return nodes2[i].ID < nodes2[j].ID
 	})
@@ -424,11 +359,11 @@ func TestClusterState_SubscribeUpdates(t *testing.T) {
 
 // Tests subscribing to cluster state with rewind and applying updates to the
 // other cluster has the same state.
-func TestClusterState_SubscribeUpdatesWithRewind(t *testing.T) {
-	cs1 := NewClusterState(NodeState{
+func TestCluster_SubscribeWithRewind(t *testing.T) {
+	cs1 := NewCluster(Node{
 		ID: "local-node",
 	})
-	cs2 := NewClusterState(NodeState{
+	cs2 := NewCluster(Node{
 		ID: "local-node",
 	})
 
@@ -456,15 +391,15 @@ func TestClusterState_SubscribeUpdatesWithRewind(t *testing.T) {
 
 	// Subscribe to updates from the first cluster with rewind and apply to
 	// the second. Note only subscribing after the state updates.
-	cs1.SubscribeUpdates(true, func(update *rpc.NodeUpdate) {
+	cs1.Subscribe(true, func(update *rpc.NodeUpdate) {
 		assert.Nil(t, cs2.ApplyUpdate(update))
 	})
 
-	nodes1 := cs1.Nodes(nil)
+	nodes1 := cs1.Nodes()
 	sort.Slice(nodes1, func(i, j int) bool {
 		return nodes1[i].ID < nodes1[j].ID
 	})
-	nodes2 := cs2.Nodes(nil)
+	nodes2 := cs2.Nodes()
 	sort.Slice(nodes2, func(i, j int) bool {
 		return nodes2[i].ID < nodes2[j].ID
 	})
@@ -486,82 +421,13 @@ func TestClusterState_SubscribeUpdatesWithRewind(t *testing.T) {
 		},
 	}))
 
-	nodes1 = cs1.Nodes(nil)
+	nodes1 = cs1.Nodes()
 	sort.Slice(nodes1, func(i, j int) bool {
 		return nodes1[i].ID < nodes1[j].ID
 	})
-	nodes2 = cs2.Nodes(nil)
+	nodes2 = cs2.Nodes()
 	sort.Slice(nodes2, func(i, j int) bool {
 		return nodes2[i].ID < nodes2[j].ID
 	})
 	assert.Equal(t, nodes1, nodes2)
-}
-
-func TestClusterState_SubscribeNodes(t *testing.T) {
-	local := NodeState{
-		ID: "local-123",
-		State: map[string]string{
-			"foo": "bar",
-		},
-	}
-	cs := NewClusterState(local)
-
-	var nodes []NodeState
-	cs.SubscribeNodes(&Query{
-		"foo": &ServiceQuery{
-			State: []string{"addr.bar"},
-		},
-	}, func(n []NodeState) {
-		nodes = n
-	})
-
-	joinedNodes := []NodeState{
-		{
-			ID:       "remote-1",
-			Service:  "foo",
-			Locality: "us-east-1-a",
-			Created:  12345,
-			Revision: "v0.1.0",
-			State: map[string]string{
-				"addr.foo": "10.26.104.54:8138",
-				"addr.bar": "10.26.104.23:1122",
-			},
-		},
-		{
-			ID:       "remote-2",
-			Service:  "bar",
-			Locality: "us-east-1-a",
-			Created:  12345,
-			Revision: "v0.1.0",
-			State: map[string]string{
-				"addr.foo": "10.26.104.54:8138",
-				"addr.bar": "10.26.104.23:1122",
-			},
-		},
-	}
-	for _, node := range joinedNodes {
-		update := &rpc.NodeUpdate{
-			NodeId:     node.ID,
-			UpdateType: rpc.NodeUpdateType_JOIN,
-			Attributes: &rpc.Attributes{
-				Service:  node.Service,
-				Locality: node.Locality,
-				Created:  node.Created,
-				Revision: node.Revision,
-			},
-			State: node.State,
-		}
-		assert.Nil(t, cs.ApplyUpdate(update))
-	}
-
-	assert.Equal(t, []NodeState{{
-		ID:       "remote-1",
-		Service:  "foo",
-		Locality: "us-east-1-a",
-		Created:  12345,
-		Revision: "v0.1.0",
-		State: map[string]string{
-			"addr.bar": "10.26.104.23:1122",
-		},
-	}}, nodes)
 }

@@ -21,10 +21,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Tests NodeState.Copy returns a copy that is equal to the original, and
+// Tests Node.Copy returns a copy that is equal to the original, and
 // changing state in one won't affect the other.
-func TestNodeState_Copy(t *testing.T) {
-	node := NodeState{
+func TestNode_Copy(t *testing.T) {
+	node := Node{
 		ID:       "local-123",
 		Service:  "foo",
 		Locality: "us-east-1-a",

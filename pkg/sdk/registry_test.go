@@ -25,7 +25,7 @@ func Example_registerOrdersServiceNode() {
 	registry, err := Register(
 		// Seed addresses of Fuddle servers.
 		[]string{"192.168.1.1:8220", "192.168.1.2:8220", "192.168.1.3:8220"},
-		NodeState{
+		Node{
 			ID:       "orders-32eaba4e",
 			Service:  "orders",
 			Locality: "aws.us-east-1-b",
@@ -65,7 +65,7 @@ func Example_lookupOrdersServiceNodes() {
 	registry, err := Register(
 		// Seed addresses of Fuddle servers.
 		[]string{"192.168.1.1:8220", "192.168.1.2:8220", "192.168.1.3:8220"},
-		NodeState{
+		Node{
 			// ...
 		},
 	)
@@ -102,7 +102,7 @@ func Example_subscribeToOrdersServiceNodes() {
 	registry, err := Register(
 		// Seed addresses of Fuddle servers.
 		[]string{"192.168.1.1:8220", "192.168.1.2:8220", "192.168.1.3:8220"},
-		NodeState{
+		Node{
 			// ...
 		},
 	)
@@ -124,7 +124,7 @@ func Example_subscribeToOrdersServiceNodes() {
 	// Filter to only include order service nodes in us-east-1 whose status
 	// is active and protocol version is either 2 or 3.
 	var addrs []string
-	registry.Subscribe(func(orderNodes []NodeState) {
+	registry.Subscribe(func(orderNodes []Node) {
 		addrs = nil
 		for _, node := range orderNodes {
 			addr := node.State["addr.rpc.ip"] + ":" + node.State["addr.rpc.port"]

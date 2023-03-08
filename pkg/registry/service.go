@@ -22,7 +22,7 @@ import (
 )
 
 type Service struct {
-	clusterState *ClusterState
+	clusterState *Cluster
 	server       *Server
 
 	logger *zap.Logger
@@ -37,7 +37,7 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 	})
 	metricsRegistry.MustRegister(nodeCountGauge)
 
-	clusterState := NewClusterState(NodeState{
+	clusterState := NewCluster(Node{
 		ID:       conf.ID,
 		Service:  "fuddle",
 		Locality: "",
@@ -73,6 +73,6 @@ func (s *Service) Server() *Server {
 	return s.server
 }
 
-func (s *Service) ClusterState() *ClusterState {
+func (s *Service) Cluster() *Cluster {
 	return s.clusterState
 }

@@ -46,7 +46,7 @@ func NewService(conf *Config, logger *zap.Logger) *Service {
 
 func (s *Service) Start() error {
 	registry, err := fuddle.Register([]string{"localhost:8220"},
-		fuddle.NodeState{
+		fuddle.Node{
 			ID:       s.conf.ID,
 			Service:  "random",
 			Locality: "aws.us-east-1.us-east-1-a",

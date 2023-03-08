@@ -30,13 +30,13 @@ import (
 )
 
 type server struct {
-	clusterState *registry.ClusterState
+	clusterState *registry.Cluster
 	httpServer   *http.Server
 
 	logger *zap.Logger
 }
 
-func newServer(addr string, clusterState *registry.ClusterState, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
+func newServer(addr string, clusterState *registry.Cluster, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
 	server := &server{
 		clusterState: clusterState,
 		logger:       logger,
@@ -93,7 +93,7 @@ func (s *server) GracefulStop() {
 }
 
 func (s *server) clusterRoute(w http.ResponseWriter, r *http.Request) {
-	if err := json.NewEncoder(w).Encode(s.clusterState.Nodes(nil)); err != nil {
+	if err := json.NewEncoder(w).Encode(s.clusterState.Nodes()); err != nil {
 		s.logger.Error("failed to encode cluster response", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

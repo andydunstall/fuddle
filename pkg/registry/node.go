@@ -13,64 +13,31 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package sdk
+package registry
 
-// NodeState represents the state of a node in the cluster.
-//
-// It includes both fixed attributes of the node, and mutable application
-// defined state.
-type NodeState struct {
+// Node represents the state of a node that is propagated to other nodes
+// in the cluster.
+type Node struct {
 	// ID is a unique identifier for the node in the cluster.
-	ID string
+	ID string `json:"id,omitempty"`
 
-	// Service is the name of the service running on the node.
-	Service string
+	// Service is the type of service running on the node.
+	Service string `json:"service,omitempty"`
 
 	// Locality is the location of the node in the cluster.
-	Locality string
+	Locality string `json:"locality,omitempty"`
 
 	// Created is the time the node was created in UNIX milliseconds.
 	Created int64
 
 	// Revision identifies the version of the service running on the node.
-	Revision string
+	Revision string `json:"revision,omitempty"`
 
-	// State contains application defined key-value pairs.
-	State map[string]string
+	// State node service state.
+	State map[string]string `json:"state,omitempty"`
 }
 
-func (s *NodeState) Equal(o NodeState) bool {
-	if s.ID != o.ID {
-		return false
-	}
-	if s.Service != o.Service {
-		return false
-	}
-	if s.Locality != o.Locality {
-		return false
-	}
-	if s.Created != o.Created {
-		return false
-	}
-	if s.Revision != o.Revision {
-		return false
-	}
-	if len(s.State) != len(o.State) {
-		return false
-	}
-	for k, v1 := range s.State {
-		v2, ok := o.State[k]
-		if !ok {
-			return false
-		}
-		if v1 != v2 {
-			return false
-		}
-	}
-	return true
-}
-
-func (s *NodeState) Copy() NodeState {
+func (s *Node) Copy() Node {
 	cp := *s
 	cp.State = CopyState(s.State)
 	return cp

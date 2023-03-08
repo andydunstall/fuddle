@@ -28,7 +28,7 @@ type Service struct {
 	logger *zap.Logger
 }
 
-func NewService(clusterState *registry.ClusterState, conf *config.Config, metricsRegistry *prometheus.Registry, logger *zap.Logger) *Service {
+func NewService(clusterState *registry.Cluster, conf *config.Config, metricsRegistry *prometheus.Registry, logger *zap.Logger) *Service {
 	logger = logger.With(zap.String("service", "admin"))
 
 	server := newServer(conf.BindAdminAddr, clusterState, metricsRegistry, logger)

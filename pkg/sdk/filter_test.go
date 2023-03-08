@@ -24,7 +24,7 @@ import (
 func TestFilter(t *testing.T) {
 	tests := []struct {
 		Filter Filter
-		Node   NodeState
+		Node   Node
 		Match  bool
 	}{
 		// Empty service filter.
@@ -32,7 +32,7 @@ func TestFilter(t *testing.T) {
 			Filter: Filter{
 				"service-2": {},
 			},
-			Node: NodeState{
+			Node: Node{
 				Service:  "service-2",
 				Locality: "us-east-1-c",
 				State: map[string]string{
@@ -52,7 +52,7 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			},
-			Node: NodeState{
+			Node: Node{
 				Service:  "myservice",
 				Locality: "eu-west-2-c",
 				State: map[string]string{
@@ -78,7 +78,7 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			},
-			Node: NodeState{
+			Node: Node{
 				Service:  "myservice",
 				Locality: "eu-west-2-c",
 				State: map[string]string{
@@ -104,7 +104,7 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			},
-			Node: NodeState{
+			Node: Node{
 				Service:  "myservice",
 				Locality: "eu-west-2-c",
 				State: map[string]string{
@@ -117,7 +117,7 @@ func TestFilter(t *testing.T) {
 		// No matching services.
 		{
 			Filter: Filter{},
-			Node: NodeState{
+			Node: Node{
 				Service:  "myservice",
 				Locality: "eu-west-2-c",
 				State: map[string]string{
@@ -188,7 +188,7 @@ func TestServiceFilter(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		match := tt.Filter.Match(NodeState{
+		match := tt.Filter.Match(Node{
 			Locality: tt.Locality,
 			State:    tt.State,
 		})
@@ -259,7 +259,7 @@ func TestStateFilter(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		match := tt.Filter.Match(NodeState{
+		match := tt.Filter.Match(Node{
 			State: tt.State,
 		})
 		assert.Equal(t, tt.Match, match)
