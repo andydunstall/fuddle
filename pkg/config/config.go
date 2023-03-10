@@ -42,11 +42,15 @@ type Config struct {
 }
 
 func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddString("id", c.ID)
+
 	e.AddString("bind-addr", c.BindAddr)
 	e.AddString("adv-addr", c.AdvAddr)
 
 	e.AddString("bind-admin-addr", c.BindAdminAddr)
 	e.AddString("adv-admin-addr", c.AdvAdminAddr)
+
+	e.AddString("locality", c.Locality)
 
 	e.AddString("revision", c.Revision)
 
