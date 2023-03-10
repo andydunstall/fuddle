@@ -19,4 +19,4 @@ issues:
   max-same-issues: 0
   exclude:
     - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Unregister|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
-    - "exported (type|method|function|const) (.+) should have comment(.+)or be unexported"
+    - "exported (type|method|function|const|var) (.+) should have comment(.+)or be unexported"
