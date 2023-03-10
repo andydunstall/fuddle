@@ -16,34 +16,17 @@
 package counter
 
 import (
-	"strings"
-
-	"go.uber.org/zap/zapcore"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/rpc"
 )
 
-// Config contains the node configuration.
-type Config struct {
-	// ID is a unique identifier for the node.
-	ID string
-
-	// RPCAddr is the address to listen for RPC connections.
-	RPCAddr string
-
-	// FuddleAddrs contains fuddle registry seed nodes.
-	FuddleAddrs []string
-
-	// Locality is the location of the node in the cluster.
-	Locality string
-
-	// Revision is the build commit.
-	Revision string
+type server struct {
+	rpc.UnimplementedCounterServer
 }
 
-func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
-	e.AddString("id", c.ID)
-	e.AddString("rpc-addr", c.RPCAddr)
-	e.AddString("fuddle-addrs", strings.Join(c.FuddleAddrs, ","))
-	e.AddString("locality", c.Locality)
-	e.AddString("revision", c.Revision)
+func newServer() *server {
+	return &server{}
+}
+
+func (s *server) Count(stream rpc.Counter_CountServer) error {
 	return nil
 }

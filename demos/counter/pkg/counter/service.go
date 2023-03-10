@@ -19,26 +19,38 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/andydunstall/fuddle/demos/counter/pkg/rpc"
 	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
 	"go.uber.org/zap"
 )
 
+// Service implements the counter service.
 type Service struct {
-	conf *Config
+	grpcServer *grpcServer
 
 	registry *fuddle.Registry
+
+	conf *Config
 
 	logger *zap.Logger
 }
 
 func NewService(conf *Config, logger *zap.Logger) *Service {
+	server := newServer()
+
+	grpcServer := newGRPCServer(conf.RPCAddr, logger)
+	rpc.RegisterCounterServer(grpcServer.GRPCServer(), server)
+
 	return &Service{
-		conf:   conf,
-		logger: logger,
+		grpcServer: grpcServer,
+		conf:       conf,
+		logger:     logger,
 	}
 }
 
 func (s *Service) Start() error {
+	s.logger.Info("starting node", zap.Object("conf", s.conf))
+
 	registry, err := fuddle.Register(
 		s.conf.FuddleAddrs,
 		fuddle.Node{
@@ -57,11 +69,16 @@ func (s *Service) Start() error {
 	}
 	s.registry = registry
 
-	return nil
+	return s.grpcServer.Start()
 }
 
 func (s *Service) GracefulStop() {
+	s.logger.Info("starting node graceful shutdown")
+
+	// Unregister the node from the cluster before shutting down the server.
 	if err := s.registry.Unregister(); err != nil {
 		s.logger.Error("failed to unregister", zap.Error(err))
 	}
+
+	s.grpcServer.GracefulStop()
 }
