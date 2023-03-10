@@ -16,11 +16,15 @@
 package server
 
 import (
+	"net"
+
 	"go.uber.org/zap"
 )
 
 type options struct {
-	logger *zap.Logger
+	logger        *zap.Logger
+	rpcListener   net.Listener
+	adminListener net.Listener
 }
 
 type Option interface {
@@ -37,4 +41,32 @@ func (o loggerOption) apply(opts *options) {
 
 func WithLogger(logger *zap.Logger) Option {
 	return loggerOption{logger: logger}
+}
+
+type rpcListenerOption struct {
+	ln net.Listener
+}
+
+func (o rpcListenerOption) apply(opts *options) {
+	opts.rpcListener = o.ln
+}
+
+// WithRPCListener uses the given listener for the gRPC server instead of
+// binding to a new listener.
+func WithRPCListener(ln net.Listener) Option {
+	return rpcListenerOption{ln: ln}
+}
+
+type adminListenerOption struct {
+	ln net.Listener
+}
+
+func (o adminListenerOption) apply(opts *options) {
+	opts.adminListener = o.ln
+}
+
+// WithAdminListener uses the given listener for the admin server instead of
+// binding to a new listener.
+func WithAdminListener(ln net.Listener) Option {
+	return adminListenerOption{ln: ln}
 }

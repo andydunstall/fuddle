@@ -16,6 +16,8 @@
 package server
 
 import (
+	"net"
+
 	"github.com/andydunstall/fuddle/pkg/admin"
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/registry"
@@ -32,13 +34,22 @@ type Server struct {
 
 	grpcServer *grpcServer
 
+	// rpcListener is an optional listener to use for gRPC instead of binding
+	// to a new listener.
+	rpcListener net.Listener
+	// adminListener is an optional listener to use for the admin server
+	// insert of binding to a new listener.
+	adminListener net.Listener
+
 	conf   *config.Config
 	logger *zap.Logger
 }
 
 func NewServer(conf *config.Config, opts ...Option) *Server {
 	options := options{
-		logger: zap.NewNop(),
+		logger:        zap.NewNop(),
+		rpcListener:   nil,
+		adminListener: nil,
 	}
 	for _, o := range opts {
 		o.apply(&options)
@@ -59,6 +70,8 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 		adminService:    adminService,
 		registryService: registryService,
 		grpcServer:      grpcServer,
+		rpcListener:     options.rpcListener,
+		adminListener:   options.adminListener,
 		conf:            conf,
 		logger:          logger,
 	}
@@ -68,13 +81,13 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 func (s *Server) Start() error {
 	s.logger.Info("starting node", zap.Object("conf", s.conf))
 
-	if err := s.adminService.Start(); err != nil {
+	if err := s.adminService.Start(s.adminListener); err != nil {
 		return err
 	}
 	if err := s.registryService.Start(); err != nil {
 		return err
 	}
-	if err := s.grpcServer.Start(); err != nil {
+	if err := s.grpcServer.Start(s.rpcListener); err != nil {
 		return err
 	}
 

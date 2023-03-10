@@ -16,6 +16,8 @@
 package admin
 
 import (
+	"net"
+
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/registry"
 	"github.com/prometheus/client_golang/prometheus"
@@ -38,9 +40,9 @@ func NewService(clusterState *registry.Cluster, conf *config.Config, metricsRegi
 	}
 }
 
-func (s *Service) Start() error {
+func (s *Service) Start(ln net.Listener) error {
 	s.logger.Info("starting admin service")
-	return s.server.Start()
+	return s.server.Start(ln)
 }
 
 func (s *Service) GracefulStop() {
