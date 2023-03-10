@@ -17,8 +17,21 @@ package demo
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 
+	"github.com/andydunstall/fuddle/pkg/build"
+	"github.com/andydunstall/fuddle/pkg/config"
+	"github.com/andydunstall/fuddle/pkg/server"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+var (
+	// verbose indicates whether debug logs should be enabled.
+	verbose bool
 )
 
 var CounterCmd = &cobra.Command{
@@ -33,6 +46,15 @@ consistent hashing and load balancing with a custom policy.
 	RunE: runCounterService,
 }
 
+func init() {
+	CounterCmd.PersistentFlags().BoolVarP(
+		&verbose,
+		"verbose", "v",
+		false,
+		"if set enabled debug logs on the node",
+	)
+}
+
 func runCounterService(cmd *cobra.Command, args []string) error {
 	fmt.Println(`
 #
@@ -45,19 +67,44 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 # View the cluster dashboard at http://127.0.0.1:8221."
 #
 # Or inspect the cluster with 'fuddle status cluster'.
-#
-#   Nodes
+#`)
+
+	logDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		return fmt.Errorf("counter service: create log dir: %w", err)
+	}
+
+	fuddleConf := fuddleNodeConfig()
+
+	fuddleNode := server.NewServer(
+		fuddleConf,
+		demoLogger(logDir, fuddleConf.ID),
+	)
+	if err := fuddleNode.Start(); err != nil {
+		return fmt.Errorf("counter service: fuddle node: %w", err)
+	}
+	defer fuddleNode.GracefulStop()
+
+	// Catch signals to gracefully shutdown the server.
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, os.Interrupt)
+
+	fmt.Println(`#   Nodes
 #   -----
-#
-#     Fuddle
+#`)
+
+	fmt.Println(`#     Fuddle
 #     -----
-#
-#     fuddle-ef4b748
-#       Admin Dashboard: http://127.0.0.1:8221
-#       Locality: us-east-1-a
-#       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/fuddle-ef4b748.log
-#
-#     Frontend
+#`)
+
+	fmt.Printf(`#     %s
+#       Admin Dashboard: http://%s
+#       Locality: %s
+#       Logs: %s
+#`, fuddleConf.ID, fuddleConf.AdvAdminAddr, fuddleConf.Locality, demoLogPath(logDir, fuddleConf.ID))
+	fmt.Println("")
+
+	fmt.Println(`#     Frontend
 #     --------
 #
 #     frontend-9cd2c9e
@@ -106,5 +153,34 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 #       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/clock-ce4f2fa.log
 #`)
 
+	<-signalCh
+
 	return nil
+}
+
+func fuddleNodeConfig() *config.Config {
+	// Hardcode the fuddle addresses so we can document the dashboard URL.
+	return &config.Config{
+		ID:            "fuddle-" + uuid.New().String()[:8],
+		BindAddr:      "127.0.0.1:8220",
+		AdvAddr:       "127.0.0.1:8220",
+		BindAdminAddr: "127.0.0.1:8221",
+		AdvAdminAddr:  "127.0.0.1:8221",
+		Locality:      "us-east-1-a",
+		Revision:      build.Revision,
+	}
+}
+
+func demoLogger(dir string, id string) *zap.Logger {
+	path := dir + "/" + id + ".log"
+	loggerConf := zap.NewProductionConfig()
+	if verbose {
+		loggerConf.Level.SetLevel(zapcore.DebugLevel)
+	}
+	loggerConf.OutputPaths = []string{path}
+	return zap.Must(loggerConf.Build())
+}
+
+func demoLogPath(dir string, id string) string {
+	return dir + "/" + id + ".log"
 }
