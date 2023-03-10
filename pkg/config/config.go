@@ -34,6 +34,9 @@ type Config struct {
 	// AdvAdminAddr is the address to advertise to admin clients.
 	AdvAdminAddr string
 
+	// Locality is the location of the node in the cluster.
+	Locality string
+
 	// Revision is the build commit.
 	Revision string
 }

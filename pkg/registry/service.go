@@ -16,6 +16,8 @@
 package registry
 
 import (
+	"time"
+
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -40,7 +42,8 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 	clusterState := NewCluster(Node{
 		ID:       conf.ID,
 		Service:  "fuddle",
-		Locality: "",
+		Locality: conf.Locality,
+		Created:  time.Now().UnixMilli(),
 		Revision: conf.Revision,
 		State: map[string]string{
 			"addr.rpc":   conf.BindAddr,
