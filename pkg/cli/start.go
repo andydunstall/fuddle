@@ -39,6 +39,9 @@ var (
 	// advAdminAddr is the address to advertise to admin clients.
 	advAdminAddr string
 
+	// locality is the location of the node in the cluster.
+	locality string
+
 	// startVerbose indicates whether debug logs should be enabled on the node.
 	startVerbose bool
 )
@@ -72,10 +75,17 @@ func init() {
 		"the bind address to listen for admin connections",
 	)
 	startCmd.Flags().StringVarP(
-		&advAddr,
+		&advAdminAddr,
 		"adv-admin-addr", "",
 		"",
 		"the address to advertise to admin clients (defaults to the bind address)",
+	)
+
+	startCmd.Flags().StringVarP(
+		&locality,
+		"locality", "l",
+		"",
+		"the location of the node in the cluster",
 	)
 
 	startCmd.PersistentFlags().BoolVarP(
@@ -102,6 +112,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		BindAdminAddr: bindAdminAddr,
 		AdvAdminAddr:  bindAdminAddr,
 
+		Locality: locality,
 		Revision: build.Revision,
 	}
 	if advAddr != "" {
