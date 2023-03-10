@@ -20,9 +20,13 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/andydunstall/fuddle/demos/counter/pkg/clock"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/counter"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/frontend"
 	"github.com/andydunstall/fuddle/pkg/build"
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/server"
+	"github.com/andydunstall/fuddle/pkg/testutils"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -56,8 +60,7 @@ func init() {
 }
 
 func runCounterService(cmd *cobra.Command, args []string) error {
-	fmt.Println(`
-#
+	fmt.Println(`#
 # Welcome to the Fuddle counter service demo!
 #
 # This demo shows how Fuddle can be used to observe the nodes in a cluster,
@@ -85,6 +88,45 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 	}
 	defer fuddleNode.GracefulStop()
 
+	var frontendNodes []*frontend.Config
+	frontendNodes = append(frontendNodes, frontendNodeConfig("us-east-1-a"))
+	frontendNodes = append(frontendNodes, frontendNodeConfig("us-east-1-b"))
+	frontendNodes = append(frontendNodes, frontendNodeConfig("us-east-1-c"))
+
+	for _, conf := range frontendNodes {
+		node := frontend.NewService(conf, demoLogger(logDir, fuddleConf.ID))
+		if err := node.Start(); err != nil {
+			return fmt.Errorf("counter service: frontend node: %w", err)
+		}
+		defer node.GracefulStop()
+	}
+
+	var counterNodes []*counter.Config
+	counterNodes = append(counterNodes, counterNodeConfig("us-east-1-a"))
+	counterNodes = append(counterNodes, counterNodeConfig("us-east-1-b"))
+	counterNodes = append(counterNodes, counterNodeConfig("us-east-1-c"))
+
+	for _, conf := range counterNodes {
+		node := counter.NewService(conf, demoLogger(logDir, fuddleConf.ID))
+		if err := node.Start(); err != nil {
+			return fmt.Errorf("counter service: counter node: %w", err)
+		}
+		defer node.GracefulStop()
+	}
+
+	var clockNodes []*clock.Config
+	clockNodes = append(clockNodes, clockNodeConfig("us-east-1-a"))
+	clockNodes = append(clockNodes, clockNodeConfig("us-east-1-b"))
+	clockNodes = append(clockNodes, clockNodeConfig("us-east-1-c"))
+
+	for _, conf := range clockNodes {
+		node := clock.NewService(conf, demoLogger(logDir, fuddleConf.ID))
+		if err := node.Start(); err != nil {
+			return fmt.Errorf("clock service: clock node: %w", err)
+		}
+		defer node.GracefulStop()
+	}
+
 	// Catch signals to gracefully shutdown the server.
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, os.Interrupt)
@@ -105,53 +147,41 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 	fmt.Println("")
 
 	fmt.Println(`#     Frontend
-#     --------
-#
-#     frontend-9cd2c9e
-#       Endpoint: http://127.0.0.1:61564
-#       Locality: us-east-1-a
-#       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/frontend-9cd2c9e.log
-#
-#     frontend: frontend-4ffda82
-#       Endpoint: http://127.0.0.1:61565
-#       Locality: us-east-1-b
-#       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/frontend-4ffda82.log
-#
-#     frontend: frontend-4eb03b7
-#       Endpoint: http://127.0.0.1:61566
-#       Locality: us-east-1-c
-#       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/frontend-4eb03b7.log
-#
-#     Counter
 #     -------
-#
-#     counter: counter-eeb9488
-#       Locality: us-east-1-a
-#       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/counter-eeb9488.log
-#
-#     counter: counter-57cbaef
-#       Locality: us-east-1-b
-#       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/counter-57cbaef.log
-#
-#     counter: counter-ce4f2fa
-#       Locality: us-east-1-c
-#       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/counter-ce4f2fa.log
-#
-#     Clock
-#     -----
-#
-#     clock: clock-eeb9488
-#       Locality: us-east-1-a
-#       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/clock-eeb9488.log
-#
-#     clock: clock-57cbaef
-#       Locality: us-east-1-b
-#       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/clock-57cbaef.log
-#
-#     clock: clock-ce4f2fa
-#       Locality: us-east-1-c
-#       Logs: /var/folders/_z/p6j4xhdd1kn1xwct176qj3bc0000gp/T/2129500756/clock-ce4f2fa.log
 #`)
+
+	for _, conf := range frontendNodes {
+		fmt.Printf(`#     %s
+#       Endpoint: ws://%s/{id}
+#       Locality: %s
+#       Logs: %s
+#`, conf.ID, conf.RPCAddr, conf.Locality, demoLogPath(logDir, conf.ID))
+		fmt.Println("")
+	}
+
+	fmt.Println(`#     Counter
+#     -------
+#`)
+
+	for _, conf := range counterNodes {
+		fmt.Printf(`#     %s
+#       Locality: %s
+#       Logs: %s
+#`, conf.ID, conf.Locality, demoLogPath(logDir, conf.ID))
+		fmt.Println("")
+	}
+
+	fmt.Println(`#     Clock
+#     -------
+#`)
+
+	for _, conf := range clockNodes {
+		fmt.Printf(`#     %s
+#       Locality: %s
+#       Logs: %s
+#`, conf.ID, conf.Locality, demoLogPath(logDir, conf.ID))
+		fmt.Println("")
+	}
 
 	<-signalCh
 
@@ -168,6 +198,33 @@ func fuddleNodeConfig() *config.Config {
 		AdvAdminAddr:  "127.0.0.1:8221",
 		Locality:      "us-east-1-a",
 		Revision:      build.Revision,
+	}
+}
+
+func frontendNodeConfig(locality string) *frontend.Config {
+	return &frontend.Config{
+		ID:       "frontend-" + uuid.New().String()[:8],
+		RPCAddr:  testutils.GetSystemAddress(),
+		Locality: locality,
+		Revision: build.Revision,
+	}
+}
+
+func counterNodeConfig(locality string) *counter.Config {
+	return &counter.Config{
+		ID:       "counter-" + uuid.New().String()[:8],
+		RPCAddr:  testutils.GetSystemAddress(),
+		Locality: locality,
+		Revision: build.Revision,
+	}
+}
+
+func clockNodeConfig(locality string) *clock.Config {
+	return &clock.Config{
+		ID:       "clock-" + uuid.New().String()[:8],
+		RPCAddr:  testutils.GetSystemAddress(),
+		Locality: locality,
+		Revision: build.Revision,
 	}
 }
 
