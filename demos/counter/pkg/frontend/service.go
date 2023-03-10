@@ -16,18 +16,52 @@
 package frontend
 
 import (
+	"fmt"
+	"time"
+
+	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
 	"go.uber.org/zap"
 )
 
-type Service struct{}
+type Service struct {
+	conf *Config
+
+	registry *fuddle.Registry
+
+	logger *zap.Logger
+}
 
 func NewService(conf *Config, logger *zap.Logger) *Service {
-	return &Service{}
+	return &Service{
+		conf:   conf,
+		logger: logger,
+	}
 }
 
 func (s *Service) Start() error {
+	registry, err := fuddle.Register(
+		s.conf.FuddleAddrs,
+		fuddle.Node{
+			ID:       s.conf.ID,
+			Service:  "frontend",
+			Locality: s.conf.Locality,
+			Created:  time.Now().UnixMilli(),
+			Revision: s.conf.Revision,
+			State: map[string]string{
+				"addr.rpc": s.conf.RPCAddr,
+			},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("frontend service: start: %w", err)
+	}
+	s.registry = registry
+
 	return nil
 }
 
 func (s *Service) GracefulStop() {
+	if err := s.registry.Unregister(); err != nil {
+		s.logger.Error("failed to unregister", zap.Error(err))
+	}
 }

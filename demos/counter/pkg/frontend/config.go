@@ -23,6 +23,9 @@ type Config struct {
 	// RPCAddr is the address to listen for RPC connections.
 	RPCAddr string
 
+	// FuddleAddrs contains fuddle registry seed nodes.
+	FuddleAddrs []string
+
 	// Locality is the location of the node in the cluster.
 	Locality string
 
