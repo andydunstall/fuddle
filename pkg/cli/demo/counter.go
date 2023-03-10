@@ -67,7 +67,7 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 # discover nodes, and route request using application specific routing, including
 # consistent hashing and load balancing with a custom policy.
 #
-# View the cluster dashboard at http://127.0.0.1:8221."
+# View the cluster dashboard at http://127.0.0.1:8221.
 #
 # Or inspect the cluster with 'fuddle status cluster'.
 #`)

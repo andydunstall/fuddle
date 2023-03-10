@@ -29,3 +29,7 @@ from [releases](https://github.com/andydunstall/fuddle/releases).
 Then start the demo running `fuddle demo counter`. This will spin up the cluster
 which can be observed via the Fuddle dashboard at
 [`http://127.0.0.1:8221`](http://127.0.0.1:8221).
+
+<p align="center">
+  <img src='../../assets/images/counter-service-dashboard.png?raw=true' width='80%'>
+</p>
