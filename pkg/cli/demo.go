@@ -16,6 +16,7 @@
 package cli
 
 import (
+	"github.com/andydunstall/fuddle/pkg/cli/demo"
 	"github.com/spf13/cobra"
 )
 
@@ -25,5 +26,6 @@ var demoCmd = &cobra.Command{
 }
 
 func init() {
+	demoCmd.AddCommand(demo.CounterCmd)
 	demoCmd.AddCommand(randomDemoCmd)
 }
