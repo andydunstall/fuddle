@@ -81,7 +81,7 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 
 	fuddleNode := server.NewServer(
 		fuddleConf,
-		demoLogger(logDir, fuddleConf.ID),
+		server.WithLogger(demoLogger(logDir, fuddleConf.ID)),
 	)
 	if err := fuddleNode.Start(); err != nil {
 		return fmt.Errorf("counter service: fuddle node: %w", err)

@@ -122,7 +122,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		conf.AdvAdminAddr = bindAdminAddr
 	}
 
-	server := server.NewServer(conf, logger)
+	server := server.NewServer(conf, server.WithLogger(logger))
 
 	// Catch signals so to gracefully shutdown the server.
 	signalCh := make(chan os.Signal, 1)

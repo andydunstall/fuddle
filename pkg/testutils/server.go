@@ -21,7 +21,6 @@ import (
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 type Server struct {
@@ -36,7 +35,7 @@ func StartServer() (*Server, error) {
 	s := &Server{
 		id:      conf.ID,
 		rpcAddr: conf.AdvAddr,
-		server:  server.NewServer(conf, zap.NewNop()),
+		server:  server.NewServer(conf),
 	}
 	if err := s.server.Start(); err != nil {
 		return nil, err
