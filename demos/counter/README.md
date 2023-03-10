@@ -1,13 +1,8 @@
-# Demos
-
-These demos provide services that use Fuddle to manage the cluster, which can
-be run using `fuddle demo`.
-
-## [Counter Service](./counter)
+# Counter Service
 
 > :warning: **Counter service is still in development**
 
-The counter service is a simple service that provides a WebSocket endpoint
+The counter service provides a simple service that provides a WebSocket endpoint
 users connect to and specify an ID. The service then streams the number of users
 with that same ID.
 
@@ -26,20 +21,15 @@ Although this is a simple service, it shows how Fuddle can be used to:
 * Route requests to different nodes using application specific routing,
 including using consistent hashing, and load balancing with a custom policy
 
-Run the service using `fuddle demo counter`.
+## Usage
 
-See [`counter/`](./counter) for documentation on the service usage and
-architecture.
+If you haven't already, download the latest `fuddle` binary for you're platform
+from [releases](https://github.com/andydunstall/fuddle/releases).
 
-## [Random Number Service](./random)
-The random number service provides a toy example showing a simple use of Fuddle.
-
-The cluster includes two types of node:
-* Frontends: Accept client requests and forward to the appropriate backend node,
-* Random: Generates a random number
-
-Run the service using `fuddle demo random`.
+Then start the demo running `fuddle demo counter`. This will spin up the cluster
+which can be observed via the Fuddle dashboard at
+[`http://127.0.0.1:8221`](http://127.0.0.1:8221).
 
 <p align="center">
-  <img src='../assets/images/random-demo.png?raw=true' width='60%'>
+  <img src='../../assets/images/counter-service-dashboard.png?raw=true' width='80%'>
 </p>

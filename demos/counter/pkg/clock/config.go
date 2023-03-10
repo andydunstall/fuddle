@@ -13,19 +13,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package cli
+package clock
 
-import (
-	"github.com/andydunstall/fuddle/pkg/cli/demo"
-	"github.com/spf13/cobra"
-)
+// Config contains the node configuration.
+type Config struct {
+	// ID is a unique identifier for the node.
+	ID string
 
-var demoCmd = &cobra.Command{
-	Use:   "demo",
-	Short: "register demo nodes with the cluster",
-}
+	// RPCAddr is the address to listen for RPC connections.
+	RPCAddr string
 
-func init() {
-	demoCmd.AddCommand(demo.CounterCmd)
-	demoCmd.AddCommand(randomDemoCmd)
+	// FuddleAddrs contains fuddle registry seed nodes.
+	FuddleAddrs []string
+
+	// Locality is the location of the node in the cluster.
+	Locality string
+
+	// Revision is the build commit.
+	Revision string
 }

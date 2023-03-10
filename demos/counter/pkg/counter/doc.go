@@ -13,19 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package cli
-
-import (
-	"github.com/andydunstall/fuddle/pkg/cli/demo"
-	"github.com/spf13/cobra"
-)
-
-var demoCmd = &cobra.Command{
-	Use:   "demo",
-	Short: "register demo nodes with the cluster",
-}
-
-func init() {
-	demoCmd.AddCommand(demo.CounterCmd)
-	demoCmd.AddCommand(randomDemoCmd)
-}
+/*
+Package counter provides a counter service.
+*/
+package counter

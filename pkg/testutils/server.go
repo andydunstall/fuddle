@@ -61,16 +61,16 @@ func testConfig() *config.Config {
 
 	conf.ID = "fuddle-" + uuid.New().String()[:8]
 
-	conf.BindAddr = getSystemAddress()
+	conf.BindAddr = GetSystemAddress()
 	conf.AdvAddr = conf.BindAddr
 
-	conf.BindAdminAddr = getSystemAddress()
+	conf.BindAdminAddr = GetSystemAddress()
 	conf.AdvAdminAddr = conf.BindAdminAddr
 
 	return conf
 }
 
-func getSystemAddress() string {
+func GetSystemAddress() string {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		panic(err)
