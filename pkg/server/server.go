@@ -36,8 +36,15 @@ type Server struct {
 	logger *zap.Logger
 }
 
-func NewServer(conf *config.Config, logger *zap.Logger) *Server {
-	logger = logger.With(zap.String("service", "server"))
+func NewServer(conf *config.Config, opts ...Option) *Server {
+	options := options{
+		logger: zap.NewNop(),
+	}
+	for _, o := range opts {
+		o.apply(&options)
+	}
+
+	logger := options.logger.With(zap.String("service", "server"))
 
 	metricsRegistry := prometheus.NewRegistry()
 	metricsRegistry.MustRegister(collectors.NewGoCollector())

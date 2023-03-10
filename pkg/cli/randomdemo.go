@@ -95,7 +95,10 @@ func runRandomDemo(cmd *cobra.Command, args []string) error {
 	signal.Notify(signalCh, os.Interrupt)
 
 	for _, conf := range fuddleConfig {
-		server := server.NewServer(conf.Config, loggerWithPath(conf.LogPath, false))
+		server := server.NewServer(
+			conf.Config,
+			server.WithLogger(loggerWithPath(conf.LogPath, false)),
+		)
 		if err := server.Start(); err != nil {
 			return fmt.Errorf("failed to start fuddle: %w", err)
 		}
