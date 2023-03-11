@@ -7,7 +7,7 @@ message CountUpdate {
 	// ID of the requested count.
 	string id = 1;
 	// Number of users registered for that ID on the client.
-	string count = 2;
+	uint64 count = 2;
 }
 
 // Counter is a service that maintains a counter of the number of users
