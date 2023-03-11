@@ -7,26 +7,27 @@ be run using `fuddle demo`.
 
 > :warning: **Counter service is still in development**
 
-The counter service is a simple service that provides a WebSocket endpoint
-users connect to and specify an ID. The service then streams the number of users
-with that same ID.
+The counter service is a demo cluster that shows how Fuddle can be used for
+application specific routing between nodes, rather than just basic round robin
+load balancing.
 
-So when a new user connects with ID `foo`, the counter of users with ID `foo` is
-incremented and sent to all users connected with that ID. Similarly when a user
-disconnects, the counter is decremented and sent to all connected users with
-that ID.
+Users register an ID, then the service streams updates on how many other users
+are registered with the same ID. So if a user registers ID `foo`, the service
+will increment the count and broadcast the updated count to all users registered
+with ID `foo`. Similarly when a user unregisters the count is decremented and
+broadcast.
 
-Each user with the same ID must connect to the same counter service node,
-therefore to distribute load among multiple nodes, each node is responsible for
-a range of IDs using consistent hashing.
+To scale the cluster horizontally, each node in the cluster is responsible for a
+range of IDs using consistent hashing. Therefore Fuddle is used to build the
+hash ring of nodes, and receive updates when nodes join and leave to trigger a
+rebalance.
 
-Although this is a simple service, it shows how Fuddle can be used to:
-* Observe the nodes in the cluster,
-* Discovery the nodes in the cluster and their services,
-* Route requests to different nodes using application specific routing,
-including using consistent hashing, and load balancing with a custom policy
+Although this is a simple service, it show how Fuddle can be used for:
+* Observability: View the nodes in the cluster and their state either through
+the Fuddle dashboard or using the Fuddle CLI,
+* Cluster discovery: Nodes use Fuddle to discover each other, and are notified
+when nodes join, leave or update their state, which can be used for routing
+requests to the appropriate node
 
-Run the service using `fuddle demo counter`.
-
-See [`counter/`](./counter) for documentation on the service usage and
-architecture.
+See [`counter/`](./counter) for more usage information, documentation and the
+demo source code.
