@@ -17,16 +17,66 @@ package counter
 
 import (
 	"testing"
+	"time"
 
+	"github.com/andydunstall/fuddle/demos/counter/pkg/client/counter"
 	"github.com/andydunstall/fuddle/demos/counter/pkg/testutils/cluster"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCounter(t *testing.T) {
+// Tests registering increments the count and receives update when the
+// count changes.
+func TestCounter_Register(t *testing.T) {
 	c, err := cluster.NewCluster(
 		cluster.WithFuddleNodes(1),
 		cluster.WithCounterNodes(1),
 	)
 	require.NoError(t, err)
 	defer c.Shutdown()
+
+	client := counter.NewClient(c.CounterAddrs()[0])
+	defer client.Close()
+
+	// Register and subscribe to updates.
+	updates := make(chan uint64, 1)
+	unsubscribe, err := client.Register("foo", func(c uint64) {
+		updates <- c
+	})
+	require.NoError(t, err)
+	defer unsubscribe()
+
+	// Expect to receive an update that the user was registered.
+	assert.Equal(t, uint64(1), waitTimeout(updates, t))
+
+	// Register 15 more users with the same ID, split across multiple client
+	// connections.
+	var unregister []func()
+	for i := 0; i != 5; i++ {
+		c := counter.NewClient(c.CounterAddrs()[0])
+		defer c.Close()
+
+		for j := 0; j != 3; j++ {
+			unsub, err := c.Register("foo", func(c uint64) {})
+			require.NoError(t, err)
+			unregister = append(unregister, unsub)
+
+			assert.Equal(t, uint64((i*3)+j+2), waitTimeout(updates, t))
+		}
+	}
+
+	for i := len(unregister) - 1; i >= 0; i-- {
+		unregister[i]()
+		assert.Equal(t, uint64(i+1), waitTimeout(updates, t))
+	}
+}
+
+func waitTimeout(ch <-chan uint64, t *testing.T) uint64 {
+	select {
+	case c := <-ch:
+		return c
+	case <-time.After(time.Second):
+		t.Error("timeout waiting for update")
+		return 0
+	}
 }
