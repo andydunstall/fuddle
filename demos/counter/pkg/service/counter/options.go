@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package server
+package counter
 
 import (
 	"net"
@@ -22,9 +22,8 @@ import (
 )
 
 type options struct {
-	logger        *zap.Logger
-	rpcListener   net.Listener
-	adminListener net.Listener
+	logger      *zap.Logger
+	rpcListener net.Listener
 }
 
 type Option interface {
@@ -55,18 +54,4 @@ func (o rpcListenerOption) apply(opts *options) {
 // binding to a new listener.
 func WithRPCListener(ln net.Listener) Option {
 	return rpcListenerOption{ln: ln}
-}
-
-type adminListenerOption struct {
-	ln net.Listener
-}
-
-func (o adminListenerOption) apply(opts *options) {
-	opts.adminListener = o.ln
-}
-
-// WithAdminListener uses the given listener for the admin server instead of
-// binding to a new listener.
-func WithAdminListener(ln net.Listener) Option {
-	return adminListenerOption{ln: ln}
 }

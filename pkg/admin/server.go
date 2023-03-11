@@ -64,12 +64,15 @@ func newServer(addr string, clusterState *registry.Cluster, metricsRegistry *pro
 	return server
 }
 
-func (s *server) Start() error {
-	// Setup the listener before starting to the goroutine to return any errors
-	// binding or listening to the configured address.
-	ln, err := net.Listen("tcp", s.httpServer.Addr)
-	if err != nil {
-		return fmt.Errorf("admin server: %w", err)
+func (s *server) Start(ln net.Listener) error {
+	if ln == nil {
+		// Setup the listener before starting to the goroutine to return any errors
+		// binding or listening to the configured address.
+		var err error
+		ln, err = net.Listen("tcp", s.httpServer.Addr)
+		if err != nil {
+			return fmt.Errorf("admin server: %w", err)
+		}
 	}
 
 	s.logger.Info(

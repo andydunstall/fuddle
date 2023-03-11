@@ -13,22 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package counter
+package rpc
 
-// Config contains the node configuration.
-type Config struct {
-	// ID is a unique identifier for the node.
-	ID string
-
-	// RPCAddr is the address to listen for RPC connections.
-	RPCAddr string
-
-	// FuddleAddrs contains fuddle registry seed nodes.
-	FuddleAddrs []string
-
-	// Locality is the location of the node in the cluster.
-	Locality string
-
-	// Revision is the build commit.
-	Revision string
-}
+//go:generate protoc -I ../../rpc --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. counter.proto

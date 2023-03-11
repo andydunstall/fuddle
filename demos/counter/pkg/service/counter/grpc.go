@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package server
+package counter
 
 import (
 	"fmt"
@@ -40,8 +40,7 @@ func newGRPCServer(addr string, logger *zap.Logger) *grpcServer {
 	}
 }
 
-// Start listens for RPC requests in a background goroutine. If the listener is
-// nil the server creates a new listener.
+// Start listens for RPC requests in a background goroutine.
 func (s *grpcServer) Start(ln net.Listener) error {
 	if ln == nil {
 		// Setup the listener before starting to the goroutine to return any errors

@@ -20,9 +20,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/andydunstall/fuddle/demos/counter/pkg/clock"
-	"github.com/andydunstall/fuddle/demos/counter/pkg/counter"
-	"github.com/andydunstall/fuddle/demos/counter/pkg/frontend"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/service/clock"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/service/counter"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/service/frontend"
 	"github.com/andydunstall/fuddle/pkg/build"
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/server"
@@ -107,7 +107,9 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 	counterNodes = append(counterNodes, counterNodeConfig("us-east-1-c"))
 
 	for _, conf := range counterNodes {
-		node := counter.NewService(conf, demoLogger(logDir, fuddleConf.ID))
+		node := counter.NewService(
+			conf, counter.WithLogger(demoLogger(logDir, fuddleConf.ID)),
+		)
 		if err := node.Start(); err != nil {
 			return fmt.Errorf("counter service: counter node: %w", err)
 		}

@@ -13,28 +13,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package config
+package counter
 
 import (
-	"github.com/andydunstall/fuddle/pkg/build"
-	"github.com/google/uuid"
+	"strings"
+
 	"go.uber.org/zap/zapcore"
 )
 
 // Config contains the node configuration.
 type Config struct {
-	// ID is a unique identifier for the fuddle node.
+	// ID is a unique identifier for the node.
 	ID string
 
-	// BindAddr is the bind address to listen for connections.
-	BindAddr string
-	// AdvAddr is the address to advertise to clients.
-	AdvAddr string
+	// RPCAddr is the address to listen for RPC connections.
+	RPCAddr string
 
-	// BindAdminAddr is the bind address to listen for admin clients.
-	BindAdminAddr string
-	// AdvAdminAddr is the address to advertise to admin clients.
-	AdvAdminAddr string
+	// FuddleAddrs contains fuddle registry seed nodes.
+	FuddleAddrs []string
 
 	// Locality is the location of the node in the cluster.
 	Locality string
@@ -45,28 +41,9 @@ type Config struct {
 
 func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("id", c.ID)
-
-	e.AddString("bind-addr", c.BindAddr)
-	e.AddString("adv-addr", c.AdvAddr)
-
-	e.AddString("bind-admin-addr", c.BindAdminAddr)
-	e.AddString("adv-admin-addr", c.AdvAdminAddr)
-
+	e.AddString("rpc-addr", c.RPCAddr)
+	e.AddString("fuddle-addrs", strings.Join(c.FuddleAddrs, ","))
 	e.AddString("locality", c.Locality)
-
 	e.AddString("revision", c.Revision)
-
 	return nil
-}
-
-func DefaultConfig() *Config {
-	return &Config{
-		ID:            "fuddle-" + uuid.New().String()[:8],
-		BindAddr:      "0.0.0.0:8220",
-		AdvAddr:       "0.0.0.0:8220",
-		BindAdminAddr: "0.0.0.0:8221",
-		AdvAdminAddr:  "0.0.0.0:8221",
-		Locality:      "unknown",
-		Revision:      build.Revision,
-	}
 }

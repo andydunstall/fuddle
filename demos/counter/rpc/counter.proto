@@ -1,0 +1,18 @@
+syntax = 'proto3';
+
+option go_package = 'github.com/andydunstall/fuddle/demos/counter/pkg/rpc';
+
+message CountRequest {
+	string id = 1;
+}
+
+message CountResponse {
+	uint64 count = 1;
+}
+
+// Counter is a service that maintains a counter of the number of connections
+// with a given ID.
+service Counter {
+	// Register joins the cluster and streams updates to the count.
+	rpc Count(stream CountRequest) returns (stream CountResponse);
+}
