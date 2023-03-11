@@ -48,11 +48,6 @@ The counter service maintains the counter for each ID. Each node in the service
 is responsible for a range of IDs using consistent hashing. Nodes expose a gRPC
 interface to stream updates to the counters.
 
-### Clock
-The clock service is a simple stateless service to show how Fuddle can be used
-for load balancing with a custom policy. It exposes a gRPC interface to request
-the current time.
-
 ### Frontend
 The frontend service is a stateless service that accepts client connections and
 routes requests to the time service and counter service.

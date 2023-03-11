@@ -20,7 +20,6 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/andydunstall/fuddle/demos/counter/pkg/service/clock"
 	"github.com/andydunstall/fuddle/demos/counter/pkg/service/counter"
 	"github.com/andydunstall/fuddle/demos/counter/pkg/service/frontend"
 	"github.com/andydunstall/fuddle/pkg/build"
@@ -116,19 +115,6 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 		defer node.GracefulStop()
 	}
 
-	var clockNodes []*clock.Config
-	clockNodes = append(clockNodes, clockNodeConfig("us-east-1-a"))
-	clockNodes = append(clockNodes, clockNodeConfig("us-east-1-b"))
-	clockNodes = append(clockNodes, clockNodeConfig("us-east-1-c"))
-
-	for _, conf := range clockNodes {
-		node := clock.NewService(conf, demoLogger(logDir, fuddleConf.ID))
-		if err := node.Start(); err != nil {
-			return fmt.Errorf("clock service: clock node: %w", err)
-		}
-		defer node.GracefulStop()
-	}
-
 	// Catch signals to gracefully shutdown the server.
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, os.Interrupt)
@@ -173,18 +159,6 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 		fmt.Println("")
 	}
 
-	fmt.Println(`#     Clock
-#     -------
-#`)
-
-	for _, conf := range clockNodes {
-		fmt.Printf(`#     %s
-#       Locality: %s
-#       Logs: %s
-#`, conf.ID, conf.Locality, demoLogPath(logDir, conf.ID))
-		fmt.Println("")
-	}
-
 	<-signalCh
 
 	return nil
@@ -216,16 +190,6 @@ func frontendNodeConfig(locality string) *frontend.Config {
 func counterNodeConfig(locality string) *counter.Config {
 	return &counter.Config{
 		ID:          "counter-" + uuid.New().String()[:8],
-		RPCAddr:     testutils.GetSystemAddress(),
-		FuddleAddrs: []string{"127.0.0.1:8220"},
-		Locality:    locality,
-		Revision:    build.Revision,
-	}
-}
-
-func clockNodeConfig(locality string) *clock.Config {
-	return &clock.Config{
-		ID:          "clock-" + uuid.New().String()[:8],
 		RPCAddr:     testutils.GetSystemAddress(),
 		FuddleAddrs: []string{"127.0.0.1:8220"},
 		Locality:    locality,
