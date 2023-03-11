@@ -17,16 +17,75 @@ package counter
 
 import (
 	"github.com/andydunstall/fuddle/demos/counter/pkg/rpc"
+	"go.uber.org/zap"
 )
 
 type server struct {
+	counter *counter
+
+	logger *zap.Logger
+
 	rpc.UnimplementedCounterServer
 }
 
-func newServer() *server {
-	return &server{}
+func newServer(logger *zap.Logger) *server {
+	return &server{
+		counter: newCounter(),
+		logger:  logger,
+	}
 }
 
+// Stream sends and receives updates containing the count for different IDs.
+//
+// Clients will send the local count to the server, which is the number of
+// users registered with the ID on the client node. Then the server
+// aggregates the counts and broadcasts the global count to each client.
 func (s *server) Stream(stream rpc.Counter_StreamServer) error {
-	return nil
+	s.logger.Debug("stream connected")
+
+	defer s.counter.Unregister(stream)
+
+	contributions := make(map[string]uint64)
+
+	unsubscribe := s.counter.Subscribe(func(id string, count uint64) {
+		// Only send updates for IDs that the client has contributed to.
+		if _, ok := contributions[id]; !ok {
+			return
+		}
+
+		s.logger.Debug(
+			"send count",
+			zap.String("id", id),
+			zap.Uint64("count", count),
+		)
+
+		update := &rpc.CountUpdate{
+			Id:    id,
+			Count: count,
+		}
+		// nolint:errcheck
+		// Ignore send errors. If send fails the stream will be aborted so
+		// theres nothing to do.
+		stream.Send(update)
+	})
+	defer unsubscribe()
+
+	for {
+		update, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+
+		s.logger.Debug(
+			"recv count",
+			zap.String("id", update.Id),
+			zap.Uint64("count", update.Count),
+		)
+
+		contributions[update.Id] = update.Count
+		if contributions[update.Id] == 0 {
+			delete(contributions, update.Id)
+		}
+		s.counter.Register(stream, contributions)
+	}
 }
