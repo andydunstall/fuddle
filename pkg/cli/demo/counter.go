@@ -20,9 +20,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/andydunstall/fuddle/demos/counter/pkg/clock"
-	"github.com/andydunstall/fuddle/demos/counter/pkg/counter"
-	"github.com/andydunstall/fuddle/demos/counter/pkg/frontend"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/service/clock"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/service/counter"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/service/frontend"
 	"github.com/andydunstall/fuddle/pkg/build"
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/server"

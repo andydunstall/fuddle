@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/andydunstall/fuddle/demos/counter/pkg/counter"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/service/counter"
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/google/uuid"
