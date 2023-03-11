@@ -27,5 +27,4 @@ var demoCmd = &cobra.Command{
 
 func init() {
 	demoCmd.AddCommand(demo.CounterCmd)
-	demoCmd.AddCommand(randomDemoCmd)
 }
