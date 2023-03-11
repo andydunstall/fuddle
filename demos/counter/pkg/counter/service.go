@@ -17,6 +17,7 @@ package counter
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/andydunstall/fuddle/demos/counter/pkg/rpc"
@@ -28,6 +29,8 @@ import (
 type Service struct {
 	grpcServer *grpcServer
 
+	rpcListener net.Listener
+
 	registry *fuddle.Registry
 
 	conf *Config
@@ -35,16 +38,27 @@ type Service struct {
 	logger *zap.Logger
 }
 
-func NewService(conf *Config, logger *zap.Logger) *Service {
+func NewService(conf *Config, opts ...Option) *Service {
+	options := options{
+		logger:      zap.NewNop(),
+		rpcListener: nil,
+	}
+	for _, o := range opts {
+		o.apply(&options)
+	}
+
+	logger := options.logger.With(zap.String("service", "counter"))
+
 	server := newServer()
 
 	grpcServer := newGRPCServer(conf.RPCAddr, logger)
 	rpc.RegisterCounterServer(grpcServer.GRPCServer(), server)
 
 	return &Service{
-		grpcServer: grpcServer,
-		conf:       conf,
-		logger:     logger,
+		grpcServer:  grpcServer,
+		rpcListener: options.rpcListener,
+		conf:        conf,
+		logger:      logger,
 	}
 }
 
@@ -69,7 +83,7 @@ func (s *Service) Start() error {
 	}
 	s.registry = registry
 
-	return s.grpcServer.Start()
+	return s.grpcServer.Start(s.rpcListener)
 }
 
 func (s *Service) GracefulStop() {

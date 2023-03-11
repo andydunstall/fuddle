@@ -41,12 +41,15 @@ func newGRPCServer(addr string, logger *zap.Logger) *grpcServer {
 }
 
 // Start listens for RPC requests in a background goroutine.
-func (s *grpcServer) Start() error {
-	// Setup the listener before starting to the goroutine to return any errors
-	// binding or listening to the configured address.
-	ln, err := net.Listen("tcp", s.addr)
-	if err != nil {
-		return fmt.Errorf("grpc server: %w", err)
+func (s *grpcServer) Start(ln net.Listener) error {
+	if ln == nil {
+		// Setup the listener before starting to the goroutine to return any errors
+		// binding or listening to the configured address.
+		var err error
+		ln, err = net.Listen("tcp", s.addr)
+		if err != nil {
+			return fmt.Errorf("grpc server: %w", err)
+		}
 	}
 
 	s.logger.Info(

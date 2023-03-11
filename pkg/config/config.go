@@ -16,6 +16,8 @@
 package config
 
 import (
+	"github.com/andydunstall/fuddle/pkg/build"
+	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -55,4 +57,16 @@ func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("revision", c.Revision)
 
 	return nil
+}
+
+func DefaultConfig() *Config {
+	return &Config{
+		ID:            "fuddle-" + uuid.New().String()[:8],
+		BindAddr:      "0.0.0.0:8220",
+		AdvAddr:       "0.0.0.0:8220",
+		BindAdminAddr: "0.0.0.0:8221",
+		AdvAdminAddr:  "0.0.0.0:8221",
+		Locality:      "unknown",
+		Revision:      build.Revision,
+	}
 }

@@ -107,7 +107,9 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 	counterNodes = append(counterNodes, counterNodeConfig("us-east-1-c"))
 
 	for _, conf := range counterNodes {
-		node := counter.NewService(conf, demoLogger(logDir, fuddleConf.ID))
+		node := counter.NewService(
+			conf, counter.WithLogger(demoLogger(logDir, fuddleConf.ID)),
+		)
 		if err := node.Start(); err != nil {
 			return fmt.Errorf("counter service: counter node: %w", err)
 		}
