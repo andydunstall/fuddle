@@ -18,8 +18,12 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CounterClient interface {
-	// Register joins the cluster and streams updates to the count.
-	Count(ctx context.Context, opts ...grpc.CallOption) (Counter_CountClient, error)
+	// Stream sends and receives updates containing the count for different IDs.
+	//
+	// Clients will send the local count to the server, which is the number of
+	// users registered with the ID on the client node. Then the server
+	// aggregates the counts and broadcasts the global count to each client.
+	Stream(ctx context.Context, opts ...grpc.CallOption) (Counter_StreamClient, error)
 }
 
 type counterClient struct {
@@ -30,31 +34,31 @@ func NewCounterClient(cc grpc.ClientConnInterface) CounterClient {
 	return &counterClient{cc}
 }
 
-func (c *counterClient) Count(ctx context.Context, opts ...grpc.CallOption) (Counter_CountClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Counter_ServiceDesc.Streams[0], "/Counter/Count", opts...)
+func (c *counterClient) Stream(ctx context.Context, opts ...grpc.CallOption) (Counter_StreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Counter_ServiceDesc.Streams[0], "/Counter/Stream", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &counterCountClient{stream}
+	x := &counterStreamClient{stream}
 	return x, nil
 }
 
-type Counter_CountClient interface {
-	Send(*CountRequest) error
-	Recv() (*CountResponse, error)
+type Counter_StreamClient interface {
+	Send(*CountUpdate) error
+	Recv() (*CountUpdate, error)
 	grpc.ClientStream
 }
 
-type counterCountClient struct {
+type counterStreamClient struct {
 	grpc.ClientStream
 }
 
-func (x *counterCountClient) Send(m *CountRequest) error {
+func (x *counterStreamClient) Send(m *CountUpdate) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *counterCountClient) Recv() (*CountResponse, error) {
-	m := new(CountResponse)
+func (x *counterStreamClient) Recv() (*CountUpdate, error) {
+	m := new(CountUpdate)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -65,8 +69,12 @@ func (x *counterCountClient) Recv() (*CountResponse, error) {
 // All implementations must embed UnimplementedCounterServer
 // for forward compatibility
 type CounterServer interface {
-	// Register joins the cluster and streams updates to the count.
-	Count(Counter_CountServer) error
+	// Stream sends and receives updates containing the count for different IDs.
+	//
+	// Clients will send the local count to the server, which is the number of
+	// users registered with the ID on the client node. Then the server
+	// aggregates the counts and broadcasts the global count to each client.
+	Stream(Counter_StreamServer) error
 	mustEmbedUnimplementedCounterServer()
 }
 
@@ -74,8 +82,8 @@ type CounterServer interface {
 type UnimplementedCounterServer struct {
 }
 
-func (UnimplementedCounterServer) Count(Counter_CountServer) error {
-	return status.Errorf(codes.Unimplemented, "method Count not implemented")
+func (UnimplementedCounterServer) Stream(Counter_StreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
 }
 func (UnimplementedCounterServer) mustEmbedUnimplementedCounterServer() {}
 
@@ -90,26 +98,26 @@ func RegisterCounterServer(s grpc.ServiceRegistrar, srv CounterServer) {
 	s.RegisterService(&Counter_ServiceDesc, srv)
 }
 
-func _Counter_Count_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(CounterServer).Count(&counterCountServer{stream})
+func _Counter_Stream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(CounterServer).Stream(&counterStreamServer{stream})
 }
 
-type Counter_CountServer interface {
-	Send(*CountResponse) error
-	Recv() (*CountRequest, error)
+type Counter_StreamServer interface {
+	Send(*CountUpdate) error
+	Recv() (*CountUpdate, error)
 	grpc.ServerStream
 }
 
-type counterCountServer struct {
+type counterStreamServer struct {
 	grpc.ServerStream
 }
 
-func (x *counterCountServer) Send(m *CountResponse) error {
+func (x *counterStreamServer) Send(m *CountUpdate) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *counterCountServer) Recv() (*CountRequest, error) {
-	m := new(CountRequest)
+func (x *counterStreamServer) Recv() (*CountUpdate, error) {
+	m := new(CountUpdate)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -125,8 +133,8 @@ var Counter_ServiceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Count",
-			Handler:       _Counter_Count_Handler,
+			StreamName:    "Stream",
+			Handler:       _Counter_Stream_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

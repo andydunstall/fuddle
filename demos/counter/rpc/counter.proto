@@ -2,17 +2,21 @@ syntax = 'proto3';
 
 option go_package = 'github.com/andydunstall/fuddle/demos/counter/pkg/rpc';
 
-message CountRequest {
+// An update containing the number of users for a requested ID.
+message CountUpdate {
+	// ID of the requested count.
 	string id = 1;
+	// Number of users registered for that ID on the client.
+	string count = 2;
 }
 
-message CountResponse {
-	uint64 count = 1;
-}
-
-// Counter is a service that maintains a counter of the number of connections
-// with a given ID.
+// Counter is a service that maintains a counter of the number of users
+// registered with a given ID.
 service Counter {
-	// Register joins the cluster and streams updates to the count.
-	rpc Count(stream CountRequest) returns (stream CountResponse);
+	// Stream sends and receives updates containing the count for different IDs.
+	//
+	// Clients will send the local count to the server, which is the number of
+	// users registered with the ID on the client node. Then the server
+	// aggregates the counts and broadcasts the global count to each client.
+	rpc Stream(stream CountUpdate) returns (stream CountUpdate);
 }

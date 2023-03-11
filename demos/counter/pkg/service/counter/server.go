@@ -27,6 +27,6 @@ func newServer() *server {
 	return &server{}
 }
 
-func (s *server) Count(stream rpc.Counter_CountServer) error {
+func (s *server) Stream(stream rpc.Counter_StreamServer) error {
 	return nil
 }
