@@ -18,7 +18,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/andydunstall/fuddle/pkg/cli"
+	"github.com/fuddle-io/fuddle/pkg/cli"
 )
 
 func main() {

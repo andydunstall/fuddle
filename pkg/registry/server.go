@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/andydunstall/fuddle/pkg/rpc"
+	"github.com/fuddle-io/fuddle/pkg/rpc"
 	"go.uber.org/zap"
 )
 

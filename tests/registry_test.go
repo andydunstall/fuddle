@@ -18,8 +18,8 @@ package tests
 import (
 	"testing"
 
-	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
-	"github.com/andydunstall/fuddle/pkg/testutils"
+	fuddle "github.com/fuddle-io/fuddle/pkg/sdk"
+	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )

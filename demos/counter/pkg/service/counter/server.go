@@ -18,7 +18,7 @@ package counter
 import (
 	"sync"
 
-	"github.com/andydunstall/fuddle/demos/counter/pkg/rpc"
+	"github.com/fuddle-io/fuddle/demos/counter/pkg/rpc"
 	"go.uber.org/zap"
 )
 

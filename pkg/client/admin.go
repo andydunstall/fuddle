@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/andydunstall/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry"
 )
 
 type Admin struct {

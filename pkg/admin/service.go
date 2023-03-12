@@ -18,8 +18,8 @@ package admin
 import (
 	"net"
 
-	"github.com/andydunstall/fuddle/pkg/config"
-	"github.com/andydunstall/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/config"
+	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )

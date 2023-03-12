@@ -1,6 +1,6 @@
 syntax = 'proto3';
 
-option go_package = 'github.com/andydunstall/fuddle/pkg/rpc';
+option go_package = 'github.com/fuddle-io/fuddle/pkg/rpc';
 
 enum NodeUpdateType {
 	JOIN = 0;

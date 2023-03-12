@@ -19,9 +19,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/andydunstall/fuddle/pkg/build"
-	"github.com/andydunstall/fuddle/pkg/config"
-	"github.com/andydunstall/fuddle/pkg/server"
+	"github.com/fuddle-io/fuddle/pkg/build"
+	"github.com/fuddle-io/fuddle/pkg/config"
+	"github.com/fuddle-io/fuddle/pkg/server"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"

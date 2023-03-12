@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/andydunstall/fuddle/demos/counter/pkg/client/counter"
-	"github.com/andydunstall/fuddle/demos/counter/pkg/testutils/cluster"
+	"github.com/fuddle-io/fuddle/demos/counter/pkg/client/counter"
+	"github.com/fuddle-io/fuddle/demos/counter/pkg/testutils/cluster"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

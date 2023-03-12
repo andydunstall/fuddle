@@ -19,7 +19,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/andydunstall/fuddle/pkg/rpc"
+	"github.com/fuddle-io/fuddle/pkg/rpc"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -18,10 +18,10 @@ package server
 import (
 	"net"
 
-	"github.com/andydunstall/fuddle/pkg/admin"
-	"github.com/andydunstall/fuddle/pkg/config"
-	"github.com/andydunstall/fuddle/pkg/registry"
-	"github.com/andydunstall/fuddle/pkg/rpc"
+	"github.com/fuddle-io/fuddle/pkg/admin"
+	"github.com/fuddle-io/fuddle/pkg/config"
+	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/rpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"go.uber.org/zap"

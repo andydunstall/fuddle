@@ -18,8 +18,8 @@ package testutils
 import (
 	"net"
 
-	"github.com/andydunstall/fuddle/pkg/config"
-	"github.com/andydunstall/fuddle/pkg/server"
+	"github.com/fuddle-io/fuddle/pkg/config"
+	"github.com/fuddle-io/fuddle/pkg/server"
 	"github.com/google/uuid"
 )
 

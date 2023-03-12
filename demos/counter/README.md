@@ -51,7 +51,7 @@ registered to the wrong node.
 
 ## Usage
 If you haven’t already, download the `fuddle` binary for your platform from the
-[releases](https://github.com/andydunstall/fuddle/releases) page.
+[releases](https://github.com/fuddle-io/fuddle/releases) page.
 
 Then run `fuddle demo counter` to start the cluster. This will spin up a local
 cluster containing multiple Fuddle, frontend and counter service nodes.
