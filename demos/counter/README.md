@@ -69,3 +69,6 @@ ID and stream updates to the number of users registered with that ID.
 
 To connect using [`wscat`](https://www.npmjs.com/package/wscat) use
 `wscat -c ws://{addr}/{id}`.
+
+## Documentation
+* [Architecture](./docs/architecture.md)
