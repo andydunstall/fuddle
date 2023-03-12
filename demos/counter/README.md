@@ -70,5 +70,82 @@ ID and stream updates to the number of users registered with that ID.
 To connect using [`wscat`](https://www.npmjs.com/package/wscat) use
 `wscat -c ws://{addr}/{id}`.
 
-## Documentation
-* [Architecture](./docs/architecture.md)
+## Architecture
+
+### Counter Service Protocol
+The section describes the protocol between the counter client, running on a
+frontend, and a gRPC server running on a counter node.
+
+The client maintains a local count of each ID, which is sent to the server
+whenever it is updated, where the server aggregates the counts from each of its
+connected clients and broadcasts the aggregate.
+
+When a user registers an ID with the counter client:
+1. The counter client checks if it already has a count for that ID
+2. If it does have a count already, it increments the local count and sends it
+to the server
+3. Otherwise it will initialise a count of 1, connect to the appropriate server
+for that ID and send the server an update
+4. The server will receive the updated local count for the client, update its
+aggregate, and broadcast the updated aggregate to all clients
+
+Each client has at most one connection to each counter node, so updates with
+different IDs may be sent on the same connection.
+
+```mermaid
+sequenceDiagram
+   participant F1 as Frontend 1
+   participant F2 as Frontend 2
+   participant S as Counter Server
+
+   Note left of F1: F1: Register(foo)
+   F1->>+S: foo=1
+   Note right of S: S: [foo=1]
+   S-->>+F1: foo=1
+
+   Note left of F1: F1: Register(foo)
+   F1->>+S: foo=2
+   Note right of S: S: [foo=2]
+   S-->>+F1: foo=2
+
+   Note left of F2: F2: Register(foo)
+   F2->>+S: foo=1
+   Note right of S: S [foo=3]
+   S-->>+F1: foo=3
+   S-->>+F2: foo=3
+
+   Note left of F1: F1: Unregister(foo)
+   F1->>+S: foo=1
+   Note right of S: S[foo=2]
+   S-->>+F1: foo=2
+   S-->>+F2: foo=2
+```
+
+### Consistent Hashing
+Each counter node maintains a counter for a range of IDs, which is done using
+consistent hashing.
+
+Note since this is just a demo, this implementation is relatively simple.
+
+#### Partitioning
+Each client maintains a partitioner, which receives the set of counter nodes
+from Fuddle and builds a ring using MurmurHash3.
+
+When a new ID is registered with a client, the client will lookup the correct
+node for that ID with the partitioner.
+
+#### Rebalancing
+The partitioner will subscribe to Fuddle updates about the set of counter nodes
+in the cluster.
+
+Each counter on the client will subscribe to partitioner updates to get notified
+when they need to move to a new counter node. When this happens they simply
+disconnect from the current node, reconnect to the new node and send the local count.
+
+This means when counters move nodes, the count will be briefly too low as nodes
+move across, though since this is just a toy demo that's ok.
+
+To keep the implementation simple, only the client checks whether the ring has
+been updated. The server simply accepts any connections without checking if
+they are connecting to the correct server.
+
