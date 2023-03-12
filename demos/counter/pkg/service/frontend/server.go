@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/andydunstall/fuddle/demos/counter/pkg/client/counter"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
@@ -31,7 +32,7 @@ type server struct {
 	logger *zap.Logger
 }
 
-func newServer(addr string, logger *zap.Logger) *server {
+func newServer(addr string, counter *counter.Client, logger *zap.Logger) *server {
 	server := &server{
 		logger: logger,
 	}
