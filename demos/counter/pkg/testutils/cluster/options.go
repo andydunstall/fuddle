@@ -16,8 +16,9 @@
 package cluster
 
 type options struct {
-	fuddleNodes  int
-	counterNodes int
+	fuddleNodes   int
+	counterNodes  int
+	frontendNodes int
 }
 
 type Option interface {
@@ -42,4 +43,14 @@ func (c counterNodesOption) apply(opts *options) {
 
 func WithCounterNodes(c int) Option {
 	return counterNodesOption(c)
+}
+
+type frontendNodesOption int
+
+func (c frontendNodesOption) apply(opts *options) {
+	opts.frontendNodes = int(c)
+}
+
+func WithFrontendNodes(c int) Option {
+	return frontendNodesOption(c)
 }

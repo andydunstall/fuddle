@@ -16,11 +16,14 @@
 package frontend
 
 import (
+	"net"
+
 	"go.uber.org/zap"
 )
 
 type options struct {
-	logger *zap.Logger
+	logger     *zap.Logger
+	wsListener net.Listener
 }
 
 type Option interface {
@@ -37,4 +40,16 @@ func (o loggerOption) apply(opts *options) {
 
 func WithLogger(logger *zap.Logger) Option {
 	return loggerOption{logger: logger}
+}
+
+type wsListenerOption struct {
+	ln net.Listener
+}
+
+func (o wsListenerOption) apply(opts *options) {
+	opts.wsListener = o.ln
+}
+
+func WithWSListener(ln net.Listener) Option {
+	return wsListenerOption{ln: ln}
 }
