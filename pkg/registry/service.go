@@ -18,7 +18,7 @@ package registry
 import (
 	"time"
 
-	"github.com/andydunstall/fuddle/pkg/config"
+	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )

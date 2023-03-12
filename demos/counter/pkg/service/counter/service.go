@@ -20,8 +20,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/andydunstall/fuddle/demos/counter/pkg/rpc"
-	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
+	"github.com/fuddle-io/fuddle/demos/counter/pkg/rpc"
+	fuddle "github.com/fuddle-io/fuddle/pkg/sdk"
 	"go.uber.org/zap"
 )
 

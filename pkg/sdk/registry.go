@@ -21,7 +21,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/andydunstall/fuddle/pkg/rpc"
+	"github.com/fuddle-io/fuddle/pkg/rpc"
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

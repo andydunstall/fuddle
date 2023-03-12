@@ -33,7 +33,7 @@ both the Fuddle dashboard or the Fuddle CLI
 
 # Getting Started
 Start by downloading the appropriate Fuddle binary for your platform from the
-[releases](https://github.com/andydunstall/fuddle/releases) page.
+[releases](https://github.com/fuddle-io/fuddle/releases) page.
 
 The quickest way to start using Fuddle is to run a demo cluster:
 

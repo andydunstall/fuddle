@@ -16,7 +16,7 @@
 package cli
 
 import (
-	"github.com/andydunstall/fuddle/pkg/cli/demo"
+	"github.com/fuddle-io/fuddle/pkg/cli/demo"
 	"github.com/spf13/cobra"
 )
 

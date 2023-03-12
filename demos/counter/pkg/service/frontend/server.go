@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/andydunstall/fuddle/demos/counter/pkg/client/counter"
+	"github.com/fuddle-io/fuddle/demos/counter/pkg/client/counter"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"

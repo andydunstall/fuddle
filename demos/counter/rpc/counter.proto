@@ -1,6 +1,6 @@
 syntax = 'proto3';
 
-option go_package = 'github.com/andydunstall/fuddle/demos/counter/pkg/rpc';
+option go_package = 'github.com/fuddle-io/fuddle/demos/counter/pkg/rpc';
 
 // An update containing the number of users for a requested ID.
 message CountUpdate {

@@ -16,7 +16,7 @@
 package sdk
 
 import (
-	"github.com/andydunstall/fuddle/pkg/util/wildcard"
+	"github.com/fuddle-io/fuddle/pkg/util/wildcard"
 )
 
 // Filter specifies a node filter.

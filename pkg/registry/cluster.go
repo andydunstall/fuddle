@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/andydunstall/fuddle/pkg/rpc"
+	"github.com/fuddle-io/fuddle/pkg/rpc"
 )
 
 // subHandle is a handle for an RPC update subscriber.

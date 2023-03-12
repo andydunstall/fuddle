@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/andydunstall/fuddle/pkg/client"
-	"github.com/andydunstall/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/client"
+	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 )

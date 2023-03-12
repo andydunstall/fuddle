@@ -16,7 +16,7 @@
 package config
 
 import (
-	"github.com/andydunstall/fuddle/pkg/build"
+	"github.com/fuddle-io/fuddle/pkg/build"
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
 )

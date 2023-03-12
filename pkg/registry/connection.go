@@ -18,7 +18,7 @@ package registry
 import (
 	"sync"
 
-	"github.com/andydunstall/fuddle/pkg/rpc"
+	"github.com/fuddle-io/fuddle/pkg/rpc"
 )
 
 // pendingUpdates stores a list of updates waiting to be sent to the connected

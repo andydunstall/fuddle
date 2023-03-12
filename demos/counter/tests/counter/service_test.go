@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/andydunstall/fuddle/demos/counter/pkg/testutils/cluster"
+	"github.com/fuddle-io/fuddle/demos/counter/pkg/testutils/cluster"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

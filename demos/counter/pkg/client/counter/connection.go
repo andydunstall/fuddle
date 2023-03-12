@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/andydunstall/fuddle/demos/counter/pkg/rpc"
+	"github.com/fuddle-io/fuddle/demos/counter/pkg/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

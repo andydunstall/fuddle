@@ -22,7 +22,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/andydunstall/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
