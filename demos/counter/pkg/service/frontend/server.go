@@ -20,20 +20,28 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 
+	"github.com/andydunstall/fuddle/demos/counter/pkg/client/counter"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
 type server struct {
 	httpServer *http.Server
+	upgrader   websocket.Upgrader
+
+	counter *counter.Client
 
 	logger *zap.Logger
 }
 
-func newServer(addr string, logger *zap.Logger) *server {
+func newServer(addr string, counter *counter.Client, logger *zap.Logger) *server {
 	server := &server{
-		logger: logger,
+		upgrader: websocket.Upgrader{},
+		counter:  counter,
+		logger:   logger,
 	}
 
 	r := mux.NewRouter()
@@ -83,4 +91,37 @@ func (s *server) GracefulStop() {
 }
 
 func (s *server) registerRoute(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	c, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer c.Close()
+
+	unregister, err := s.counter.Register(id, func(count uint64) {
+		// nolint:errcheck
+		// Ignore errors as read will return an error and close.
+		c.WriteMessage(
+			websocket.BinaryMessage,
+			[]byte(strconv.FormatUint(count, 10)),
+		)
+	})
+	if err != nil {
+		return
+	}
+	defer func() {
+		if err := unregister(); err != nil {
+			s.logger.Error("failed to unregister", zap.Error(err))
+		}
+	}()
+
+	// Read only to detect when the connection has closed.
+	for {
+		_, _, err := c.ReadMessage()
+		if err != nil {
+			return
+		}
+	}
 }

@@ -34,6 +34,7 @@ type Service interface {
 type Cluster struct {
 	services      []Service
 	fuddleSeeds   []string
+	counterNodes  map[string]string
 	counterAddrs  []string
 	frontendAddrs []string
 }
@@ -48,7 +49,9 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 		o.apply(&options)
 	}
 
-	c := &Cluster{}
+	c := &Cluster{
+		counterNodes: make(map[string]string),
+	}
 	for i := 0; i != options.fuddleNodes; i++ {
 		if err := c.addFuddleNode(); err != nil {
 			return nil, fmt.Errorf("cluster: %w", err)
@@ -72,6 +75,14 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 	}
 
 	return c, nil
+}
+
+func (c *Cluster) CounterNodes() map[string]string {
+	nodes := make(map[string]string)
+	for id, addr := range c.counterNodes {
+		nodes[id] = addr
+	}
+	return nodes
 }
 
 func (c *Cluster) CounterAddrs() []string {
@@ -139,6 +150,7 @@ func (c *Cluster) addCounterNode() error {
 	)
 	c.services = append(c.services, s)
 	c.counterAddrs = append(c.counterAddrs, conf.RPCAddr)
+	c.counterNodes[conf.ID] = conf.RPCAddr
 
 	return nil
 }

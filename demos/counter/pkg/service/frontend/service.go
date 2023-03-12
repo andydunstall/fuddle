@@ -20,6 +20,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/andydunstall/fuddle/demos/counter/pkg/client/counter"
 	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
 	"go.uber.org/zap"
 )
@@ -27,6 +28,9 @@ import (
 type Service struct {
 	server     *server
 	wsListener net.Listener
+
+	partitioner counter.Partitioner
+	counter     *counter.Client
 
 	conf *Config
 
@@ -46,12 +50,16 @@ func NewService(conf *Config, opts ...Option) *Service {
 
 	logger := options.logger.With(zap.String("service", "counter"))
 
-	server := newServer(conf.WSAddr, logger)
+	partitioner := counter.NewMurmur3Partitioner()
+	counter := counter.NewClient(partitioner)
+	server := newServer(conf.WSAddr, counter, logger)
 	return &Service{
-		server:     server,
-		wsListener: options.wsListener,
-		conf:       conf,
-		logger:     logger,
+		server:      server,
+		wsListener:  options.wsListener,
+		partitioner: partitioner,
+		counter:     counter,
+		conf:        conf,
+		logger:      logger,
 	}
 }
 
@@ -74,6 +82,17 @@ func (s *Service) Start() error {
 	}
 	s.registry = registry
 
+	// Subscribe to counter nodes updates and add to the partitioner.
+	registry.Subscribe(func(nodes []fuddle.Node) {
+		counterNodes := make(map[string]string)
+		for _, node := range nodes {
+			counterNodes[node.ID] = node.State["addr.rpc"]
+		}
+		s.partitioner.SetNodes(counterNodes)
+	}, fuddle.WithFilter(fuddle.Filter{
+		"counter": {},
+	}))
+
 	return s.server.Start(s.wsListener)
 }
 
@@ -82,4 +101,5 @@ func (s *Service) GracefulStop() {
 		s.logger.Error("failed to unregister", zap.Error(err))
 	}
 	s.server.GracefulStop()
+	s.counter.Close()
 }

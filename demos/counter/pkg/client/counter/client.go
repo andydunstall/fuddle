@@ -16,6 +16,7 @@
 package counter
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -28,15 +29,15 @@ type Client struct {
 	// mu is a mutex that protects the fields above.
 	mu sync.Mutex
 
-	addr string
+	partitioner Partitioner
 }
 
 // NewClient connects to the counter service and streams the count for
 // subscribed IDs.
-func NewClient(addr string) *Client {
+func NewClient(partitioner Partitioner) *Client {
 	return &Client{
-		counters: make(map[string]*counter),
-		addr:     addr,
+		counters:    make(map[string]*counter),
+		partitioner: partitioner,
 	}
 }
 
@@ -62,8 +63,13 @@ func (c *Client) counter(id string) (*counter, error) {
 
 	counter, ok := c.counters[id]
 	if !ok {
+		addr, ok := c.partitioner.Locate(id)
+		if !ok {
+			return nil, fmt.Errorf("no available backends")
+		}
+
 		var err error
-		counter, err = newCounter(id, c.addr)
+		counter, err = newCounter(id, addr)
 		if err != nil {
 			return nil, err
 		}

@@ -15,27 +15,7 @@
 
 package counter
 
-import (
-	"net/http"
-	"testing"
-
-	"github.com/andydunstall/fuddle/demos/counter/pkg/testutils/cluster"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
-
-func TestFrontend_Connect(t *testing.T) {
-	c, err := cluster.NewCluster(
-		cluster.WithFuddleNodes(1),
-		cluster.WithCounterNodes(1),
-		cluster.WithFrontendNodes(1),
-	)
-	require.NoError(t, err)
-	defer c.Shutdown()
-
-	resp, err := http.Get("http://" + c.FrontendAddrs()[0] + "/foo")
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, 200, resp.StatusCode)
+type Partitioner interface {
+	Locate(id string) (string, bool)
+	SetNodes(nodes map[string]string)
 }

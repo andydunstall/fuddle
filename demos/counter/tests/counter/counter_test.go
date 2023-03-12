@@ -30,12 +30,15 @@ import (
 func TestCounter_Register(t *testing.T) {
 	c, err := cluster.NewCluster(
 		cluster.WithFuddleNodes(1),
-		cluster.WithCounterNodes(1),
+		cluster.WithCounterNodes(3),
 	)
 	require.NoError(t, err)
 	defer c.Shutdown()
 
-	client := counter.NewClient(c.CounterAddrs()[0])
+	partitioner := counter.NewMurmur3Partitioner()
+	partitioner.SetNodes(c.CounterNodes())
+
+	client := counter.NewClient(partitioner)
 	defer client.Close()
 
 	// Register and subscribe to updates.
@@ -55,7 +58,7 @@ func TestCounter_Register(t *testing.T) {
 	// connections.
 	var unregister []func() error
 	for i := 0; i != 5; i++ {
-		c := counter.NewClient(c.CounterAddrs()[0])
+		c := counter.NewClient(partitioner)
 		defer c.Close()
 
 		for j := 0; j != 3; j++ {
