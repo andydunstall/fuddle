@@ -16,6 +16,8 @@
 package counter
 
 import (
+	"sync"
+
 	"github.com/andydunstall/fuddle/demos/counter/pkg/rpc"
 	"go.uber.org/zap"
 )
@@ -45,13 +47,17 @@ func (s *server) Stream(stream rpc.Counter_StreamServer) error {
 
 	defer s.counter.Unregister(stream)
 
-	contributions := make(map[string]uint64)
+	counts := make(map[string]uint64)
+	var mu sync.Mutex
 
 	unsubscribe := s.counter.Subscribe(func(id string, count uint64) {
 		// Only send updates for IDs that the client has contributed to.
-		if _, ok := contributions[id]; !ok {
+		mu.Lock()
+		if _, ok := counts[id]; !ok {
+			mu.Unlock()
 			return
 		}
+		mu.Unlock()
 
 		s.logger.Debug(
 			"send count",
@@ -82,10 +88,18 @@ func (s *server) Stream(stream rpc.Counter_StreamServer) error {
 			zap.Uint64("count", update.Count),
 		)
 
-		contributions[update.Id] = update.Count
-		if contributions[update.Id] == 0 {
-			delete(contributions, update.Id)
+		mu.Lock()
+		counts[update.Id] = update.Count
+		if counts[update.Id] == 0 {
+			delete(counts, update.Id)
 		}
-		s.counter.Register(stream, contributions)
+
+		countsCopy := make(map[string]uint64)
+		for id, count := range counts {
+			countsCopy[id] = count
+		}
+		mu.Unlock()
+
+		s.counter.Register(stream, countsCopy)
 	}
 }
