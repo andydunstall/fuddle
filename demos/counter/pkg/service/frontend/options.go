@@ -15,20 +15,41 @@
 
 package frontend
 
-// Config contains the node configuration.
-type Config struct {
-	// ID is a unique identifier for the node.
-	ID string
+import (
+	"net"
 
-	// WSAddr is the address to listen for WebSocket connections.
-	WSAddr string
+	"go.uber.org/zap"
+)
 
-	// FuddleAddrs contains fuddle registry seed nodes.
-	FuddleAddrs []string
+type options struct {
+	logger     *zap.Logger
+	wsListener net.Listener
+}
 
-	// Locality is the location of the node in the cluster.
-	Locality string
+type Option interface {
+	apply(*options)
+}
 
-	// Revision is the build commit.
-	Revision string
+type loggerOption struct {
+	logger *zap.Logger
+}
+
+func (o loggerOption) apply(opts *options) {
+	opts.logger = o.logger
+}
+
+func WithLogger(logger *zap.Logger) Option {
+	return loggerOption{logger: logger}
+}
+
+type wsListenerOption struct {
+	ln net.Listener
+}
+
+func (o wsListenerOption) apply(opts *options) {
+	opts.wsListener = o.ln
+}
+
+func WithWSListener(ln net.Listener) Option {
+	return wsListenerOption{ln: ln}
 }

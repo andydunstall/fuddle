@@ -13,22 +13,29 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package frontend
+package counter
 
-// Config contains the node configuration.
-type Config struct {
-	// ID is a unique identifier for the node.
-	ID string
+import (
+	"net/http"
+	"testing"
 
-	// WSAddr is the address to listen for WebSocket connections.
-	WSAddr string
+	"github.com/andydunstall/fuddle/demos/counter/pkg/testutils/cluster"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
-	// FuddleAddrs contains fuddle registry seed nodes.
-	FuddleAddrs []string
+func TestFrontend_Connect(t *testing.T) {
+	c, err := cluster.NewCluster(
+		cluster.WithFuddleNodes(1),
+		cluster.WithCounterNodes(1),
+		cluster.WithFrontendNodes(1),
+	)
+	require.NoError(t, err)
+	defer c.Shutdown()
 
-	// Locality is the location of the node in the cluster.
-	Locality string
+	resp, err := http.Get("http://" + c.FrontendAddrs()[0] + "/foo")
+	require.NoError(t, err)
+	defer resp.Body.Close()
 
-	// Revision is the build commit.
-	Revision string
+	assert.Equal(t, 200, resp.StatusCode)
 }

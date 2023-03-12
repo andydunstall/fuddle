@@ -17,6 +17,7 @@ package frontend
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	fuddle "github.com/andydunstall/fuddle/pkg/sdk"
@@ -24,6 +25,9 @@ import (
 )
 
 type Service struct {
+	server     *server
+	wsListener net.Listener
+
 	conf *Config
 
 	registry *fuddle.Registry
@@ -31,10 +35,23 @@ type Service struct {
 	logger *zap.Logger
 }
 
-func NewService(conf *Config, logger *zap.Logger) *Service {
+func NewService(conf *Config, opts ...Option) *Service {
+	options := options{
+		logger:     zap.NewNop(),
+		wsListener: nil,
+	}
+	for _, o := range opts {
+		o.apply(&options)
+	}
+
+	logger := options.logger.With(zap.String("service", "counter"))
+
+	server := newServer(conf.WSAddr, logger)
 	return &Service{
-		conf:   conf,
-		logger: logger,
+		server:     server,
+		wsListener: options.wsListener,
+		conf:       conf,
+		logger:     logger,
 	}
 }
 
@@ -48,7 +65,7 @@ func (s *Service) Start() error {
 			Created:  time.Now().UnixMilli(),
 			Revision: s.conf.Revision,
 			State: map[string]string{
-				"addr.rpc": s.conf.RPCAddr,
+				"addr.ws": s.conf.WSAddr,
 			},
 		},
 	)
@@ -57,11 +74,12 @@ func (s *Service) Start() error {
 	}
 	s.registry = registry
 
-	return nil
+	return s.server.Start(s.wsListener)
 }
 
 func (s *Service) GracefulStop() {
 	if err := s.registry.Unregister(); err != nil {
 		s.logger.Error("failed to unregister", zap.Error(err))
 	}
+	s.server.GracefulStop()
 }

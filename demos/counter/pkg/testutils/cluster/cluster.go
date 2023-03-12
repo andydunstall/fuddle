@@ -20,6 +20,7 @@ import (
 	"net"
 
 	"github.com/andydunstall/fuddle/demos/counter/pkg/service/counter"
+	"github.com/andydunstall/fuddle/demos/counter/pkg/service/frontend"
 	"github.com/andydunstall/fuddle/pkg/config"
 	"github.com/andydunstall/fuddle/pkg/server"
 	"github.com/google/uuid"
@@ -31,15 +32,17 @@ type Service interface {
 }
 
 type Cluster struct {
-	services     []Service
-	fuddleSeeds  []string
-	counterAddrs []string
+	services      []Service
+	fuddleSeeds   []string
+	counterAddrs  []string
+	frontendAddrs []string
 }
 
 func NewCluster(opts ...Option) (*Cluster, error) {
 	options := options{
-		fuddleNodes:  0,
-		counterNodes: 0,
+		fuddleNodes:   0,
+		counterNodes:  0,
+		frontendNodes: 0,
 	}
 	for _, o := range opts {
 		o.apply(&options)
@@ -56,6 +59,11 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 			return nil, fmt.Errorf("cluster: %w", err)
 		}
 	}
+	for i := 0; i != options.frontendNodes; i++ {
+		if err := c.addFrontendNode(); err != nil {
+			return nil, fmt.Errorf("cluster: %w", err)
+		}
+	}
 
 	for _, s := range c.services {
 		if err := s.Start(); err != nil {
@@ -68,6 +76,10 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 
 func (c *Cluster) CounterAddrs() []string {
 	return c.counterAddrs
+}
+
+func (c *Cluster) FrontendAddrs() []string {
+	return c.frontendAddrs
 }
 
 func (c *Cluster) Shutdown() {
@@ -110,7 +122,7 @@ func (c *Cluster) addCounterNode() error {
 	// Add a listeners to bind to a system assigned port.
 	rpcLn, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return fmt.Errorf("add fuddle node: %s", err)
+		return fmt.Errorf("add counter node: %s", err)
 	}
 
 	conf := &counter.Config{
@@ -127,6 +139,31 @@ func (c *Cluster) addCounterNode() error {
 	)
 	c.services = append(c.services, s)
 	c.counterAddrs = append(c.counterAddrs, conf.RPCAddr)
+
+	return nil
+}
+
+func (c *Cluster) addFrontendNode() error {
+	// Add a listeners to bind to a system assigned port.
+	wsLn, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return fmt.Errorf("add frontend node: %s", err)
+	}
+
+	conf := &frontend.Config{
+		ID:          "frontend-" + uuid.New().String()[:8],
+		WSAddr:      wsLn.Addr().String(),
+		FuddleAddrs: c.fuddleSeeds,
+		Locality:    "us-east-1-a",
+		Revision:    "unknown",
+	}
+
+	s := frontend.NewService(
+		conf,
+		frontend.WithWSListener(wsLn),
+	)
+	c.services = append(c.services, s)
+	c.frontendAddrs = append(c.frontendAddrs, conf.WSAddr)
 
 	return nil
 }

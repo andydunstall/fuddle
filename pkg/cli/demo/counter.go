@@ -93,7 +93,10 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 	frontendNodes = append(frontendNodes, frontendNodeConfig("us-east-1-c"))
 
 	for _, conf := range frontendNodes {
-		node := frontend.NewService(conf, demoLogger(logDir, fuddleConf.ID))
+		node := frontend.NewService(
+			conf,
+			frontend.WithLogger(demoLogger(logDir, fuddleConf.ID)),
+		)
 		if err := node.Start(); err != nil {
 			return fmt.Errorf("counter service: frontend node: %w", err)
 		}
@@ -143,7 +146,7 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 #       Endpoint: ws://%s/{id}
 #       Locality: %s
 #       Logs: %s
-#`, conf.ID, conf.RPCAddr, conf.Locality, demoLogPath(logDir, conf.ID))
+#`, conf.ID, conf.WSAddr, conf.Locality, demoLogPath(logDir, conf.ID))
 		fmt.Println("")
 	}
 
@@ -180,7 +183,7 @@ func fuddleNodeConfig() *config.Config {
 func frontendNodeConfig(locality string) *frontend.Config {
 	return &frontend.Config{
 		ID:          "frontend-" + uuid.New().String()[:8],
-		RPCAddr:     testutils.GetSystemAddress(),
+		WSAddr:      testutils.GetSystemAddress(),
 		FuddleAddrs: []string{"127.0.0.1:8220"},
 		Locality:    locality,
 		Revision:    build.Revision,
