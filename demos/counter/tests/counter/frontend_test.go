@@ -16,26 +16,40 @@
 package counter
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/andydunstall/fuddle/demos/counter/pkg/testutils/cluster"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestFrontend_Connect(t *testing.T) {
+func TestFrontend_Register(t *testing.T) {
 	c, err := cluster.NewCluster(
 		cluster.WithFuddleNodes(1),
-		cluster.WithCounterNodes(1),
-		cluster.WithFrontendNodes(1),
+		cluster.WithCounterNodes(3),
+		cluster.WithFrontendNodes(3),
 	)
 	require.NoError(t, err)
 	defer c.Shutdown()
 
-	resp, err := http.Get("http://" + c.FrontendAddrs()[0] + "/foo")
-	require.NoError(t, err)
-	defer resp.Body.Close()
+	url := "ws://" + c.FrontendAddrs()[0] + "/foo"
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	require.Nil(t, err)
+	defer conn.Close()
 
-	assert.Equal(t, 200, resp.StatusCode)
+	_, m, err := conn.ReadMessage()
+	require.Nil(t, err)
+
+	assert.Equal(t, "1", string(m))
+
+	url2 := "ws://" + c.FrontendAddrs()[1] + "/foo"
+	conn2, _, err := websocket.DefaultDialer.Dial(url2, nil)
+	require.Nil(t, err)
+	defer conn2.Close()
+
+	_, m, err = conn.ReadMessage()
+	require.Nil(t, err)
+
+	assert.Equal(t, "2", string(m))
 }
