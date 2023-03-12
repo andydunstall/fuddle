@@ -31,8 +31,9 @@ type Service interface {
 }
 
 type Cluster struct {
-	services    []Service
-	fuddleSeeds []string
+	services     []Service
+	fuddleSeeds  []string
+	counterAddrs []string
 }
 
 func NewCluster(opts ...Option) (*Cluster, error) {
@@ -63,6 +64,10 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 	}
 
 	return c, nil
+}
+
+func (c *Cluster) CounterAddrs() []string {
+	return c.counterAddrs
 }
 
 func (c *Cluster) Shutdown() {
@@ -121,6 +126,7 @@ func (c *Cluster) addCounterNode() error {
 		counter.WithRPCListener(rpcLn),
 	)
 	c.services = append(c.services, s)
+	c.counterAddrs = append(c.counterAddrs, conf.RPCAddr)
 
 	return nil
 }

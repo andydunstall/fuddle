@@ -49,7 +49,7 @@ func NewService(conf *Config, opts ...Option) *Service {
 
 	logger := options.logger.With(zap.String("service", "counter"))
 
-	server := newServer()
+	server := newServer(logger)
 
 	grpcServer := newGRPCServer(conf.RPCAddr, logger)
 	rpc.RegisterCounterServer(grpcServer.GRPCServer(), server)
