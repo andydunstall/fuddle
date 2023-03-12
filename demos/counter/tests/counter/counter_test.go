@@ -44,14 +44,16 @@ func TestCounter_Register(t *testing.T) {
 		updates <- c
 	})
 	require.NoError(t, err)
-	defer unsubscribe()
+	defer func() {
+		assert.Nil(t, unsubscribe())
+	}()
 
 	// Expect to receive an update that the user was registered.
 	assert.Equal(t, uint64(1), waitTimeout(updates, t))
 
 	// Register 15 more users with the same ID, split across multiple client
 	// connections.
-	var unregister []func()
+	var unregister []func() error
 	for i := 0; i != 5; i++ {
 		c := counter.NewClient(c.CounterAddrs()[0])
 		defer c.Close()
@@ -66,7 +68,7 @@ func TestCounter_Register(t *testing.T) {
 	}
 
 	for i := len(unregister) - 1; i >= 0; i-- {
-		unregister[i]()
+		require.Nil(t, unregister[i]())
 		assert.Equal(t, uint64(i+1), waitTimeout(updates, t))
 	}
 }

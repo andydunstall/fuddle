@@ -42,7 +42,7 @@ func NewClient(addr string) *Client {
 
 // Register registers the user for the given ID, which will call onUpdate
 // whenever the count changes. Returns a function to unregister.
-func (c *Client) Register(id string, onUpdate func(c uint64)) (func(), error) {
+func (c *Client) Register(id string, onUpdate func(c uint64)) (func() error, error) {
 	counter, err := c.counter(id)
 	if err != nil {
 		return nil, err
