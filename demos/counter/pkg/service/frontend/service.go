@@ -31,7 +31,15 @@ type Service struct {
 	logger *zap.Logger
 }
 
-func NewService(conf *Config, logger *zap.Logger) *Service {
+func NewService(conf *Config, opts ...Option) *Service {
+	options := options{
+		logger: zap.NewNop(),
+	}
+	for _, o := range opts {
+		o.apply(&options)
+	}
+
+	logger := options.logger.With(zap.String("service", "counter"))
 	return &Service{
 		conf:   conf,
 		logger: logger,

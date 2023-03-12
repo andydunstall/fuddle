@@ -93,7 +93,10 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 	frontendNodes = append(frontendNodes, frontendNodeConfig("us-east-1-c"))
 
 	for _, conf := range frontendNodes {
-		node := frontend.NewService(conf, demoLogger(logDir, fuddleConf.ID))
+		node := frontend.NewService(
+			conf,
+			frontend.WithLogger(demoLogger(logDir, fuddleConf.ID)),
+		)
 		if err := node.Start(); err != nil {
 			return fmt.Errorf("counter service: frontend node: %w", err)
 		}
