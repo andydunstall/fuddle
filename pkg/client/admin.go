@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 )
 
 type Admin struct {
@@ -34,7 +34,7 @@ func NewAdmin(addr string) *Admin {
 	}
 }
 
-func (a *Admin) Nodes(ctx context.Context) ([]*registry.Node, error) {
+func (a *Admin) Nodes(ctx context.Context) ([]*cluster.Node, error) {
 	url := fmt.Sprintf("http://%s/api/v1/cluster", a.addr)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -46,14 +46,14 @@ func (a *Admin) Nodes(ctx context.Context) ([]*registry.Node, error) {
 		return nil, fmt.Errorf("admin client: nodes: bad status code: %d", resp.StatusCode)
 	}
 
-	var nodes []*registry.Node
+	var nodes []*cluster.Node
 	if err = json.NewDecoder(resp.Body).Decode(&nodes); err != nil {
 		return nil, fmt.Errorf("admin client: nodes, %w", err)
 	}
 	return nodes, nil
 }
 
-func (a *Admin) Node(ctx context.Context, id string) (*registry.Node, error) {
+func (a *Admin) Node(ctx context.Context, id string) (*cluster.Node, error) {
 	url := fmt.Sprintf("http://%s/api/v1/node/%s", a.addr, id)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -65,7 +65,7 @@ func (a *Admin) Node(ctx context.Context, id string) (*registry.Node, error) {
 		return nil, fmt.Errorf("admin client: node: bad status code: %d", resp.StatusCode)
 	}
 
-	var node *registry.Node
+	var node *cluster.Node
 	if err = json.NewDecoder(resp.Body).Decode(&node); err != nil {
 		return nil, fmt.Errorf("admin client: node, %w", err)
 	}

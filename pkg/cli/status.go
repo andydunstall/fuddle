@@ -21,7 +21,7 @@ import (
 	"sort"
 
 	"github.com/fuddle-io/fuddle/pkg/client"
-	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 )
@@ -111,7 +111,7 @@ func runNodeStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func displayNodes(nodes []*registry.Node) {
+func displayNodes(nodes []*cluster.Node) {
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].ID < nodes[j].ID
 	})

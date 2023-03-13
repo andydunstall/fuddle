@@ -19,12 +19,13 @@ import (
 	"time"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
+	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
 type Service struct {
-	clusterState *Cluster
+	clusterState *cluster.Cluster
 	server       *Server
 
 	logger *zap.Logger
@@ -39,7 +40,7 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 	})
 	metricsRegistry.MustRegister(nodeCountGauge)
 
-	clusterState := NewCluster(Node{
+	clusterState := cluster.NewCluster(cluster.Node{
 		ID:       conf.ID,
 		Service:  "fuddle",
 		Locality: conf.Locality,
@@ -76,6 +77,6 @@ func (s *Service) Server() *Server {
 	return s.server
 }
 
-func (s *Service) Cluster() *Cluster {
+func (s *Service) Cluster() *cluster.Cluster {
 	return s.clusterState
 }

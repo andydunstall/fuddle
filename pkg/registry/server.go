@@ -19,23 +19,24 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/fuddle-io/fuddle/pkg/rpc"
 	"go.uber.org/zap"
 )
 
 // Server exposes gRPC endpoints for the registry.
 type Server struct {
-	clusterState *Cluster
+	cluster *cluster.Cluster
 
 	logger *zap.Logger
 
 	rpc.UnimplementedRegistryServer
 }
 
-func NewServer(clusterState *Cluster, logger *zap.Logger) *Server {
+func NewServer(cluster *cluster.Cluster, logger *zap.Logger) *Server {
 	return &Server{
-		clusterState: clusterState,
-		logger:       logger,
+		cluster: cluster,
+		logger:  logger,
 	}
 }
 
@@ -52,7 +53,7 @@ func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
 	if joinUpdate.UpdateType != rpc.NodeUpdateType_JOIN {
 		return fmt.Errorf("protocol error: node must register")
 	}
-	if err := s.clusterState.ApplyUpdate(joinUpdate); err != nil {
+	if err := s.cluster.ApplyUpdate(joinUpdate); err != nil {
 		return err
 	}
 
@@ -61,7 +62,7 @@ func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
 	// Subscribe to the node map and send updates to the client. This will
 	// replay all existing nodes as JOIN updates to ensure the subscriber
 	// doesn't miss any updates.
-	unsubscribe := s.clusterState.Subscribe(true, func(update *rpc.NodeUpdate) {
+	unsubscribe := s.cluster.Subscribe(true, func(update *rpc.NodeUpdate) {
 		// Avoid echoing back updates from the connected nodes.
 		if update.NodeId == nodeID {
 			return
@@ -80,7 +81,7 @@ func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
 			return err
 		}
 
-		if err := s.clusterState.ApplyUpdate(update); err != nil {
+		if err := s.cluster.ApplyUpdate(update); err != nil {
 			s.logger.Error("update error", zap.Error(err))
 		}
 	}

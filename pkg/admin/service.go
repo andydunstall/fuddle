@@ -19,7 +19,7 @@ import (
 	"net"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -30,7 +30,7 @@ type Service struct {
 	logger *zap.Logger
 }
 
-func NewService(clusterState *registry.Cluster, conf *config.Config, metricsRegistry *prometheus.Registry, logger *zap.Logger) *Service {
+func NewService(clusterState *cluster.Cluster, conf *config.Config, metricsRegistry *prometheus.Registry, logger *zap.Logger) *Service {
 	logger = logger.With(zap.String("service", "admin"))
 
 	server := newServer(conf.BindAdminAddr, clusterState, metricsRegistry, logger)

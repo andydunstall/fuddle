@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package registry
+package cluster
 
 // Node represents the state of a node that is propagated to other nodes
 // in the cluster.
