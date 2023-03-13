@@ -88,7 +88,7 @@ depend on the update type:
 	* `register`: Contains all metadata fields
 	* `unregister`: Empty since theres no need to update the metadata of a leaving
 node
-	* `update`: Contains only the key-value pairs that have been updated
+	* `metadata`: Contains only the key-value pairs that have been updated
 
 ### Stream
 When the node first registers, it must send a `register` message containing its
