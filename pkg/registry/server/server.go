@@ -55,6 +55,7 @@ func NewServer(addr string, cluster *cluster.Cluster, opts ...Option) *Server {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/api/v1/register", server.registerRoute)
+	r.HandleFunc("/api/v1/cluster", server.clusterRoute)
 	r.HandleFunc("/api/v1/node/{id}", server.nodeRoute)
 
 	httpServer := &http.Server{
@@ -102,6 +103,14 @@ func (s *Server) GracefulStop() {
 }
 
 func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
+}
+
+func (s *Server) clusterRoute(w http.ResponseWriter, r *http.Request) {
+	if err := json.NewEncoder(w).Encode(s.cluster.Nodes()); err != nil {
+		s.logger.Error("failed to encode cluster response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (s *Server) nodeRoute(w http.ResponseWriter, r *http.Request) {
