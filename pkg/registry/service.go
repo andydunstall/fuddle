@@ -20,7 +20,6 @@ import (
 
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -31,14 +30,8 @@ type Service struct {
 	logger *zap.Logger
 }
 
-func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logger *zap.Logger) *Service {
+func NewService(conf *config.Config, logger *zap.Logger) *Service {
 	logger = logger.With(zap.String("service", "registry"))
-
-	nodeCountGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "fuddle_registry_node_count",
-		Help: "Number of nodes registered with Fuddle",
-	})
-	metricsRegistry.MustRegister(nodeCountGauge)
 
 	clusterState := cluster.NewCluster(cluster.Node{
 		ID:       conf.ID,
@@ -51,10 +44,6 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 			"addr.admin": conf.BindAdminAddr,
 		},
 	})
-
-	// clusterState.Subscribe(func() {
-	// 	nodeCountGauge.Set(float64(len(clusterState.NodeIDs())))
-	// })
 
 	server := NewServer(clusterState, logger)
 	return &Service{
