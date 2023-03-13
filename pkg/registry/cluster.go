@@ -132,7 +132,7 @@ func (s *Cluster) Subscribe(rewind bool, cb func(update *rpc.NodeUpdate)) func()
 					Revision: node.Revision,
 				},
 				// Copy state since the node state may be modified.
-				State: CopyState(node.State),
+				State: CopyMetadata(node.Metadata),
 			}
 			cb(update)
 		}
@@ -178,9 +178,9 @@ func (s *Cluster) applyJoinUpdateLocked(update *rpc.NodeUpdate) error {
 		Locality: update.Attributes.Locality,
 		Created:  update.Attributes.Created,
 		Revision: update.Attributes.Revision,
-		// Copy the state to avoid modifying the update. If update.State is
+		// Copy the state to avoid modifying the update. If update.Metadata is
 		// nil this returns an empty map.
-		State: CopyState(update.State),
+		Metadata: CopyMetadata(update.State),
 	}
 	s.nodes[node.ID] = node
 
@@ -204,7 +204,7 @@ func (s *Cluster) applyStateUpdateLocked(update *rpc.NodeUpdate) error {
 		return nil
 	}
 	for k, v := range update.State {
-		node.State[k] = v
+		node.Metadata[k] = v
 	}
 
 	return nil

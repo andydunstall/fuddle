@@ -30,7 +30,7 @@ func TestNode_Copy(t *testing.T) {
 		Locality: "us-east-1-a",
 		Created:  12345,
 		Revision: "v0.1.0",
-		State: map[string]string{
+		Metadata: map[string]string{
 			"a": "1",
 			"b": "2",
 			"c": "3",
@@ -42,6 +42,6 @@ func TestNode_Copy(t *testing.T) {
 	assert.Equal(t, node, nodeCopy)
 
 	// Verify changing the state of the original doesn't affect the copy.
-	node.State["a"] = "5"
-	assert.Equal(t, "1", nodeCopy.State["a"])
+	node.Metadata["a"] = "5"
+	assert.Equal(t, "1", nodeCopy.Metadata["a"])
 }

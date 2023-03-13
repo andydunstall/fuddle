@@ -33,17 +33,17 @@ type Node struct {
 	// Revision identifies the version of the service running on the node.
 	Revision string `json:"revision,omitempty"`
 
-	// State node service state.
-	State map[string]string `json:"state,omitempty"`
+	// Metadata is application defined information about the node.
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 func (s *Node) Copy() Node {
 	cp := *s
-	cp.State = CopyState(s.State)
+	cp.Metadata = CopyMetadata(s.Metadata)
 	return cp
 }
 
-func CopyState(s map[string]string) map[string]string {
+func CopyMetadata(s map[string]string) map[string]string {
 	if s == nil {
 		return make(map[string]string)
 	}

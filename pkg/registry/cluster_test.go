@@ -30,7 +30,7 @@ func TestCluster_Node(t *testing.T) {
 		Locality: "us-east-1-a",
 		Created:  12345,
 		Revision: "v0.1.0",
-		State:    make(map[string]string),
+		Metadata: make(map[string]string),
 	}
 	cs := NewCluster(local)
 
@@ -41,7 +41,7 @@ func TestCluster_Node(t *testing.T) {
 
 	// Verify the returned node is a copy by modifying its state and getting
 	// the name ndoe again.
-	node.State["a"] = "5"
+	node.Metadata["a"] = "5"
 	nodeCopy, ok := cs.Node("local-123")
 	assert.True(t, ok)
 	assert.Equal(t, local, nodeCopy)
@@ -50,7 +50,7 @@ func TestCluster_Node(t *testing.T) {
 func TestCluster_Nodes(t *testing.T) {
 	local := Node{
 		ID: "local-123",
-		State: map[string]string{
+		Metadata: map[string]string{
 			"foo": "bar",
 		},
 	}
@@ -63,7 +63,7 @@ func TestCluster_Nodes(t *testing.T) {
 			Locality: "us-east-1-a",
 			Created:  12345,
 			Revision: "v0.1.0",
-			State: map[string]string{
+			Metadata: map[string]string{
 				"addr.foo": "10.26.104.54:8138",
 				"addr.bar": "10.26.104.23:1122",
 			},
@@ -74,7 +74,7 @@ func TestCluster_Nodes(t *testing.T) {
 			Locality: "us-east-1-a",
 			Created:  12345,
 			Revision: "v0.1.0",
-			State: map[string]string{
+			Metadata: map[string]string{
 				"addr.foo": "10.26.104.54:8138",
 				"addr.bar": "10.26.104.23:1122",
 			},
@@ -90,7 +90,7 @@ func TestCluster_Nodes(t *testing.T) {
 				Created:  node.Created,
 				Revision: node.Revision,
 			},
-			State: node.State,
+			State: node.Metadata,
 		}
 		assert.Nil(t, cs.ApplyUpdate(update))
 	}
@@ -125,7 +125,7 @@ func TestCluster_ApplyJoinUpdate(t *testing.T) {
 		Locality: "us-east-1-a",
 		Created:  12345,
 		Revision: "v0.1.0",
-		State: map[string]string{
+		Metadata: map[string]string{
 			"addr.foo": "10.26.104.54:8138",
 			"addr.bar": "10.26.104.23:1122",
 		},
@@ -139,7 +139,7 @@ func TestCluster_ApplyJoinUpdate(t *testing.T) {
 			Created:  joinedNode.Created,
 			Revision: joinedNode.Revision,
 		},
-		State: joinedNode.State,
+		State: joinedNode.Metadata,
 	}
 	assert.Nil(t, cs.ApplyUpdate(update))
 
@@ -199,7 +199,7 @@ func TestCluster_ApplyLeaveUpdate(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestCluster_ApplyStateUpdate(t *testing.T) {
+func TestCluster_ApplyMetadataUpdate(t *testing.T) {
 	cs := NewCluster(Node{
 		ID: "local-123",
 	})
@@ -237,11 +237,11 @@ func TestCluster_ApplyStateUpdate(t *testing.T) {
 		"foo": "1",
 		"bar": "2",
 		"car": "3",
-	}, node.State)
+	}, node.Metadata)
 }
 
 // Tests applying a state update where the node is not found.
-func TestCluster_ApplyStateUpdateNodeNotFound(t *testing.T) {
+func TestCluster_ApplyMetadataUpdateNodeNotFound(t *testing.T) {
 	cs := NewCluster(Node{
 		ID: "local-123",
 	})

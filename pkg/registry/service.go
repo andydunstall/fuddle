@@ -45,7 +45,7 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 		Locality: conf.Locality,
 		Created:  time.Now().UnixMilli(),
 		Revision: conf.Revision,
-		State: map[string]string{
+		Metadata: map[string]string{
 			"addr.rpc":   conf.BindAddr,
 			"addr.admin": conf.BindAdminAddr,
 		},
