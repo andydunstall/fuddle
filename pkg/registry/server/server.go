@@ -13,10 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package registry
+package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -54,6 +55,7 @@ func NewServer(addr string, cluster *cluster.Cluster, opts ...Option) *Server {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/api/v1/register", server.registerRoute)
+	r.HandleFunc("/api/v1/node/{id}", server.nodeRoute)
 
 	httpServer := &http.Server{
 		Addr:    addr,
@@ -100,4 +102,25 @@ func (s *Server) GracefulStop() {
 }
 
 func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
+}
+
+func (s *Server) nodeRoute(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	if id == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	node, ok := s.cluster.Node(id)
+	if !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(node); err != nil {
+		s.logger.Error("failed to encode node response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 }
