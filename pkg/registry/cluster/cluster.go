@@ -18,13 +18,11 @@ package cluster
 import (
 	"fmt"
 	"sync"
-
-	"github.com/fuddle-io/fuddle/pkg/rpc"
 )
 
 // subHandle is a handle for an RPC update subscriber.
 type subHandle struct {
-	Callback func(update *rpc.NodeUpdate)
+	Callback func(update *NodeUpdate)
 }
 
 // Cluster represents the shared view of the nodes in the cluster.
@@ -73,21 +71,21 @@ func (s *Cluster) Nodes() []Node {
 
 // ApplyUpdate applies the given node state update and sends it to the
 // subscribers.
-func (s *Cluster) ApplyUpdate(update *rpc.NodeUpdate) error {
+func (s *Cluster) ApplyUpdate(update *NodeUpdate) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	switch update.UpdateType {
-	case rpc.NodeUpdateType_JOIN:
-		if err := s.applyJoinUpdateLocked(update); err != nil {
+	case UpdateTypeRegister:
+		if err := s.applyRegisterUpdateLocked(update); err != nil {
 			return err
 		}
-	case rpc.NodeUpdateType_LEAVE:
-		if err := s.applyLeaveUpdateLocked(update); err != nil {
+	case UpdateTypeUnregister:
+		if err := s.applyUnregisterUpdateLocked(update); err != nil {
 			return err
 		}
-	case rpc.NodeUpdateType_STATE:
-		if err := s.applyStateUpdateLocked(update); err != nil {
+	case UpdateTypeMetadata:
+		if err := s.applyMetadataUpdateLocked(update); err != nil {
 			return err
 		}
 	default:
@@ -113,7 +111,7 @@ func (s *Cluster) ApplyUpdate(update *rpc.NodeUpdate) error {
 // transaction.
 //
 // Returns a function to unsubscribe.
-func (s *Cluster) Subscribe(rewind bool, cb func(update *rpc.NodeUpdate)) func() {
+func (s *Cluster) Subscribe(rewind bool, cb func(update *NodeUpdate)) func() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -122,17 +120,17 @@ func (s *Cluster) Subscribe(rewind bool, cb func(update *rpc.NodeUpdate)) func()
 		// locked to avoid breaking order guarantees (such as receiving a
 		// state update event before a join event for a node).
 		for _, node := range s.nodes {
-			update := &rpc.NodeUpdate{
-				NodeId:     node.ID,
-				UpdateType: rpc.NodeUpdateType_JOIN,
-				Attributes: &rpc.Attributes{
+			update := &NodeUpdate{
+				ID:         node.ID,
+				UpdateType: UpdateTypeRegister,
+				Attributes: &NodeAttributes{
 					Service:  node.Service,
 					Locality: node.Locality,
 					Created:  node.Created,
 					Revision: node.Revision,
 				},
 				// Copy state since the node state may be modified.
-				State: CopyMetadata(node.Metadata),
+				Metadata: CopyMetadata(node.Metadata),
 			}
 			cb(update)
 		}
@@ -163,47 +161,47 @@ func (s *Cluster) unsubscribeUpdates(handle *subHandle) {
 	delete(s.subs, handle)
 }
 
-func (s *Cluster) applyJoinUpdateLocked(update *rpc.NodeUpdate) error {
-	if update.NodeId == "" {
-		return fmt.Errorf("cluster state: join update: missing id")
+func (s *Cluster) applyRegisterUpdateLocked(update *NodeUpdate) error {
+	if update.ID == "" {
+		return fmt.Errorf("cluster state: register update: missing id")
 	}
 
 	if update.Attributes == nil {
-		return fmt.Errorf("cluster state: join update: missing attributes")
+		return fmt.Errorf("cluster state: register update: missing attributes")
 	}
 
 	node := Node{
-		ID:       update.NodeId,
+		ID:       update.ID,
 		Service:  update.Attributes.Service,
 		Locality: update.Attributes.Locality,
 		Created:  update.Attributes.Created,
 		Revision: update.Attributes.Revision,
 		// Copy the state to avoid modifying the update. If update.Metadata is
 		// nil this returns an empty map.
-		Metadata: CopyMetadata(update.State),
+		Metadata: CopyMetadata(update.Metadata),
 	}
 	s.nodes[node.ID] = node
 
 	return nil
 }
 
-func (s *Cluster) applyLeaveUpdateLocked(update *rpc.NodeUpdate) error {
-	delete(s.nodes, update.NodeId)
+func (s *Cluster) applyUnregisterUpdateLocked(update *NodeUpdate) error {
+	delete(s.nodes, update.ID)
 
 	return nil
 }
 
-func (s *Cluster) applyStateUpdateLocked(update *rpc.NodeUpdate) error {
-	node, ok := s.nodes[update.NodeId]
+func (s *Cluster) applyMetadataUpdateLocked(update *NodeUpdate) error {
+	node, ok := s.nodes[update.ID]
 	if !ok {
-		return fmt.Errorf("cluster state: state update: node does not exist")
+		return fmt.Errorf("cluster state: metadata update: node does not exist")
 	}
 
-	// If the update is missing state must ignore it.
-	if update.State == nil {
+	// If the update is missing metadata just ignore it.
+	if update.Metadata == nil {
 		return nil
 	}
-	for k, v := range update.State {
+	for k, v := range update.Metadata {
 		node.Metadata[k] = v
 	}
 
