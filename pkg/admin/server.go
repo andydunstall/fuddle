@@ -24,35 +24,43 @@ import (
 
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/gorilla/mux"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
 type server struct {
-	clusterState *cluster.Cluster
-	httpServer   *http.Server
+	cluster    *cluster.Cluster
+	httpServer *http.Server
+	listener   net.Listener
 
 	logger *zap.Logger
 }
 
-func newServer(addr string, clusterState *cluster.Cluster, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
+func newServer(addr string, cluster *cluster.Cluster, options options) *server {
 	server := &server{
-		clusterState: clusterState,
-		logger:       logger,
+		cluster:  cluster,
+		listener: options.listener,
+		logger:   options.logger,
 	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/api/v1/cluster", server.clusterRoute)
 	r.HandleFunc("/api/v1/node/{id}", server.nodeRoute)
-	r.Handle(
-		"/metrics",
-		promhttp.HandlerFor(
-			metricsRegistry,
-			promhttp.HandlerOpts{Registry: metricsRegistry},
+	if options.promRegistry != nil {
+		r.Handle(
+			"/metrics",
+			promhttp.HandlerFor(
+				options.promRegistry,
+				promhttp.HandlerOpts{Registry: options.promRegistry},
+			),
+		)
+	}
+	r.PathPrefix("/static/").Handler(
+		http.StripPrefix(
+			"/static/",
+			http.FileServer(http.Dir("./console/ui/build/static")),
 		),
 	)
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./console/ui/build/static"))))
 	r.Handle("/", http.FileServer(http.Dir("./console/ui/build")))
 
 	httpServer := &http.Server{
@@ -64,7 +72,8 @@ func newServer(addr string, clusterState *cluster.Cluster, metricsRegistry *prom
 	return server
 }
 
-func (s *server) Start(ln net.Listener) error {
+func (s *server) Start() error {
+	ln := s.listener
 	if ln == nil {
 		// Setup the listener before starting to the goroutine to return any errors
 		// binding or listening to the configured address.
@@ -96,7 +105,7 @@ func (s *server) GracefulStop() {
 }
 
 func (s *server) clusterRoute(w http.ResponseWriter, r *http.Request) {
-	if err := json.NewEncoder(w).Encode(s.clusterState.Nodes()); err != nil {
+	if err := json.NewEncoder(w).Encode(s.cluster.Nodes()); err != nil {
 		s.logger.Error("failed to encode cluster response", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
@@ -111,7 +120,7 @@ func (s *server) nodeRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	node, ok := s.clusterState.Node(id)
+	node, ok := s.cluster.Node(id)
 	if !ok {
 		http.Error(w, "not found", http.StatusNotFound)
 		return

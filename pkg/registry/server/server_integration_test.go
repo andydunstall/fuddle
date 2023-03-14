@@ -18,11 +18,8 @@
 package server
 
 import (
-	"encoding/json"
 	"math/rand"
 	"net"
-	"net/http"
-	"sort"
 	"testing"
 
 	fuddle "github.com/fuddle-io/fuddle-go"
@@ -199,95 +196,6 @@ func TestServer_ClusterDiscovery(t *testing.T) {
 	for _, r := range addedRegistries {
 		assert.Nil(t, testutils.WaitForNode(r, updatedNode))
 	}
-}
-
-// Tests /api/v1/cluster returns the correct cluster state.
-func TestServer_Cluster(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-
-	var nodes []cluster.Node
-
-	local := randomNode()
-	nodes = append(nodes, local)
-	c := cluster.NewCluster(local)
-	// Add 5 more random nodes.
-	for i := 0; i != 5; i++ {
-		node := randomNode()
-		nodes = append(nodes, node)
-		c.ApplyUpdate(&cluster.NodeUpdate{
-			ID:         node.ID,
-			UpdateType: cluster.UpdateTypeRegister,
-			Attributes: &cluster.NodeAttributes{
-				Service:  node.Service,
-				Locality: node.Locality,
-				Created:  node.Created,
-				Revision: node.Revision,
-			},
-			Metadata: node.Metadata,
-		})
-	}
-
-	server := NewServer(ln.Addr().String(), c, WithListener(ln))
-	require.NoError(t, server.Start())
-	defer server.GracefulStop()
-
-	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/cluster")
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, 200, resp.StatusCode)
-
-	var recvNodes []cluster.Node
-	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&recvNodes))
-
-	// Sort the nodes to make comparison easier.
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].ID < nodes[j].ID
-	})
-	sort.Slice(recvNodes, func(i, j int) bool {
-		return recvNodes[i].ID < recvNodes[j].ID
-	})
-
-	assert.Equal(t, nodes, recvNodes)
-}
-
-// Tests /api/v1/node/{id} returns the correct node state.
-func TestServer_Node(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-
-	local := randomNode()
-	c := cluster.NewCluster(local)
-	server := NewServer(ln.Addr().String(), c, WithListener(ln))
-	require.NoError(t, server.Start())
-	defer server.GracefulStop()
-
-	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/node/" + local.ID)
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, 200, resp.StatusCode)
-
-	var node cluster.Node
-	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&node))
-
-	assert.Equal(t, node, local)
-}
-
-// Tests /api/v1/node/{id} returns 404 when a node is not found.
-func TestServer_NodeNotFound(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-
-	local := randomNode()
-	c := cluster.NewCluster(local)
-	server := NewServer(ln.Addr().String(), c, WithListener(ln))
-	require.NoError(t, server.Start())
-	defer server.GracefulStop()
-
-	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/node/notfound")
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, 404, resp.StatusCode)
 }
 
 // randomNode returns a node with random attributes and metadata.

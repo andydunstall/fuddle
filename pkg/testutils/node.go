@@ -20,6 +20,7 @@ import (
 	"time"
 
 	fuddle "github.com/fuddle-io/fuddle-go"
+	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/google/uuid"
 )
 
@@ -66,6 +67,18 @@ func RandomNode() fuddle.Node {
 		Created:  rand.Int63(),
 		Revision: uuid.New().String(),
 		State:    RandomState(),
+	}
+}
+
+// RandomRegistryNode returns a node with random attributes and metadata.
+func RandomRegistryNode() cluster.Node {
+	return cluster.Node{
+		ID:       uuid.New().String(),
+		Service:  uuid.New().String(),
+		Locality: uuid.New().String(),
+		Created:  rand.Int63(),
+		Revision: uuid.New().String(),
+		Metadata: RandomState(),
 	}
 }
 
