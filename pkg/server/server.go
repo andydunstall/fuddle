@@ -16,8 +16,6 @@
 package server
 
 import (
-	"net"
-
 	"github.com/fuddle-io/fuddle/pkg/admin"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry"
@@ -30,13 +28,6 @@ import (
 type Server struct {
 	adminService    *admin.Service
 	registryService *registry.Service
-
-	// rpcListener is an optional listener to use for gRPC instead of binding
-	// to a new listener.
-	rpcListener net.Listener
-	// adminListener is an optional listener to use for the admin server
-	// insert of binding to a new listener.
-	adminListener net.Listener
 
 	conf   *config.Config
 	logger *zap.Logger
@@ -65,6 +56,7 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 	adminService := admin.NewService(
 		registryService.Cluster(),
 		conf,
+		admin.WithListener(options.adminListener),
 		admin.WithPromRegistry(metricsRegistry),
 		admin.WithLogger(logger),
 	)
@@ -72,8 +64,6 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 	return &Server{
 		adminService:    adminService,
 		registryService: registryService,
-		rpcListener:     options.rpcListener,
-		adminListener:   options.adminListener,
 		conf:            conf,
 		logger:          logger,
 	}
@@ -83,7 +73,7 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 func (s *Server) Start() error {
 	s.logger.Info("starting node", zap.Object("conf", s.conf))
 
-	if err := s.adminService.Start(s.adminListener); err != nil {
+	if err := s.adminService.Start(); err != nil {
 		return err
 	}
 	if err := s.registryService.Start(); err != nil {

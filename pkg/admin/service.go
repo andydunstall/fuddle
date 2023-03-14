@@ -16,8 +16,6 @@
 package admin
 
 import (
-	"net"
-
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"go.uber.org/zap"
@@ -49,9 +47,9 @@ func NewService(cluster *cluster.Cluster, conf *config.Config, opts ...Option) *
 	}
 }
 
-func (s *Service) Start(ln net.Listener) error {
+func (s *Service) Start() error {
 	s.logger.Info("starting admin service")
-	return s.server.Start(ln)
+	return s.server.Start()
 }
 
 func (s *Service) GracefulStop() {

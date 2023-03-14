@@ -31,14 +31,16 @@ import (
 type server struct {
 	cluster    *cluster.Cluster
 	httpServer *http.Server
+	listener   net.Listener
 
 	logger *zap.Logger
 }
 
 func newServer(addr string, cluster *cluster.Cluster, options options) *server {
 	server := &server{
-		cluster: cluster,
-		logger:  options.logger,
+		cluster:  cluster,
+		listener: options.listener,
+		logger:   options.logger,
 	}
 
 	r := mux.NewRouter()
@@ -65,7 +67,8 @@ func newServer(addr string, cluster *cluster.Cluster, options options) *server {
 	return server
 }
 
-func (s *server) Start(ln net.Listener) error {
+func (s *server) Start() error {
+	ln := s.listener
 	if ln == nil {
 		// Setup the listener before starting to the goroutine to return any errors
 		// binding or listening to the configured address.
