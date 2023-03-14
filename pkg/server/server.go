@@ -45,8 +45,8 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 
 	logger := options.logger.With(zap.String("service", "server"))
 
-	metricsRegistry := prometheus.NewRegistry()
-	metricsRegistry.MustRegister(collectors.NewGoCollector())
+	promRegistry := prometheus.NewRegistry()
+	promRegistry.MustRegister(collectors.NewGoCollector())
 
 	registryService := registry.NewService(
 		conf,
@@ -57,7 +57,7 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 		registryService.Cluster(),
 		conf,
 		admin.WithListener(options.adminListener),
-		admin.WithPromRegistry(metricsRegistry),
+		admin.WithPromRegistry(promRegistry),
 		admin.WithLogger(logger),
 	)
 

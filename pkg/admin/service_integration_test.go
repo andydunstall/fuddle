@@ -27,6 +27,7 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -115,6 +116,44 @@ func TestService_NodeNotFound(t *testing.T) {
 	defer service.GracefulStop()
 
 	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/node/notfound")
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, 404, resp.StatusCode)
+}
+
+// Tests /metrics returns 200 when metrics are registered.
+func TestService_Metrics(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	promRegistry := prometheus.NewRegistry()
+
+	c := cluster.NewCluster(testutils.RandomRegistryNode())
+	service := NewService(
+		c, &config.Config{}, WithListener(ln), WithPromRegistry(promRegistry),
+	)
+	require.NoError(t, service.Start())
+	defer service.GracefulStop()
+
+	resp, err := http.Get("http://" + ln.Addr().String() + "/metrics")
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, 200, resp.StatusCode)
+}
+
+// Tests /metrics returns 404 when metrics are not registered.
+func TestService_MetricsNotRegistered(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	c := cluster.NewCluster(testutils.RandomRegistryNode())
+	service := NewService(
+		c, &config.Config{}, WithListener(ln),
+	)
+	require.NoError(t, service.Start())
+	defer service.GracefulStop()
+
+	resp, err := http.Get("http://" + ln.Addr().String() + "/metrics")
 	assert.NoError(t, err)
 	defer resp.Body.Close()
 	assert.Equal(t, 404, resp.StatusCode)
