@@ -26,10 +26,10 @@ type Config struct {
 	// ID is a unique identifier for the fuddle node.
 	ID string
 
-	// BindAddr is the bind address to listen for connections.
-	BindAddr string
-	// AdvAddr is the address to advertise to clients.
-	AdvAddr string
+	// BindRegistryAddr is the bind address to listen for registry clients.
+	BindRegistryAddr string
+	// AdvRegistryAddr is the address to advertise to registry clients.
+	AdvRegistryAddr string
 
 	// BindAdminAddr is the bind address to listen for admin clients.
 	BindAdminAddr string
@@ -46,8 +46,8 @@ type Config struct {
 func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("id", c.ID)
 
-	e.AddString("bind-addr", c.BindAddr)
-	e.AddString("adv-addr", c.AdvAddr)
+	e.AddString("bind-registry-addr", c.BindRegistryAddr)
+	e.AddString("adv-registry-addr", c.AdvRegistryAddr)
 
 	e.AddString("bind-admin-addr", c.BindAdminAddr)
 	e.AddString("adv-admin-addr", c.AdvAdminAddr)
@@ -61,12 +61,12 @@ func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 
 func DefaultConfig() *Config {
 	return &Config{
-		ID:            "fuddle-" + uuid.New().String()[:8],
-		BindAddr:      "0.0.0.0:8220",
-		AdvAddr:       "0.0.0.0:8220",
-		BindAdminAddr: "0.0.0.0:8221",
-		AdvAdminAddr:  "0.0.0.0:8221",
-		Locality:      "unknown",
-		Revision:      build.Revision,
+		ID:               "fuddle-" + uuid.New().String()[:8],
+		BindRegistryAddr: "0.0.0.0:8220",
+		AdvRegistryAddr:  "0.0.0.0:8220",
+		BindAdminAddr:    "0.0.0.0:8221",
+		AdvAdminAddr:     "0.0.0.0:8221",
+		Locality:         "unknown",
+		Revision:         build.Revision,
 	}
 }

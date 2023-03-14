@@ -24,6 +24,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// Service manages the registry service, which provides a server for nodes
+// to register and discovery the cluster.
 type Service struct {
 	clusterState *cluster.Cluster
 	server       *server.Server
@@ -42,6 +44,7 @@ func NewService(conf *config.Config, opts ...Option) *Service {
 
 	logger := options.logger.With(zap.String("service", "registry"))
 
+	// Register this node in the cluster.
 	clusterState := cluster.NewCluster(cluster.Node{
 		ID:       conf.ID,
 		Service:  "fuddle",
@@ -49,13 +52,13 @@ func NewService(conf *config.Config, opts ...Option) *Service {
 		Created:  time.Now().UnixMilli(),
 		Revision: conf.Revision,
 		Metadata: map[string]string{
-			"addr.rpc":   conf.BindAddr,
-			"addr.admin": conf.BindAdminAddr,
+			"addr.registry": conf.AdvRegistryAddr,
+			"addr.admin":    conf.AdvAdminAddr,
 		},
 	})
 
 	server := server.NewServer(
-		conf.AdvAddr,
+		conf.AdvRegistryAddr,
 		clusterState,
 		server.WithListener(options.listener),
 		server.WithLogger(logger),

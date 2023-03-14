@@ -170,13 +170,13 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 func fuddleNodeConfig() *config.Config {
 	// Hardcode the fuddle addresses so we can document the dashboard URL.
 	return &config.Config{
-		ID:            "fuddle-" + uuid.New().String()[:8],
-		BindAddr:      "127.0.0.1:8220",
-		AdvAddr:       "127.0.0.1:8220",
-		BindAdminAddr: "127.0.0.1:8221",
-		AdvAdminAddr:  "127.0.0.1:8221",
-		Locality:      "us-east-1-a",
-		Revision:      build.Revision,
+		ID:               "fuddle-" + uuid.New().String()[:8],
+		BindRegistryAddr: "127.0.0.1:8220",
+		AdvRegistryAddr:  "127.0.0.1:8220",
+		BindAdminAddr:    "127.0.0.1:8221",
+		AdvAdminAddr:     "127.0.0.1:8221",
+		Locality:         "us-east-1-a",
+		Revision:         build.Revision,
 	}
 }
 
