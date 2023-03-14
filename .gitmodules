@@ -1,3 +1,0 @@
-[submodule "rpc"]
-	path = rpc
-	url = git@github.com:fuddle-io/fuddle-rpc.git

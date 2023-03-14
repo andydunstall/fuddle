@@ -16,32 +16,40 @@
 package registry
 
 import (
-	"testing"
+	"net"
 
-	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
-// Tests Node.Copy returns a copy that is equal to the original, and
-// changing state in one won't affect the other.
-func TestNode_Copy(t *testing.T) {
-	node := Node{
-		ID:       "local-123",
-		Service:  "foo",
-		Locality: "us-east-1-a",
-		Created:  12345,
-		Revision: "v0.1.0",
-		State: map[string]string{
-			"a": "1",
-			"b": "2",
-			"c": "3",
-		},
-	}
+type options struct {
+	logger   *zap.Logger
+	listener net.Listener
+}
 
-	// Verify the copy is the same as the original.
-	nodeCopy := node.Copy()
-	assert.Equal(t, node, nodeCopy)
+type Option interface {
+	apply(*options)
+}
 
-	// Verify changing the state of the original doesn't affect the copy.
-	node.State["a"] = "5"
-	assert.Equal(t, "1", nodeCopy.State["a"])
+type loggerOption struct {
+	logger *zap.Logger
+}
+
+func (o loggerOption) apply(opts *options) {
+	opts.logger = o.logger
+}
+
+func WithLogger(logger *zap.Logger) Option {
+	return loggerOption{logger: logger}
+}
+
+type listenerOption struct {
+	ln net.Listener
+}
+
+func (o listenerOption) apply(opts *options) {
+	opts.listener = o.ln
+}
+
+func WithListener(ln net.Listener) Option {
+	return listenerOption{ln: ln}
 }

@@ -21,7 +21,6 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/admin"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry"
-	"github.com/fuddle-io/fuddle/pkg/rpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"go.uber.org/zap"
@@ -31,8 +30,6 @@ import (
 type Server struct {
 	adminService    *admin.Service
 	registryService *registry.Service
-
-	grpcServer *grpcServer
 
 	// rpcListener is an optional listener to use for gRPC instead of binding
 	// to a new listener.
@@ -60,16 +57,16 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 	metricsRegistry := prometheus.NewRegistry()
 	metricsRegistry.MustRegister(collectors.NewGoCollector())
 
-	registryService := registry.NewService(conf, metricsRegistry, logger)
+	registryService := registry.NewService(
+		conf,
+		registry.WithListener(options.rpcListener),
+		registry.WithLogger(logger),
+	)
 	adminService := admin.NewService(registryService.Cluster(), conf, metricsRegistry, logger)
-
-	grpcServer := newGRPCServer(conf.BindAddr, logger)
-	rpc.RegisterRegistryServer(grpcServer.GRPCServer(), registryService.Server())
 
 	return &Server{
 		adminService:    adminService,
 		registryService: registryService,
-		grpcServer:      grpcServer,
 		rpcListener:     options.rpcListener,
 		adminListener:   options.adminListener,
 		conf:            conf,
@@ -87,16 +84,12 @@ func (s *Server) Start() error {
 	if err := s.registryService.Start(); err != nil {
 		return err
 	}
-	if err := s.grpcServer.Start(s.rpcListener); err != nil {
-		return err
-	}
 
 	return nil
 }
 
 func (s *Server) GracefulStop() {
 	s.logger.Info("starting node graceful shutdown")
-	s.grpcServer.GracefulStop()
 	s.registryService.GracefulStop()
 	s.adminService.GracefulStop()
 }

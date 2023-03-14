@@ -36,20 +36,21 @@ in a cloud deployment or a rack when hosted. This is recommended to be organised
 into a hierarchy, such as `<provider>.<region>.<zone>` or
 `<data center>.<rack>`, so make it easy to filter using globs. Such as
 `aws.eu-*` to match all regions in AWS EU
+* Created (`int64`): The UNIX timestamp in milliseconds that the node was
+created
 * Revision (`string`): An identifier for the version of the service running on
 the node, such as a Git tag or commit SHA
 
-## State
-Nodes include application defined state of type `map<string, string>`. This
-state is propagated to the other nodes in the cluster.
+## Metadata
+Nodes include application defined metadata of type `map<string, string>`.
 
-Unlike node attributes, the state may be updated.
+Unlike node attributes, the metadata may be updated.
 
 Similar to the node locality, the keys are recommended to be organised into
 a hierarchy to make filtering easier. Such as `addr.redis.hostname`, so a node
 could query `addr.*`, or `addr.redis.*`.
 
-(Note filtering isn't proposed in the RFC but will be added later.)
+(Note filtering isn't in the RFC but will be added later.)
 
 # Cluster Lookup
 Once a node registers, they receive the state of the cluster from the registry
@@ -60,52 +61,54 @@ This avoids having to do an RPC to Fuddle every time the node needs to lookup
 state for another node. Instead they just query their local in-memory store.
 
 # API
+The registry exposes a REST API. This means the admin CLI and dashboard can
+use the same API as the client SDKs. It also makes writing clients easier.
 
-## Transport
-Nodes communicate to Fuddle via gRPC. This makes it easy to define a schema and
-generate code for SDKs in multiple languages. It also supports bidirectional
-streaming which can be used to receive and send cluster state.
+Messages are encoded with JSON, which should be ok for now, though can replace
+with a more efficient encoding like msgpack in the future if needed.
 
-## Protocol
-Each node opens a stream to Fuddle when it starts up. The stream is used by
-the node to send its own state updates to the registry, and receive updates
-about the rest of the cluster.
+When clients need a bidirectional stream, WebSockets are used.
+WebSockets are used when clients need a bidirectional stream.
 
-### Update Message
-Each update (both to and from the registry) contains:
-* Node ID (`string`): A unique identifier for the node being updated,
-* Update type (`enum`): The type of update, which is either:
-	* `JOIN`: A node has joined the cluster
-	* `LEAVE`: A node has left the cluster
-	* `UPDATE`: A nodes state has been updated
-* Attributes: If the update is a `JOIN`, all the nodes attributes are sent.
-The attributes are not included in `LEAVE` or `UPDATE` events since they are
-immutable
-* State: The nodes application state. The contents of this field depend on the
-update type:
-	* `JOIN`: All the nodes state must be included
-	* `LEAVE`: Empty since theres no need to update the state of a node thats
-left the cluster
-	* `UPDATE`: Contains only the key-value pairs that have been updated
+## Register: `/api/v1/register`
+Register is used by clients to register themselves in the registry, and
+stream updates to and from the registry.
 
-### Register
-When a node registers it opens the stream and sends an update that includes its
-node state with type `JOIN`.
+### Message
+Each update message (to and from the registry contains):
+* Node ID (`string`): The registered nodes ID
+* Update type (`string`): The type of update:
+	* `register`: A node has joined the cluster
+	* `unregister`: A node has left the cluster
+	* `metadata`: A nodes metadata has changed
+* Attributes: If the update is type `register` the nodes attributes are send. Since
+the attributes are immutable, they are only sent in `register` updates
+* Metadata: The nodes application defined metadata. The contents of this field
+depend on the update type:
+	* `register`: Contains all metadata fields
+	* `unregister`: Empty since theres no need to update the metadata of a leaving
+node
+	* `metadata`: Contains only the key-value pairs that have been updated
 
-Fuddle will then send it the states of the other nodes in the cluster as
-`JOIN` updates, and continue streaming cluster update events when nodes join,
-leave or update.
+### Stream
+When the node first registers, it must send a `register` message containing its
+own attributes and metadata.
 
-### Local Update
-When the nodes local state is updated, it sends an update to the registry with
-type `UPDATE` and includes the updated state entries.
+The server will then send the node all existing nodes in the cluster as
+`register` updates.
 
-### Unregister
-When a node is shutdown it should send a `LEAVE` update to tell the registry
-it has left the cluster.
+When a node updates its local metadata, it sends a `metadata` update to the
+registry, which will broadcast the update to all other nodes.
 
-Note as mentioned in the requirements, Fuddle doesn't yet support detecting node
-failures.
+Similarly when a node is shutdown it sends a `unregister` update to unregister
+itself, which is again broadcast to all other nodes.
+
+## Cluster: `/api/v1/cluster`
+Returns the set of nodes in the cluster, including the attributes of each
+node but no the node metadata.
+
+## Nodes: `/api/v1/node/{id}`
+Returns the attributes and metadata for the node with the given ID.
 
 # Operating
 
@@ -117,19 +120,9 @@ A gauge of the number of nodes in the cluster.
 ### `fuddle_registry_connection_count`
 A gauge of the number of registry connections to this node.
 
-### `fuddle_registry_joins_count`
-A counter of the number of registry node joins.
+### `fuddle_registry_request_count`
+A counter of the number of registry requests to this node.
 
-### `fuddle_registry_leaves_count`
-A counter of the number of registry node leaves.
-
-### `fuddle_registry_updates_count`
-A counter of the number of registry node state updates.
-
-## Admin API
-
-### `/api/v1/cluster`
-Returns the nodes in the cluster and their state.
-
-### `/api/v1/node/{id}` 
-Returns the node with the given ID
+### `fuddle_registry_update_count`
+A counter of the number of registry updates received. With labels for the
+update type (`register`, `unregister`, `metadata`).

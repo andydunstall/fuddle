@@ -13,14 +13,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package registry
+package cluster
 
-// Node represents the state of a node that is propagated to other nodes
-// in the cluster.
-type Node struct {
-	// ID is a unique identifier for the node in the cluster.
-	ID string `json:"id,omitempty"`
+type UpdateType string
 
+const (
+	UpdateTypeRegister   UpdateType = "register"
+	UpdateTypeUnregister UpdateType = "unregister"
+	UpdateTypeMetadata   UpdateType = "metadata"
+)
+
+type NodeAttributes struct {
 	// Service is the type of service running on the node.
 	Service string `json:"service,omitempty"`
 
@@ -32,25 +35,21 @@ type Node struct {
 
 	// Revision identifies the version of the service running on the node.
 	Revision string `json:"revision,omitempty"`
-
-	// State node service state.
-	State map[string]string `json:"state,omitempty"`
 }
 
-func (s *Node) Copy() Node {
-	cp := *s
-	cp.State = CopyState(s.State)
-	return cp
-}
+type NodeUpdate struct {
+	// ID is the ID of the node in the update.
+	ID string `json:"id,omitempty"`
 
-func CopyState(s map[string]string) map[string]string {
-	if s == nil {
-		return make(map[string]string)
-	}
+	// UpdateType indicates the type of update, either register, unregister or
+	// metadata.
+	UpdateType UpdateType `json:"update_type,omitempty"`
 
-	cp := make(map[string]string)
-	for k, v := range s {
-		cp[k] = v
-	}
-	return cp
+	// Attributes contains the set of immutable attributes for the node. This
+	// will only be included in register updates.
+	Attributes *NodeAttributes `json:"attributes,omitempty"`
+
+	// Metadata contains application defined metadata. If the update is type
+	// metadata, the field only contains the fields that have been updated.
+	Metadata map[string]string `json:"metadata,omitempty"`
 }

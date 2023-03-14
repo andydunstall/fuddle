@@ -13,6 +13,43 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package rpc
+package server
 
-//go:generate protoc -I ../../rpc --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. registry.proto
+import (
+	"net"
+
+	"go.uber.org/zap"
+)
+
+type options struct {
+	logger   *zap.Logger
+	listener net.Listener
+}
+
+type Option interface {
+	apply(*options)
+}
+
+type loggerOption struct {
+	logger *zap.Logger
+}
+
+func (o loggerOption) apply(opts *options) {
+	opts.logger = o.logger
+}
+
+func WithLogger(logger *zap.Logger) Option {
+	return loggerOption{logger: logger}
+}
+
+type listenerOption struct {
+	ln net.Listener
+}
+
+func (o listenerOption) apply(opts *options) {
+	opts.listener = o.ln
+}
+
+func WithListener(ln net.Listener) Option {
+	return listenerOption{ln: ln}
+}

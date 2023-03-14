@@ -27,7 +27,7 @@ import (
 // Tests registering a node. The node should register itself and receive a
 // update about the fuddle server joining the cluster.
 func TestRegistry_RegisterNode(t *testing.T) {
-	server, err := testutils.StartServer()
+	server, err := StartServer()
 	assert.Nil(t, err)
 	defer server.GracefulStop()
 
@@ -52,7 +52,7 @@ func TestRegistry_RegisterNode(t *testing.T) {
 
 // Tests a registered node receives updates when other nodes join the cluster.
 func TestRegistry_ReceiveNodeJoins(t *testing.T) {
-	server, err := testutils.StartServer()
+	server, err := StartServer()
 	assert.Nil(t, err)
 	defer server.GracefulStop()
 
@@ -87,7 +87,7 @@ func TestRegistry_ReceiveNodeJoins(t *testing.T) {
 
 // Tests a registered node receives updates when other nodes leave the cluster.
 func TestRegistry_ReceiveNodeLeaves(t *testing.T) {
-	server, err := testutils.StartServer()
+	server, err := StartServer()
 	assert.Nil(t, err)
 	defer server.GracefulStop()
 
@@ -133,7 +133,7 @@ func TestRegistry_ReceiveNodeLeaves(t *testing.T) {
 // Also checks updating on of the node and verifying all nodes discover the
 // updated node.
 func TestRegistry_ClusterDiscovery(t *testing.T) {
-	server, err := testutils.StartServer()
+	server, err := StartServer()
 	assert.Nil(t, err)
 	defer server.GracefulStop()
 
@@ -174,7 +174,7 @@ func TestRegistry_ClusterDiscovery(t *testing.T) {
 
 // Tests the registry client tries all given addresses to connect.
 func TestRegistry_AttemptMultipleAddresses(t *testing.T) {
-	server, err := testutils.StartServer()
+	server, err := StartServer()
 	assert.Nil(t, err)
 	defer server.GracefulStop()
 

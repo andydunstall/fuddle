@@ -19,43 +19,47 @@ import (
 	"time"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
+	"github.com/fuddle-io/fuddle/pkg/registry/server"
 	"go.uber.org/zap"
 )
 
 type Service struct {
-	clusterState *Cluster
-	server       *Server
+	clusterState *cluster.Cluster
+	server       *server.Server
 
 	logger *zap.Logger
 }
 
-func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "registry"))
+func NewService(conf *config.Config, opts ...Option) *Service {
+	options := options{
+		logger:   zap.NewNop(),
+		listener: nil,
+	}
+	for _, o := range opts {
+		o.apply(&options)
+	}
 
-	nodeCountGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "fuddle_registry_node_count",
-		Help: "Number of nodes registered with Fuddle",
-	})
-	metricsRegistry.MustRegister(nodeCountGauge)
+	logger := options.logger.With(zap.String("service", "registry"))
 
-	clusterState := NewCluster(Node{
+	clusterState := cluster.NewCluster(cluster.Node{
 		ID:       conf.ID,
 		Service:  "fuddle",
 		Locality: conf.Locality,
 		Created:  time.Now().UnixMilli(),
 		Revision: conf.Revision,
-		State: map[string]string{
+		Metadata: map[string]string{
 			"addr.rpc":   conf.BindAddr,
 			"addr.admin": conf.BindAdminAddr,
 		},
 	})
 
-	// clusterState.Subscribe(func() {
-	// 	nodeCountGauge.Set(float64(len(clusterState.NodeIDs())))
-	// })
-
-	server := NewServer(clusterState, logger)
+	server := server.NewServer(
+		conf.AdvAddr,
+		clusterState,
+		server.WithListener(options.listener),
+		server.WithLogger(logger),
+	)
 	return &Service{
 		clusterState: clusterState,
 		server:       server,
@@ -65,17 +69,14 @@ func NewService(conf *config.Config, metricsRegistry *prometheus.Registry, logge
 
 func (s *Service) Start() error {
 	s.logger.Info("starting registry service")
-	return nil
+	return s.server.Start()
 }
 
 func (s *Service) GracefulStop() {
 	s.logger.Info("starting registry service graceful shutdown")
+	s.server.GracefulStop()
 }
 
-func (s *Service) Server() *Server {
-	return s.server
-}
-
-func (s *Service) Cluster() *Cluster {
+func (s *Service) Cluster() *cluster.Cluster {
 	return s.clusterState
 }

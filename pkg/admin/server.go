@@ -22,7 +22,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -30,13 +30,13 @@ import (
 )
 
 type server struct {
-	clusterState *registry.Cluster
+	clusterState *cluster.Cluster
 	httpServer   *http.Server
 
 	logger *zap.Logger
 }
 
-func newServer(addr string, clusterState *registry.Cluster, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
+func newServer(addr string, clusterState *cluster.Cluster, metricsRegistry *prometheus.Registry, logger *zap.Logger) *server {
 	server := &server{
 		clusterState: clusterState,
 		logger:       logger,

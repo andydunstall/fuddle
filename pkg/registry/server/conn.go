@@ -13,18 +13,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package registry
+package server
 
 import (
+	"encoding/json"
+	"fmt"
 	"sync"
 
-	"github.com/fuddle-io/fuddle/pkg/rpc"
+	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
+	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 // pendingUpdates stores a list of updates waiting to be sent to the connected
 // client.
 type pendingUpdates struct {
-	updates []*rpc.NodeUpdate
+	updates []*cluster.NodeUpdate
 
 	mu *sync.Mutex
 
@@ -46,7 +50,7 @@ func newPendingUpdates() *pendingUpdates {
 
 // Wait blocks until the next update is available of the connection has been
 // closed. If the returned bool is false the connection has been closed.
-func (p *pendingUpdates) Wait() ([]*rpc.NodeUpdate, bool) {
+func (p *pendingUpdates) Wait() ([]*cluster.NodeUpdate, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -66,7 +70,7 @@ func (p *pendingUpdates) Wait() ([]*rpc.NodeUpdate, bool) {
 }
 
 // Push an update to be sent.
-func (p *pendingUpdates) Push(update *rpc.NodeUpdate) {
+func (p *pendingUpdates) Push(update *cluster.NodeUpdate) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -87,17 +91,20 @@ func (p *pendingUpdates) Close() {
 	p.cv.Signal()
 }
 
-type connection struct {
-	stream  rpc.Registry_RegisterServer
+type conn struct {
+	ws      *websocket.Conn
 	pending *pendingUpdates
+
+	logger *zap.Logger
 
 	wg sync.WaitGroup
 }
 
-func newConnection(stream rpc.Registry_RegisterServer) *connection {
-	conn := &connection{
-		stream:  stream,
+func newConn(ws *websocket.Conn, logger *zap.Logger) *conn {
+	conn := &conn{
+		ws:      ws,
 		pending: newPendingUpdates(),
+		logger:  logger,
 	}
 
 	conn.wg.Add(1)
@@ -106,20 +113,29 @@ func newConnection(stream rpc.Registry_RegisterServer) *connection {
 	return conn
 }
 
-func (c *connection) AddUpdate(update *rpc.NodeUpdate) {
+func (c *conn) AddUpdate(update *cluster.NodeUpdate) {
 	c.pending.Push(update)
 }
 
-func (c *connection) RecvUpdate() (*rpc.NodeUpdate, error) {
-	return c.stream.Recv()
+func (c *conn) RecvUpdate() (*cluster.NodeUpdate, error) {
+	_, b, err := c.ws.ReadMessage()
+	if err != nil {
+		return nil, fmt.Errorf("conn recv: %w", err)
+	}
+	var update cluster.NodeUpdate
+	if err := json.Unmarshal(b, &update); err != nil {
+		return nil, fmt.Errorf("conn recv: decode error: %w", err)
+	}
+	return &update, nil
 }
 
-func (c *connection) Close() {
+func (c *conn) Close() {
+	c.ws.Close()
 	c.pending.Close()
 	c.wg.Wait()
 }
 
-func (c *connection) sendPending() {
+func (c *conn) sendPending() {
 	defer c.wg.Done()
 
 	for {
@@ -129,7 +145,13 @@ func (c *connection) sendPending() {
 		}
 
 		for _, update := range updates {
-			if err := c.stream.Send(update); err != nil {
+			b, err := json.Marshal(update)
+			if err != nil {
+				c.logger.Error("encode update", zap.Error(err))
+				continue
+			}
+
+			if err := c.ws.WriteMessage(websocket.BinaryMessage, b); err != nil {
 				return
 			}
 		}

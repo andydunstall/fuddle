@@ -21,7 +21,7 @@ import (
 	"sort"
 
 	"github.com/fuddle-io/fuddle/pkg/client"
-	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 )
@@ -97,21 +97,21 @@ func runNodeStatus(cmd *cobra.Command, args []string) error {
 	fmt.Println("ID:", node.ID)
 	fmt.Println("Service:", node.Service)
 	fmt.Println("Revision:", node.Revision)
-	fmt.Println("State:")
+	fmt.Println("Metadata:")
 
 	keys := []string{}
-	for key := range node.State {
+	for key := range node.Metadata {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		fmt.Printf("    %s: %s\n", key, node.State[key])
+		fmt.Printf("    %s: %s\n", key, node.Metadata[key])
 	}
 
 	return nil
 }
 
-func displayNodes(nodes []*registry.Node) {
+func displayNodes(nodes []*cluster.Node) {
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].ID < nodes[j].ID
 	})
