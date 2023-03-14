@@ -112,8 +112,8 @@ func (c *Cluster) addFuddleNode() error {
 	}
 
 	conf := config.DefaultConfig()
-	conf.BindAddr = rpcLn.Addr().String()
-	conf.AdvAddr = rpcLn.Addr().String()
+	conf.BindRegistryAddr = rpcLn.Addr().String()
+	conf.AdvRegistryAddr = rpcLn.Addr().String()
 	conf.BindAdminAddr = adminLn.Addr().String()
 	conf.AdvAdminAddr = adminLn.Addr().String()
 	conf.Locality = "us-east-1-a"
@@ -124,7 +124,7 @@ func (c *Cluster) addFuddleNode() error {
 		server.WithAdminListener(adminLn),
 	)
 	c.services = append(c.services, s)
-	c.fuddleSeeds = append(c.fuddleSeeds, conf.AdvAddr)
+	c.fuddleSeeds = append(c.fuddleSeeds, conf.AdvRegistryAddr)
 
 	return nil
 }

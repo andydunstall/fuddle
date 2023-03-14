@@ -29,10 +29,10 @@ import (
 )
 
 var (
-	// bindAddr is the address the server should bind to.
-	bindAddr string
-	// advAddr is the address the server should advertise to clients.
-	advAddr string
+	// bindRegistryAddr is the bind address to listen for registry clients.
+	bindRegistryAddr string
+	// advRegistryAddr is the address to advertise to registry clients.
+	advRegistryAddr string
 
 	// bindAdminAddr is the bind address to listen for admin clients.
 	bindAdminAddr string
@@ -56,16 +56,16 @@ var startCmd = &cobra.Command{
 
 func init() {
 	startCmd.Flags().StringVarP(
-		&bindAddr,
-		"addr", "",
+		&bindRegistryAddr,
+		"registry-addr", "",
 		"0.0.0.0:8220",
-		"the bind address to listen for connections",
+		"the bind address to listen for registry clients",
 	)
 	startCmd.Flags().StringVarP(
-		&advAddr,
-		"adv-addr", "",
+		&advRegistryAddr,
+		"adv-registry-addr", "",
 		"",
-		"the address to advertise to clients (defaults to the bind address)",
+		"the address to advertise to registry clients (defaults to the bind address)",
 	)
 
 	startCmd.Flags().StringVarP(
@@ -106,8 +106,8 @@ func runStart(cmd *cobra.Command, args []string) {
 	conf := &config.Config{
 		ID: "fuddle-" + uuid.New().String()[:7],
 
-		BindAddr: bindAddr,
-		AdvAddr:  bindAddr,
+		BindRegistryAddr: bindRegistryAddr,
+		AdvRegistryAddr:  bindRegistryAddr,
 
 		BindAdminAddr: bindAdminAddr,
 		AdvAdminAddr:  bindAdminAddr,
@@ -115,8 +115,8 @@ func runStart(cmd *cobra.Command, args []string) {
 		Locality: locality,
 		Revision: build.Revision,
 	}
-	if advAddr != "" {
-		conf.AdvAddr = bindAddr
+	if advRegistryAddr != "" {
+		conf.AdvRegistryAddr = bindRegistryAddr
 	}
 	if advAdminAddr != "" {
 		conf.AdvAdminAddr = bindAdminAddr

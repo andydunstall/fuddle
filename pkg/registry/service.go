@@ -49,13 +49,13 @@ func NewService(conf *config.Config, opts ...Option) *Service {
 		Created:  time.Now().UnixMilli(),
 		Revision: conf.Revision,
 		Metadata: map[string]string{
-			"addr.rpc":   conf.BindAddr,
-			"addr.admin": conf.BindAdminAddr,
+			"addr.registry": conf.AdvRegistryAddr,
+			"addr.admin":    conf.AdvAdminAddr,
 		},
 	})
 
 	server := server.NewServer(
-		conf.AdvAddr,
+		conf.AdvRegistryAddr,
 		clusterState,
 		server.WithListener(options.listener),
 		server.WithLogger(logger),

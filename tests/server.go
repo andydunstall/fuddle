@@ -34,7 +34,7 @@ func StartServer() (*Server, error) {
 	conf := testConfig()
 	s := &Server{
 		id:      conf.ID,
-		rpcAddr: conf.AdvAddr,
+		rpcAddr: conf.AdvRegistryAddr,
 		server:  server.NewServer(conf),
 	}
 	if err := s.server.Start(); err != nil {
@@ -60,8 +60,8 @@ func testConfig() *config.Config {
 
 	conf.ID = "fuddle-" + uuid.New().String()[:8]
 
-	conf.BindAddr = GetSystemAddress()
-	conf.AdvAddr = conf.BindAddr
+	conf.BindRegistryAddr = GetSystemAddress()
+	conf.AdvRegistryAddr = conf.BindRegistryAddr
 
 	conf.BindAdminAddr = GetSystemAddress()
 	conf.AdvAdminAddr = conf.BindAdminAddr
