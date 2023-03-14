@@ -17,7 +17,6 @@ package registry
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/fuddle-io/fuddle/pkg/rpc"
@@ -41,48 +40,5 @@ func NewServer(cluster *cluster.Cluster, logger *zap.Logger) *Server {
 }
 
 func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
-	conn := newConnection(stream)
-	defer conn.Close()
-
-	// Wait for the connected node to join.
-	joinUpdate, err := conn.RecvUpdate()
-	if err != nil {
-		return err
-	}
-	// If the first update is not the node joining this is a protocol error.
-	if joinUpdate.UpdateType != rpc.NodeUpdateType_JOIN {
-		return fmt.Errorf("protocol error: node must register")
-	}
-	if err := s.cluster.ApplyUpdate(joinUpdate); err != nil {
-		return err
-	}
-
-	nodeID := joinUpdate.NodeId
-
-	// Subscribe to the node map and send updates to the client. This will
-	// replay all existing nodes as JOIN updates to ensure the subscriber
-	// doesn't miss any updates.
-	unsubscribe := s.cluster.Subscribe(true, func(update *rpc.NodeUpdate) {
-		// Avoid echoing back updates from the connected nodes.
-		if update.NodeId == nodeID {
-			return
-		}
-
-		conn.AddUpdate(update)
-	})
-	defer unsubscribe()
-
-	for {
-		update, err := conn.RecvUpdate()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-
-		if err := s.cluster.ApplyUpdate(update); err != nil {
-			s.logger.Error("update error", zap.Error(err))
-		}
-	}
+	return fmt.Errorf("unimplemented")
 }
