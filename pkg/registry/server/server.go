@@ -24,6 +24,7 @@ import (
 
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
@@ -34,6 +35,7 @@ type Server struct {
 
 	listener   net.Listener
 	httpServer *http.Server
+	upgrader   websocket.Upgrader
 
 	logger *zap.Logger
 }
@@ -63,6 +65,7 @@ func NewServer(addr string, cluster *cluster.Cluster, opts ...Option) *Server {
 		Handler: r,
 	}
 	server.httpServer = httpServer
+	server.upgrader = websocket.Upgrader{}
 
 	return server
 }
@@ -103,6 +106,53 @@ func (s *Server) GracefulStop() {
 }
 
 func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
+	ws, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	conn := newConn(ws, s.logger)
+	defer conn.Close()
+
+	// Wait for the connected node to register.
+	registerUpdate, err := conn.RecvUpdate()
+	if err != nil {
+		return
+	}
+	// If the first update is not the node joining this is a protocol error.
+	if registerUpdate.UpdateType != cluster.UpdateTypeRegister {
+		s.logger.Warn("protocol error: node not registered")
+		return
+	}
+	if err := s.cluster.ApplyUpdate(registerUpdate); err != nil {
+		s.logger.Warn("apply update", zap.Error(err))
+		return
+	}
+
+	nodeID := registerUpdate.ID
+
+	// Subscribe to the node map and send updates to the client. This will
+	// replay all existing nodes as JOIN updates to ensure the subscriber
+	// doesn't miss any updates.
+	unsubscribe := s.cluster.Subscribe(true, func(update *cluster.NodeUpdate) {
+		// Avoid echoing back updates from the connected nodes.
+		if update.ID == nodeID {
+			return
+		}
+
+		conn.AddUpdate(update)
+	})
+	defer unsubscribe()
+
+	for {
+		update, err := conn.RecvUpdate()
+		if err != nil {
+			return
+		}
+
+		if err := s.cluster.ApplyUpdate(update); err != nil {
+			s.logger.Warn("apply update", zap.Error(err))
+		}
+	}
 }
 
 func (s *Server) clusterRoute(w http.ResponseWriter, r *http.Request) {
