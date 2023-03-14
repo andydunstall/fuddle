@@ -25,8 +25,8 @@ import (
 	"sort"
 	"testing"
 
+	fuddle "github.com/fuddle-io/fuddle-go"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
-	"github.com/fuddle-io/fuddle/pkg/sdk"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +46,7 @@ func TestServer_RegisterNode(t *testing.T) {
 	defer server.GracefulStop()
 
 	localNode := randomSDKNode()
-	registry, err := sdk.Register([]string{ln.Addr().String()}, localNode)
+	registry, err := fuddle.Register([]string{ln.Addr().String()}, localNode)
 	require.NoError(t, err)
 	defer registry.Unregister()
 
@@ -78,7 +78,7 @@ func TestServer_ReceiveNodeJoins(t *testing.T) {
 	addedNodeIDs := make(map[string]interface{})
 
 	localNode := testutils.RandomNode()
-	registry, err := sdk.Register([]string{ln.Addr().String()}, localNode)
+	registry, err := fuddle.Register([]string{ln.Addr().String()}, localNode)
 	assert.Nil(t, err)
 	defer registry.Unregister()
 
@@ -88,7 +88,7 @@ func TestServer_ReceiveNodeJoins(t *testing.T) {
 	// Add 10 more nodes to the cluster.
 	for i := 0; i != 10; i++ {
 		node := testutils.RandomNode()
-		r, err := sdk.Register([]string{ln.Addr().String()}, node)
+		r, err := fuddle.Register([]string{ln.Addr().String()}, node)
 		assert.Nil(t, err)
 		defer r.Unregister()
 
@@ -116,15 +116,15 @@ func TestServer_ReceiveNodeLeaves(t *testing.T) {
 	defer server.GracefulStop()
 
 	localNode := testutils.RandomNode()
-	registry, err := sdk.Register([]string{ln.Addr().String()}, localNode)
+	registry, err := fuddle.Register([]string{ln.Addr().String()}, localNode)
 	assert.Nil(t, err)
 	defer registry.Unregister()
 
 	// Add 10 more nodes to the cluster.
-	var addedRegistries []*sdk.Registry
+	var addedRegistries []*fuddle.Registry
 	for i := 0; i != 10; i++ {
 		node := testutils.RandomNode()
-		r, err := sdk.Register([]string{ln.Addr().String()}, node)
+		r, err := fuddle.Register([]string{ln.Addr().String()}, node)
 		assert.Nil(t, err)
 
 		addedRegistries = append(addedRegistries, r)
@@ -166,11 +166,11 @@ func TestServer_ClusterDiscovery(t *testing.T) {
 	require.NoError(t, server.Start())
 	defer server.GracefulStop()
 
-	var addedNodes []sdk.Node
-	var addedRegistries []*sdk.Registry
+	var addedNodes []fuddle.Node
+	var addedRegistries []*fuddle.Registry
 	for i := 0; i != 10; i++ {
 		node := testutils.RandomNode()
-		r, err := sdk.Register([]string{ln.Addr().String()}, node)
+		r, err := fuddle.Register([]string{ln.Addr().String()}, node)
 		assert.Nil(t, err)
 
 		addedRegistries = append(addedRegistries, r)
@@ -179,7 +179,7 @@ func TestServer_ClusterDiscovery(t *testing.T) {
 	}
 
 	// Wait for all nodes to discovery each other and have the same cluster state.
-	var nodes []sdk.Node
+	var nodes []fuddle.Node
 	for _, r := range addedRegistries {
 		discoveredNodes, err := testutils.WaitForNodes(r, 11)
 		assert.Nil(t, err)
@@ -309,8 +309,8 @@ func randomNode() cluster.Node {
 }
 
 // randomSDKNode returns a node with random attributes and metadata.
-func randomSDKNode() sdk.Node {
-	return sdk.Node{
+func randomSDKNode() fuddle.Node {
+	return fuddle.Node{
 		ID:       uuid.New().String(),
 		Service:  uuid.New().String(),
 		Locality: uuid.New().String(),
@@ -326,7 +326,7 @@ func randomSDKNode() sdk.Node {
 	}
 }
 
-func nodeIDsSet(nodes []sdk.Node) map[string]interface{} {
+func nodeIDsSet(nodes []fuddle.Node) map[string]interface{} {
 	ids := make(map[string]interface{})
 	for _, node := range nodes {
 		ids[node.ID] = struct{}{}
@@ -334,8 +334,8 @@ func nodeIDsSet(nodes []sdk.Node) map[string]interface{} {
 	return ids
 }
 
-func nodesMap(nodes []sdk.Node) map[string]sdk.Node {
-	nodesMap := make(map[string]sdk.Node)
+func nodesMap(nodes []fuddle.Node) map[string]fuddle.Node {
+	nodesMap := make(map[string]fuddle.Node)
 	for _, node := range nodes {
 		nodesMap[node.ID] = node
 	}

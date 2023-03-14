@@ -20,8 +20,8 @@ import (
 	"net"
 	"time"
 
+	fuddle "github.com/fuddle-io/fuddle-go"
 	"github.com/fuddle-io/fuddle/demos/counter/pkg/client/counter"
-	fuddle "github.com/fuddle-io/fuddle/pkg/sdk"
 	"go.uber.org/zap"
 )
 
