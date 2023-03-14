@@ -20,7 +20,6 @@ import (
 
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -30,10 +29,20 @@ type Service struct {
 	logger *zap.Logger
 }
 
-func NewService(clusterState *cluster.Cluster, conf *config.Config, metricsRegistry *prometheus.Registry, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "admin"))
+func NewService(cluster *cluster.Cluster, conf *config.Config, opts ...Option) *Service {
+	options := options{
+		logger:       zap.NewNop(),
+		listener:     nil,
+		promRegistry: nil,
+	}
+	for _, o := range opts {
+		o.apply(&options)
+	}
 
-	server := newServer(conf.BindAdminAddr, clusterState, metricsRegistry, logger)
+	logger := options.logger.With(zap.String("service", "admin"))
+	options.logger = logger
+
+	server := newServer(conf.BindAdminAddr, cluster, options)
 	return &Service{
 		server: server,
 		logger: logger,

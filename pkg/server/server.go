@@ -62,7 +62,12 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 		registry.WithListener(options.rpcListener),
 		registry.WithLogger(logger),
 	)
-	adminService := admin.NewService(registryService.Cluster(), conf, metricsRegistry, logger)
+	adminService := admin.NewService(
+		registryService.Cluster(),
+		conf,
+		admin.WithPromRegistry(metricsRegistry),
+		admin.WithLogger(logger),
+	)
 
 	return &Server{
 		adminService:    adminService,
