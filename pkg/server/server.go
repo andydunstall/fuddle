@@ -57,7 +57,11 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 	metricsRegistry := prometheus.NewRegistry()
 	metricsRegistry.MustRegister(collectors.NewGoCollector())
 
-	registryService := registry.NewService(conf, logger)
+	registryService := registry.NewService(
+		conf,
+		registry.WithListener(options.rpcListener),
+		registry.WithLogger(logger),
+	)
 	adminService := admin.NewService(registryService.Cluster(), conf, metricsRegistry, logger)
 
 	return &Server{

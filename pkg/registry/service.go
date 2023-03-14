@@ -31,8 +31,16 @@ type Service struct {
 	logger *zap.Logger
 }
 
-func NewService(conf *config.Config, logger *zap.Logger) *Service {
-	logger = logger.With(zap.String("service", "registry"))
+func NewService(conf *config.Config, opts ...Option) *Service {
+	options := options{
+		logger:   zap.NewNop(),
+		listener: nil,
+	}
+	for _, o := range opts {
+		o.apply(&options)
+	}
+
+	logger := options.logger.With(zap.String("service", "registry"))
 
 	clusterState := cluster.NewCluster(cluster.Node{
 		ID:       conf.ID,
@@ -46,7 +54,12 @@ func NewService(conf *config.Config, logger *zap.Logger) *Service {
 		},
 	})
 
-	server := server.NewServer(conf.AdvAddr, clusterState, server.WithLogger(logger))
+	server := server.NewServer(
+		conf.AdvAddr,
+		clusterState,
+		server.WithListener(options.listener),
+		server.WithLogger(logger),
+	)
 	return &Service{
 		clusterState: clusterState,
 		server:       server,

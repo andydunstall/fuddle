@@ -17,6 +17,7 @@ package demo
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 
@@ -25,7 +26,6 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/build"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/server"
-	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -183,7 +183,7 @@ func fuddleNodeConfig() *config.Config {
 func frontendNodeConfig(locality string) *frontend.Config {
 	return &frontend.Config{
 		ID:          "frontend-" + uuid.New().String()[:8],
-		WSAddr:      testutils.GetSystemAddress(),
+		WSAddr:      GetSystemAddress(),
 		FuddleAddrs: []string{"127.0.0.1:8220"},
 		Locality:    locality,
 		Revision:    build.Revision,
@@ -193,7 +193,7 @@ func frontendNodeConfig(locality string) *frontend.Config {
 func counterNodeConfig(locality string) *counter.Config {
 	return &counter.Config{
 		ID:          "counter-" + uuid.New().String()[:8],
-		RPCAddr:     testutils.GetSystemAddress(),
+		RPCAddr:     GetSystemAddress(),
 		FuddleAddrs: []string{"127.0.0.1:8220"},
 		Locality:    locality,
 		Revision:    build.Revision,
@@ -212,4 +212,14 @@ func demoLogger(dir string, id string) *zap.Logger {
 
 func demoLogPath(dir string, id string) string {
 	return dir + "/" + id + ".log"
+}
+
+func GetSystemAddress() string {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	defer ln.Close()
+
+	return ln.Addr().String()
 }
