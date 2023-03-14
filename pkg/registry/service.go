@@ -20,12 +20,13 @@ import (
 
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
+	"github.com/fuddle-io/fuddle/pkg/registry/server"
 	"go.uber.org/zap"
 )
 
 type Service struct {
 	clusterState *cluster.Cluster
-	server       *Server
+	server       *server.Server
 
 	logger *zap.Logger
 }
@@ -45,7 +46,7 @@ func NewService(conf *config.Config, logger *zap.Logger) *Service {
 		},
 	})
 
-	server := NewServer(clusterState, logger)
+	server := server.NewServer(conf.AdvAddr, clusterState, server.WithLogger(logger))
 	return &Service{
 		clusterState: clusterState,
 		server:       server,
@@ -55,15 +56,12 @@ func NewService(conf *config.Config, logger *zap.Logger) *Service {
 
 func (s *Service) Start() error {
 	s.logger.Info("starting registry service")
-	return nil
+	return s.server.Start()
 }
 
 func (s *Service) GracefulStop() {
 	s.logger.Info("starting registry service graceful shutdown")
-}
-
-func (s *Service) Server() *Server {
-	return s.server
+	s.server.GracefulStop()
 }
 
 func (s *Service) Cluster() *cluster.Cluster {
