@@ -19,7 +19,7 @@ import (
 	"math/rand"
 	"time"
 
-	fuddle "github.com/fuddle-io/fuddle/pkg/sdk"
+	fuddle "github.com/fuddle-io/fuddle-go"
 	"github.com/google/uuid"
 )
 
