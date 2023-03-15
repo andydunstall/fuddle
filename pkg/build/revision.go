@@ -22,6 +22,5 @@ import (
 
 // Revision includes the release git commit.
 //
-//go:generate sh -c "printf %s $(git rev-parse HEAD) > REVISION"
 //go:embed REVISION
 var Revision string
