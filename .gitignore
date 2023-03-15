@@ -3,7 +3,3 @@ fuddle
 !fuddle/
 
 REVISION
-
-node_modules/
-console/ui/build/
-*.gz

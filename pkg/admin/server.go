@@ -55,13 +55,6 @@ func newServer(addr string, cluster *cluster.Cluster, options options) *server {
 			),
 		)
 	}
-	r.PathPrefix("/static/").Handler(
-		http.StripPrefix(
-			"/static/",
-			http.FileServer(http.Dir("./console/ui/build/static")),
-		),
-	)
-	r.Handle("/", http.FileServer(http.Dir("./console/ui/build")))
 
 	httpServer := &http.Server{
 		Addr:    addr,
