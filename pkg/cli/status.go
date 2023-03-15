@@ -96,6 +96,8 @@ func runNodeStatus(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("ID:", node.ID)
 	fmt.Println("Service:", node.Service)
+	fmt.Println("Locality:", node.Locality)
+	fmt.Println("Created:", node.Created)
 	fmt.Println("Revision:", node.Revision)
 	fmt.Println("Metadata:")
 
@@ -116,17 +118,23 @@ func displayNodes(nodes []*cluster.Node) {
 		return nodes[i].ID < nodes[j].ID
 	})
 
-	tbl := table.New("ID", "Service", "Revision")
+	tbl := table.New("ID", "Service", "Locality", "Created", "Revision")
 	for _, node := range nodes {
-		tbl.AddRow(node.ID, node.Service, formatRevision(node.Revision))
+		tbl.AddRow(
+			node.ID,
+			node.Service,
+			node.Locality,
+			node.Created,
+			formatRevision(node.Revision),
+		)
 	}
 
 	tbl.Print()
 }
 
 func formatRevision(revision string) string {
-	if len(revision) > 7 {
-		return revision[:7] + "..."
+	if len(revision) > 10 {
+		return revision[:10] + "..."
 	}
 	return revision
 }
