@@ -16,32 +16,19 @@
 package cli
 
 import (
+	"fmt"
+
+	"github.com/fuddle-io/fuddle/pkg/build"
 	"github.com/spf13/cobra"
 )
 
-// fuddleCmd is the root command to run fuddle.
-var fuddleCmd = &cobra.Command{
-	Use:          "fuddle [command] (flags)",
-	Short:        "fuddle cli and server",
-	Long:         "fuddle cli and server",
-	SilenceUsage: true,
-	CompletionOptions: cobra.CompletionOptions{
-		DisableDefaultCmd: true,
-	},
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "display the fuddle version",
+	Long:  "display the fuddle version",
+	Run:   runVersion,
 }
 
-func init() {
-	cobra.EnableCommandSorting = false
-
-	fuddleCmd.AddCommand(
-		startCmd,
-		statusCmd,
-		demoCmd,
-		versionCmd,
-	)
-}
-
-// Start starts the CLI.
-func Start() error {
-	return fuddleCmd.Execute()
+func runVersion(cmd *cobra.Command, args []string) {
+	fmt.Println(build.Revision)
 }
