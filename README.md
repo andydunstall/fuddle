@@ -35,7 +35,7 @@ both the Fuddle dashboard or the Fuddle CLI
 Start by downloading the appropriate Fuddle binary for your platform from the
 [releases](https://github.com/fuddle-io/fuddle/releases) page.
 
-The quickest way to start using Fuddle is to run a demo cluster:
+The quickest way to start using Fuddle is to run a [demo](./demos) cluster:
 
 ### Counter Service
 The counter service tracks the number of users subscribed with the same ID. So
