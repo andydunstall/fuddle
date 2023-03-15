@@ -33,7 +33,8 @@ the Fuddle CLI
 
 # Getting Started
 Start by downloading the appropriate Fuddle binary for your platform from the
-[releases](https://github.com/fuddle-io/fuddle/releases) page.
+[releases](https://github.com/fuddle-io/fuddle/releases) page, or install
+Fuddle using `go install github.com/fuddle-io/fuddle`.
 
 The quickest way to start using Fuddle is to run a [demo](./demos) cluster:
 
