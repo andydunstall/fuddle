@@ -8,6 +8,8 @@
 
 ---
 
+![CI Workflow](https://github.com/fuddle-io/fuddle/actions/workflows/main.yaml/badge.svg)
+
 # What is Fuddle?
 Fuddle is a service registry that can be used for client side service discovery
 and cluster observability.
@@ -33,7 +35,8 @@ the Fuddle CLI
 
 # Getting Started
 Start by downloading the appropriate Fuddle binary for your platform from the
-[releases](https://github.com/fuddle-io/fuddle/releases) page.
+[releases](https://github.com/fuddle-io/fuddle/releases) page, or install
+Fuddle using `go install github.com/fuddle-io/fuddle`.
 
 The quickest way to start using Fuddle is to run a [demo](./demos) cluster:
 
