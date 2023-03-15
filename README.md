@@ -29,7 +29,7 @@ known to the rest of the cluster
 service, locality or application defined state, and subscribe to updates when
 the set of matching nodes changes
 * Cluster observability: You can inspect the set of nodes in the cluster using
-both the Fuddle dashboard or the Fuddle CLI
+the Fuddle CLI
 
 # Getting Started
 Start by downloading the appropriate Fuddle binary for your platform from the

@@ -66,9 +66,7 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 # discover nodes, and route request using application specific routing, including
 # consistent hashing and load balancing with a custom policy.
 #
-# View the cluster dashboard at http://127.0.0.1:8221.
-#
-# Or inspect the cluster with 'fuddle status cluster'.
+# Inspect the cluster with 'fuddle status'.
 #`)
 
 	logDir, err := os.MkdirTemp("", "")
@@ -131,10 +129,9 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 #`)
 
 	fmt.Printf(`#     %s
-#       Admin Dashboard: http://%s
 #       Locality: %s
 #       Logs: %s
-#`, fuddleConf.ID, fuddleConf.AdvAdminAddr, fuddleConf.Locality, demoLogPath(logDir, fuddleConf.ID))
+#`, fuddleConf.ID, fuddleConf.Locality, demoLogPath(logDir, fuddleConf.ID))
 	fmt.Println("")
 
 	fmt.Println(`#     Frontend
@@ -168,7 +165,6 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 }
 
 func fuddleNodeConfig() *config.Config {
-	// Hardcode the fuddle addresses so we can document the dashboard URL.
 	return &config.Config{
 		ID:               "fuddle-" + uuid.New().String()[:8],
 		BindRegistryAddr: "127.0.0.1:8220",

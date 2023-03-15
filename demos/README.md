@@ -23,8 +23,8 @@ hash ring of nodes, and receive updates when nodes join and leave to trigger a
 rebalance.
 
 Although this is a simple service, it show how Fuddle can be used for:
-* Observability: View the nodes in the cluster and their state either through
-the Fuddle dashboard or using the Fuddle CLI,
+* Observability: View the nodes in the cluster and their state using the Fuddle
+CLI,
 * Cluster discovery: Nodes use Fuddle to discover each other, and are notified
 when nodes join, leave or update their state, which can be used for routing
 requests to the appropriate node

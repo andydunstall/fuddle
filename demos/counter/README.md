@@ -18,8 +18,8 @@ hash ring of nodes, and receive updates when nodes join and leave to trigger a
 rebalance.
 
 Although this is a simple service, it show how Fuddle can be used for:
-* Observability: View the nodes in the cluster and their state either through
-the Fuddle dashboard or using the Fuddle CLI,
+* Observability: View the nodes in the cluster and their state using the Fuddle
+CLI,
 * Cluster discovery: Nodes use Fuddle to discover each other, and are notified
 when nodes join, leave or update their state, which can be used for routing
 requests to the appropriate node
@@ -56,13 +56,7 @@ If you haven’t already, download the `fuddle` binary for your platform from th
 Then run `fuddle demo counter` to start the cluster. This will spin up a local
 cluster containing multiple Fuddle, frontend and counter service nodes.
 
-The Fuddle dashboard for the cluster can be viewed at
-[http://127.0.0.1:8221](http://127.0.0.1:8221). Alternatively you can inspect
-the cluster using `fuddle status cluster` or `fuddle status node {node ID}`.
-
-<p align="center">
-  <img src='../../assets/images/counter-service-dashboard.png?raw=true' width='80%'>
-</p>
+Inspeect the cluster using `fuddle status cluster` or `fuddle status node {ID}`.
 
 Each frontend exposes a WebSocket endpoint at `ws://{addr}/{id}` to register an
 ID and stream updates to the number of users registered with that ID.
