@@ -8,6 +8,8 @@
 
 ---
 
+![CI Workflow](https://github.com/fuddle-io/fuddle/actions/workflows/main.yaml/badge.svg)
+
 # What is Fuddle?
 Fuddle is a service registry that can be used for client side service discovery
 and cluster observability.
