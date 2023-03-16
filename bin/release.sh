@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Updates the revision and builds the Fuddle binary.
+
 VERSION=0.0.0
 
 date=$(date '+%Y%m%d')
