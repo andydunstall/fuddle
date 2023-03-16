@@ -1,6 +1,6 @@
 # RFC: Counter Service Demo
 
-**Status**: In progress
+**Status**: Done
 
 This RFC proposes a new demo to show how Fuddle can be used for complex
 application specific routing, rather than just simply load balancing among a set
@@ -29,17 +29,8 @@ a range of IDs using consistent hashing.
 To start the counter service cluster, users run `fuddle demo counter`. This must
 display information including:
 * A list of the nodes in the cluster
-* A link to the dashboard URL
 * Show how Fuddle CLI commands to inspect the cluster
-* Show how to add nodes to the cluster (useful for showing rebalancing and
-cluster updates)
 * Show how to interact with the service
-
-To interact with the service, users run `fuddle demo counter cli <ID>` which
-will stream updates to the counter.
-
-To add nodes to the cluster, run `fuddle demo counter –join`, which will create
-the same set of nodes but join the existing cluster.
 
 # Architecture
 ## Services
