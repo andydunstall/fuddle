@@ -102,6 +102,10 @@ func (s *Server) GracefulStop() {
 	}
 }
 
+func (s *Server) Stop() {
+	s.httpServer.Close()
+}
+
 func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 	ws, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {

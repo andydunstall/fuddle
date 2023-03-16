@@ -97,6 +97,10 @@ func (s *server) GracefulStop() {
 	}
 }
 
+func (s *server) Stop() {
+	s.httpServer.Close()
+}
+
 func (s *server) clusterRoute(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(s.cluster.Nodes()); err != nil {
 		s.logger.Error("failed to encode cluster response", zap.Error(err))

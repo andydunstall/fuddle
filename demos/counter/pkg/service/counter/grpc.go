@@ -71,6 +71,11 @@ func (s *grpcServer) GracefulStop() {
 	s.server.GracefulStop()
 }
 
+func (s *grpcServer) Stop() {
+	s.logger.Info("starting grpc server hard shutdown")
+	s.server.Stop()
+}
+
 // grpcServer returns the underlying GRPC server. Used to register handlers.
 func (s *grpcServer) GRPCServer() *grpc.Server {
 	return s.server

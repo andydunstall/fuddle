@@ -88,3 +88,9 @@ func (s *Server) GracefulStop() {
 	s.registryService.GracefulStop()
 	s.adminService.GracefulStop()
 }
+
+func (s *Server) Stop() {
+	s.logger.Info("starting node hard shutdown")
+	s.registryService.Stop()
+	s.adminService.Stop()
+}

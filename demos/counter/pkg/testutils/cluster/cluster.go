@@ -29,10 +29,16 @@ import (
 type Service interface {
 	Start() error
 	GracefulStop()
+	Stop()
+}
+
+type node struct {
+	ID      string
+	Service Service
 }
 
 type Cluster struct {
-	services      []Service
+	nodes         []node
 	fuddleSeeds   []string
 	counterNodes  map[string]string
 	counterAddrs  []string
@@ -40,6 +46,16 @@ type Cluster struct {
 }
 
 func NewCluster(opts ...Option) (*Cluster, error) {
+	c := &Cluster{
+		counterNodes: make(map[string]string),
+	}
+	if err := c.AddNodes(opts...); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (c *Cluster) AddNodes(opts ...Option) error {
 	options := options{
 		fuddleNodes:   0,
 		counterNodes:  0,
@@ -49,32 +65,37 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 		o.apply(&options)
 	}
 
-	c := &Cluster{
-		counterNodes: make(map[string]string),
-	}
 	for i := 0; i != options.fuddleNodes; i++ {
 		if err := c.addFuddleNode(); err != nil {
-			return nil, fmt.Errorf("cluster: %w", err)
+			return fmt.Errorf("cluster: %w", err)
 		}
 	}
 	for i := 0; i != options.counterNodes; i++ {
 		if err := c.addCounterNode(); err != nil {
-			return nil, fmt.Errorf("cluster: %w", err)
+			return fmt.Errorf("cluster: %w", err)
 		}
 	}
 	for i := 0; i != options.frontendNodes; i++ {
 		if err := c.addFrontendNode(); err != nil {
-			return nil, fmt.Errorf("cluster: %w", err)
+			return fmt.Errorf("cluster: %w", err)
 		}
 	}
 
-	for _, s := range c.services {
-		if err := s.Start(); err != nil {
-			return nil, fmt.Errorf("cluster: %w", err)
+	for _, s := range c.nodes {
+		if err := s.Service.Start(); err != nil {
+			return fmt.Errorf("cluster: %w", err)
 		}
 	}
 
-	return c, nil
+	return nil
+}
+
+func (c *Cluster) CounterNodeIDs() []string {
+	var ids []string
+	for id := range c.counterNodes {
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 func (c *Cluster) CounterNodes() map[string]string {
@@ -93,10 +114,20 @@ func (c *Cluster) FrontendAddrs() []string {
 	return c.frontendAddrs
 }
 
+func (c *Cluster) RemoveNode(id string) {
+	for idx, node := range c.nodes {
+		if id == node.ID {
+			node.Service.Stop()
+			c.nodes = append(c.nodes[:idx], c.nodes[idx+1:]...)
+			return
+		}
+	}
+}
+
 func (c *Cluster) Shutdown() {
-	// Shutdown services in reverse.
-	for i := len(c.services) - 1; i >= 0; i-- {
-		c.services[i].GracefulStop()
+	// Shutdown nodes in reverse.
+	for i := len(c.nodes) - 1; i >= 0; i-- {
+		c.nodes[i].Service.GracefulStop()
 	}
 }
 
@@ -123,7 +154,10 @@ func (c *Cluster) addFuddleNode() error {
 		server.WithRPCListener(rpcLn),
 		server.WithAdminListener(adminLn),
 	)
-	c.services = append(c.services, s)
+	c.nodes = append(c.nodes, node{
+		ID:      conf.ID,
+		Service: s,
+	})
 	c.fuddleSeeds = append(c.fuddleSeeds, conf.AdvRegistryAddr)
 
 	return nil
@@ -148,7 +182,10 @@ func (c *Cluster) addCounterNode() error {
 		conf,
 		counter.WithRPCListener(rpcLn),
 	)
-	c.services = append(c.services, s)
+	c.nodes = append(c.nodes, node{
+		ID:      conf.ID,
+		Service: s,
+	})
 	c.counterAddrs = append(c.counterAddrs, conf.RPCAddr)
 	c.counterNodes[conf.ID] = conf.RPCAddr
 
@@ -174,7 +211,10 @@ func (c *Cluster) addFrontendNode() error {
 		conf,
 		frontend.WithWSListener(wsLn),
 	)
-	c.services = append(c.services, s)
+	c.nodes = append(c.nodes, node{
+		ID:      conf.ID,
+		Service: s,
+	})
 	c.frontendAddrs = append(c.frontendAddrs, conf.WSAddr)
 
 	return nil

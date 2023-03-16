@@ -103,3 +103,11 @@ func (s *Service) GracefulStop() {
 	s.server.GracefulStop()
 	s.counter.Close()
 }
+
+func (s *Service) Stop() {
+	if err := s.registry.Unregister(); err != nil {
+		s.logger.Error("failed to unregister", zap.Error(err))
+	}
+	s.server.Stop()
+	s.counter.Close()
+}

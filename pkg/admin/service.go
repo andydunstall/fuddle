@@ -56,3 +56,8 @@ func (s *Service) GracefulStop() {
 	s.logger.Info("starting admin service graceful shutdown")
 	s.server.GracefulStop()
 }
+
+func (s *Service) Stop() {
+	s.logger.Info("starting admin service hard shutdown")
+	s.server.Stop()
+}

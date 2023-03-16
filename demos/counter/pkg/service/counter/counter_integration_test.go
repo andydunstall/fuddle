@@ -13,7 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package counter
+//go:build integration
+
+package counter_test
 
 import (
 	"testing"
@@ -27,7 +29,7 @@ import (
 
 // Tests registering increments the count and receives update when the
 // count changes.
-func TestCounter_Register(t *testing.T) {
+func TestService_Register(t *testing.T) {
 	c, err := cluster.NewCluster(
 		cluster.WithFuddleNodes(1),
 		cluster.WithCounterNodes(3),
@@ -45,6 +47,8 @@ func TestCounter_Register(t *testing.T) {
 	updates := make(chan uint64, 1)
 	unsubscribe, err := client.Register("foo", func(c uint64) {
 		updates <- c
+	}, func(e error) {
+		t.Error(e)
 	})
 	require.NoError(t, err)
 	defer func() {
@@ -62,7 +66,9 @@ func TestCounter_Register(t *testing.T) {
 		defer c.Close()
 
 		for j := 0; j != 3; j++ {
-			unsub, err := c.Register("foo", func(c uint64) {})
+			unsub, err := c.Register("foo", func(c uint64) {}, func(e error) {
+				t.Error(e)
+			})
 			require.NoError(t, err)
 			unregister = append(unregister, unsub)
 

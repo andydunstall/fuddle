@@ -80,6 +80,11 @@ func (s *Service) GracefulStop() {
 	s.server.GracefulStop()
 }
 
+func (s *Service) Stop() {
+	s.logger.Info("starting registry service hard shutdown")
+	s.server.Stop()
+}
+
 func (s *Service) Cluster() *cluster.Cluster {
 	return s.clusterState
 }
