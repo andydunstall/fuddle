@@ -39,21 +39,21 @@ func NewMurmur3Partitioner() *Murmur3Partitioner {
 	return &Murmur3Partitioner{}
 }
 
-func (p *Murmur3Partitioner) Locate(id string) (string, bool) {
+func (p *Murmur3Partitioner) Locate(id string, onRelocate func(addr string)) (string, func(), bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
 	if len(p.nodes) == 0 {
-		return "", false
+		return "", nil, false
 	}
 
 	hash := murmur3.Sum64([]byte(id))
 	for i := len(p.nodes) - 1; i >= 0; i-- {
 		if p.nodes[i].Hash >= hash {
-			return p.nodes[i].Addr, true
+			return p.nodes[i].Addr, nil, true
 		}
 	}
-	return p.nodes[len(p.nodes)-1].Addr, true
+	return p.nodes[len(p.nodes)-1].Addr, nil, true
 }
 
 func (p *Murmur3Partitioner) SetNodes(nodes map[string]string) {

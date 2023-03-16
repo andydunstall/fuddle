@@ -16,7 +16,6 @@
 package counter
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -63,13 +62,8 @@ func (c *Client) counter(id string) (*counter, error) {
 
 	counter, ok := c.counters[id]
 	if !ok {
-		addr, ok := c.partitioner.Locate(id)
-		if !ok {
-			return nil, fmt.Errorf("no available backends")
-		}
-
 		var err error
-		counter, err = newCounter(id, addr)
+		counter, err = newCounter(id, c.partitioner)
 		if err != nil {
 			return nil, err
 		}

@@ -27,20 +27,29 @@ type counter struct {
 	// localCount is the number of users registered for the ID on this node.
 	localCount *atomic.Uint64
 
-	conn *connection
+	closePartitioner func()
+	conn             *connection
 }
 
-func newCounter(id string, addr string) (*counter, error) {
+func newCounter(id string, partitioner Partitioner) (*counter, error) {
+	counter := &counter{
+		id:         id,
+		localCount: atomic.NewUint64(0),
+	}
+
+	addr, closePartitioner, ok := partitioner.Locate(id, counter.onRelocate)
+	if !ok {
+		return nil, fmt.Errorf("no available backends")
+	}
+	counter.closePartitioner = closePartitioner
+
 	conn, err := connect(addr)
 	if err != nil {
 		return nil, fmt.Errorf("counter: %w", err)
 	}
+	counter.conn = conn
 
-	return &counter{
-		id:         id,
-		localCount: atomic.NewUint64(0),
-		conn:       conn,
-	}, nil
+	return counter, nil
 }
 
 func (c *counter) Register(onUpdate func(c uint64)) (func() error, error) {
@@ -63,5 +72,9 @@ func (c *counter) Register(onUpdate func(c uint64)) (func() error, error) {
 }
 
 func (c *counter) Close() {
+	c.closePartitioner()
 	c.conn.Close()
+}
+
+func (c *counter) onRelocate(addr string) {
 }
