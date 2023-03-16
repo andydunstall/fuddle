@@ -16,6 +16,6 @@
 package counter
 
 type Partitioner interface {
-	Locate(id string, onRelocate func(addr string)) (string, func(), bool)
+	Locate(id string, onRelocate func(addr string, ok bool)) (string, func(), bool)
 	SetNodes(nodes map[string]string)
 }

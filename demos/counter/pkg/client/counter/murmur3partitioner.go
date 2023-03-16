@@ -16,11 +16,18 @@
 package counter
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 
 	"github.com/spaolacci/murmur3"
 )
+
+type relocateHandle struct {
+	ID          string
+	Callback    func(addr string, ok bool)
+	CurrentAddr string
+}
 
 type hashedNode struct {
 	ID   string
@@ -29,17 +36,20 @@ type hashedNode struct {
 }
 
 type Murmur3Partitioner struct {
-	nodes []hashedNode
+	nodes   []hashedNode
+	handles map[*relocateHandle]interface{}
 
 	// mu is a mutex protecting the above fields.
 	mu sync.RWMutex
 }
 
 func NewMurmur3Partitioner() *Murmur3Partitioner {
-	return &Murmur3Partitioner{}
+	return &Murmur3Partitioner{
+		handles: make(map[*relocateHandle]interface{}),
+	}
 }
 
-func (p *Murmur3Partitioner) Locate(id string, onRelocate func(addr string)) (string, func(), bool) {
+func (p *Murmur3Partitioner) Locate(id string, onRelocate func(addr string, ok bool)) (string, func(), bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -47,13 +57,22 @@ func (p *Murmur3Partitioner) Locate(id string, onRelocate func(addr string)) (st
 		return "", nil, false
 	}
 
-	hash := murmur3.Sum64([]byte(id))
-	for i := len(p.nodes) - 1; i >= 0; i-- {
-		if p.nodes[i].Hash >= hash {
-			return p.nodes[i].Addr, nil, true
-		}
+	handle := &relocateHandle{
+		ID:       id,
+		Callback: onRelocate,
 	}
-	return p.nodes[len(p.nodes)-1].Addr, nil, true
+	if onRelocate != nil {
+		p.handles[handle] = nil
+	}
+
+	addr, _ := p.locateLocked(id)
+	handle.CurrentAddr = addr
+	return addr, func() {
+		p.mu.RLock()
+		defer p.mu.RUnlock()
+
+		delete(p.handles, handle)
+	}, true
 }
 
 func (p *Murmur3Partitioner) SetNodes(nodes map[string]string) {
@@ -73,6 +92,32 @@ func (p *Murmur3Partitioner) SetNodes(nodes map[string]string) {
 	defer p.mu.Unlock()
 
 	p.nodes = hashedNodes
+
+	for handle := range p.handles {
+		addr, ok := p.locateLocked(handle.ID)
+		if ok {
+			if addr != handle.CurrentAddr {
+				handle.CurrentAddr = addr
+				handle.Callback(addr, true)
+			}
+		} else {
+			handle.Callback("", ok)
+		}
+	}
+}
+
+func (p *Murmur3Partitioner) locateLocked(id string) (string, bool) {
+	if len(p.nodes) == 0 {
+		return "", false
+	}
+
+	hash := murmur3.Sum64([]byte(id))
+	for i := len(p.nodes) - 1; i >= 0; i-- {
+		if p.nodes[i].Hash >= hash {
+			return p.nodes[i].Addr, true
+		}
+	}
+	return p.nodes[len(p.nodes)-1].Addr, true
 }
 
 var _ Partitioner = &Murmur3Partitioner{}
