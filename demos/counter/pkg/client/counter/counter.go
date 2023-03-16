@@ -17,11 +17,23 @@ package counter
 
 import (
 	"fmt"
+	"sync"
 
 	"go.uber.org/atomic"
 )
 
+type regHandle struct {
+	OnUpdate   func(c uint64)
+	OnError    func(e error)
+	connHandle *subHandle
+}
+
 type counter struct {
+	registered map[*regHandle]interface{}
+
+	// mu is a mutex that protects the fields above.
+	mu sync.Mutex
+
 	id string
 
 	// localCount is the number of users registered for the ID on this node.
@@ -33,6 +45,7 @@ type counter struct {
 
 func newCounter(id string, partitioner Partitioner) (*counter, error) {
 	counter := &counter{
+		registered: make(map[*regHandle]interface{}),
 		id:         id,
 		localCount: atomic.NewUint64(0),
 	}
@@ -43,7 +56,7 @@ func newCounter(id string, partitioner Partitioner) (*counter, error) {
 	}
 	counter.closePartitioner = closePartitioner
 
-	conn, err := connect(addr)
+	conn, err := connect(addr.Addr)
 	if err != nil {
 		return nil, fmt.Errorf("counter: %w", err)
 	}
@@ -52,16 +65,28 @@ func newCounter(id string, partitioner Partitioner) (*counter, error) {
 	return counter, nil
 }
 
-func (c *counter) Register(onUpdate func(c uint64)) (func() error, error) {
+func (c *counter) Register(onUpdate func(c uint64), onError func(e error)) (func() error, error) {
 	c.localCount.Inc()
 
-	handle := c.conn.Subscribe(c.id, onUpdate)
+	connHandle := c.conn.Subscribe(c.id, onUpdate)
+	handle := &regHandle{
+		OnUpdate:   onUpdate,
+		OnError:    onError,
+		connHandle: connHandle,
+	}
+	c.mu.Lock()
+	c.registered[handle] = struct{}{}
+	c.mu.Unlock()
 
 	if err := c.conn.Send(c.id, c.localCount.Load()); err != nil {
 		return nil, fmt.Errorf("counter: %w", err)
 	}
 	return func() error {
-		c.conn.Unsubscribe(handle)
+		c.mu.Lock()
+		c.conn.Unsubscribe(handle.connHandle)
+		delete(c.registered, handle)
+		c.mu.Unlock()
+
 		c.localCount.Dec()
 
 		if err := c.conn.Send(c.id, c.localCount.Load()); err != nil {
@@ -76,5 +101,37 @@ func (c *counter) Close() {
 	c.conn.Close()
 }
 
-func (c *counter) onRelocate(addr string) {
+func (c *counter) onRelocate(addr NodeAddr, ok bool) {
+	var handles []*regHandle
+
+	c.mu.Lock()
+	for handle := range c.registered {
+		c.conn.Unsubscribe(handle.connHandle)
+		handle.connHandle = nil
+		handles = append(handles, handle)
+	}
+	c.mu.Unlock()
+
+	if !ok {
+		for _, handle := range handles {
+			handle.OnError(fmt.Errorf("no nodes available"))
+		}
+		return
+	}
+
+	c.conn.Close()
+
+	conn, err := connect(addr.Addr)
+	if err != nil {
+		for _, handle := range handles {
+			handle.OnError(fmt.Errorf("failed to connect"))
+		}
+	}
+	c.conn = conn
+
+	if err := c.conn.Send(c.id, c.localCount.Load()); err != nil {
+		for _, handle := range handles {
+			handle.OnError(fmt.Errorf("failed to update count"))
+		}
+	}
 }

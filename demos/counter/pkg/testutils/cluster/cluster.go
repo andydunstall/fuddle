@@ -40,6 +40,16 @@ type Cluster struct {
 }
 
 func NewCluster(opts ...Option) (*Cluster, error) {
+	c := &Cluster{
+		counterNodes: make(map[string]string),
+	}
+	if err := c.AddNodes(opts...); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (c *Cluster) AddNodes(opts ...Option) error {
 	options := options{
 		fuddleNodes:   0,
 		counterNodes:  0,
@@ -49,32 +59,29 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 		o.apply(&options)
 	}
 
-	c := &Cluster{
-		counterNodes: make(map[string]string),
-	}
 	for i := 0; i != options.fuddleNodes; i++ {
 		if err := c.addFuddleNode(); err != nil {
-			return nil, fmt.Errorf("cluster: %w", err)
+			return fmt.Errorf("cluster: %w", err)
 		}
 	}
 	for i := 0; i != options.counterNodes; i++ {
 		if err := c.addCounterNode(); err != nil {
-			return nil, fmt.Errorf("cluster: %w", err)
+			return fmt.Errorf("cluster: %w", err)
 		}
 	}
 	for i := 0; i != options.frontendNodes; i++ {
 		if err := c.addFrontendNode(); err != nil {
-			return nil, fmt.Errorf("cluster: %w", err)
+			return fmt.Errorf("cluster: %w", err)
 		}
 	}
 
 	for _, s := range c.services {
 		if err := s.Start(); err != nil {
-			return nil, fmt.Errorf("cluster: %w", err)
+			return fmt.Errorf("cluster: %w", err)
 		}
 	}
 
-	return c, nil
+	return nil
 }
 
 func (c *Cluster) CounterNodes() map[string]string {

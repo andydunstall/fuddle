@@ -92,6 +92,7 @@ func (p *Murmur3Partitioner) SetNodes(nodes map[string]string) {
 
 	p.nodes = hashedNodes
 
+	// Check any handles whose location has changed.
 	for handle := range p.handles {
 		addr, ok := p.locateLocked(handle.ID)
 		if ok {

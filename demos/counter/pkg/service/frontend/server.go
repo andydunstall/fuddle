@@ -107,6 +107,10 @@ func (s *server) registerRoute(w http.ResponseWriter, r *http.Request) {
 			websocket.BinaryMessage,
 			[]byte(strconv.FormatUint(count, 10)),
 		)
+	}, func(e error) {
+		s.logger.Error("counter", zap.Error(err))
+		// Close the connection so the read loop exits.
+		c.Close()
 	})
 	if err != nil {
 		return
