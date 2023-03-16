@@ -96,3 +96,14 @@ func (s *Service) GracefulStop() {
 
 	s.grpcServer.GracefulStop()
 }
+
+func (s *Service) Stop() {
+	s.logger.Info("starting node hard shutdown")
+
+	// Unregister the node from the cluster before shutting down the server.
+	if err := s.registry.Unregister(); err != nil {
+		s.logger.Error("failed to unregister", zap.Error(err))
+	}
+
+	s.grpcServer.Stop()
+}

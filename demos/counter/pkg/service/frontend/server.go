@@ -90,6 +90,10 @@ func (s *server) GracefulStop() {
 	}
 }
 
+func (s *server) Stop() {
+	s.httpServer.Close()
+}
+
 func (s *server) registerRoute(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
