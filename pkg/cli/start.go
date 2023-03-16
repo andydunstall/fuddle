@@ -21,7 +21,7 @@ import (
 
 	"github.com/fuddle-io/fuddle/pkg/build"
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/server"
+	"github.com/fuddle-io/fuddle/pkg/fuddle"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -122,7 +122,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		conf.AdvAdminAddr = bindAdminAddr
 	}
 
-	server := server.NewServer(conf, server.WithLogger(logger))
+	server := fuddle.New(conf, fuddle.WithLogger(logger))
 
 	// Catch signals so to gracefully shutdown the server.
 	signalCh := make(chan os.Signal, 1)

@@ -22,7 +22,7 @@ import (
 	"github.com/fuddle-io/fuddle/demos/counter/pkg/service/counter"
 	"github.com/fuddle-io/fuddle/demos/counter/pkg/service/frontend"
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/server"
+	"github.com/fuddle-io/fuddle/pkg/fuddle"
 	"github.com/google/uuid"
 )
 
@@ -149,10 +149,10 @@ func (c *Cluster) addFuddleNode() error {
 	conf.AdvAdminAddr = adminLn.Addr().String()
 	conf.Locality = "us-east-1-a"
 
-	s := server.NewServer(
+	s := fuddle.New(
 		conf,
-		server.WithRPCListener(rpcLn),
-		server.WithAdminListener(adminLn),
+		fuddle.WithRPCListener(rpcLn),
+		fuddle.WithAdminListener(adminLn),
 	)
 	c.nodes = append(c.nodes, node{
 		ID:      conf.ID,

@@ -25,7 +25,7 @@ import (
 	"github.com/fuddle-io/fuddle/demos/counter/pkg/service/frontend"
 	"github.com/fuddle-io/fuddle/pkg/build"
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/server"
+	"github.com/fuddle-io/fuddle/pkg/fuddle"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -76,9 +76,9 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 
 	fuddleConf := fuddleNodeConfig()
 
-	fuddleNode := server.NewServer(
+	fuddleNode := fuddle.New(
 		fuddleConf,
-		server.WithLogger(demoLogger(logDir, fuddleConf.ID)),
+		fuddle.WithLogger(demoLogger(logDir, fuddleConf.ID)),
 	)
 	if err := fuddleNode.Start(); err != nil {
 		return fmt.Errorf("counter service: fuddle node: %w", err)

@@ -19,7 +19,7 @@ import (
 	"net"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/server"
+	"github.com/fuddle-io/fuddle/pkg/fuddle"
 	"github.com/google/uuid"
 )
 
@@ -27,7 +27,7 @@ type Server struct {
 	id      string
 	rpcAddr string
 
-	server *server.Server
+	server *fuddle.Fuddle
 }
 
 func StartServer() (*Server, error) {
@@ -35,7 +35,7 @@ func StartServer() (*Server, error) {
 	s := &Server{
 		id:      conf.ID,
 		rpcAddr: conf.AdvRegistryAddr,
-		server:  server.NewServer(conf),
+		server:  fuddle.New(conf),
 	}
 	if err := s.server.Start(); err != nil {
 		return nil, err
