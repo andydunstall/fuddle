@@ -16,7 +16,6 @@
 package counter
 
 import (
-	"fmt"
 	"sort"
 	"sync"
 
@@ -25,8 +24,8 @@ import (
 
 type relocateHandle struct {
 	ID          string
-	Callback    func(addr string, ok bool)
-	CurrentAddr string
+	Callback    func(addr NodeAddr, ok bool)
+	CurrentAddr NodeAddr
 }
 
 type hashedNode struct {
@@ -49,12 +48,12 @@ func NewMurmur3Partitioner() *Murmur3Partitioner {
 	}
 }
 
-func (p *Murmur3Partitioner) Locate(id string, onRelocate func(addr string, ok bool)) (string, func(), bool) {
+func (p *Murmur3Partitioner) Locate(id string, onRelocate func(addr NodeAddr, ok bool)) (NodeAddr, func(), bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
 	if len(p.nodes) == 0 {
-		return "", nil, false
+		return NodeAddr{}, nil, false
 	}
 
 	handle := &relocateHandle{
@@ -101,23 +100,30 @@ func (p *Murmur3Partitioner) SetNodes(nodes map[string]string) {
 				handle.Callback(addr, true)
 			}
 		} else {
-			handle.Callback("", ok)
+			handle.Callback(NodeAddr{}, false)
 		}
 	}
 }
 
-func (p *Murmur3Partitioner) locateLocked(id string) (string, bool) {
+func (p *Murmur3Partitioner) locateLocked(id string) (NodeAddr, bool) {
 	if len(p.nodes) == 0 {
-		return "", false
+		return NodeAddr{}, false
 	}
 
 	hash := murmur3.Sum64([]byte(id))
-	for i := len(p.nodes) - 1; i >= 0; i-- {
-		if p.nodes[i].Hash >= hash {
-			return p.nodes[i].Addr, true
-		}
+	idx := sort.Search(len(p.nodes), func(i int) bool {
+		return p.nodes[i].Hash >= hash
+	})
+	// Cycled back to first node.
+	if idx == len(p.nodes) {
+		idx = 0
 	}
-	return p.nodes[len(p.nodes)-1].Addr, true
+
+	n := p.nodes[idx]
+	return NodeAddr{
+		ID:   n.ID,
+		Addr: n.Addr,
+	}, true
 }
 
 var _ Partitioner = &Murmur3Partitioner{}

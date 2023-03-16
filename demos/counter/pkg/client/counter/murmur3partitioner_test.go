@@ -34,7 +34,7 @@ func TestMurmur3Partitioner_Locate(t *testing.T) {
 	// Lookup foo.
 	addr, _, ok := p.Locate("foo", nil)
 	assert.True(t, ok)
-	assert.Equal(t, "192.168.1.2", addr)
+	assert.Equal(t, NodeAddr{"node-2", "192.168.1.2"}, addr)
 
 	// Remove the node foo was located and verify it has moved.
 	p.SetNodes(map[string]string{
@@ -43,7 +43,7 @@ func TestMurmur3Partitioner_Locate(t *testing.T) {
 	})
 	addr, _, ok = p.Locate("foo", nil)
 	assert.True(t, ok)
-	assert.Equal(t, "192.168.1.1", addr)
+	assert.Equal(t, NodeAddr{"node-3", "192.168.1.3"}, addr)
 
 	// Add the original node back and verify foo moves back to that node.
 	p.SetNodes(map[string]string{
@@ -53,13 +53,13 @@ func TestMurmur3Partitioner_Locate(t *testing.T) {
 	})
 	addr, _, ok = p.Locate("foo", nil)
 	assert.True(t, ok)
-	assert.Equal(t, "192.168.1.2", addr)
+	assert.Equal(t, NodeAddr{"node-2", "192.168.1.2"}, addr)
 }
 
 func TestMurmur3Partitioner_LocateWithOnRelocate(t *testing.T) {
 	p := NewMurmur3Partitioner()
 
-	relocates := make(chan string, 1)
+	relocates := make(chan NodeAddr, 1)
 
 	p.SetNodes(map[string]string{
 		"node-1": "192.168.1.1",
@@ -68,12 +68,12 @@ func TestMurmur3Partitioner_LocateWithOnRelocate(t *testing.T) {
 	})
 
 	// Lookup foo.
-	addr, unregister, ok := p.Locate("foo", func(addr string, ok bool) {
+	addr, unregister, ok := p.Locate("foo", func(addr NodeAddr, ok bool) {
 		assert.True(t, ok)
 		relocates <- addr
 	})
 	assert.True(t, ok)
-	assert.Equal(t, "192.168.1.2", addr)
+	assert.Equal(t, NodeAddr{"node-2", "192.168.1.2"}, addr)
 	defer unregister()
 
 	// Remove the node foo was located and verify it has moved.
@@ -83,7 +83,7 @@ func TestMurmur3Partitioner_LocateWithOnRelocate(t *testing.T) {
 	})
 	select {
 	case addr = <-relocates:
-		assert.Equal(t, "192.168.1.1", addr)
+		assert.Equal(t, NodeAddr{"node-3", "192.168.1.3"}, addr)
 	case <-time.After(time.Second):
 		t.Error("timeout")
 	}
@@ -96,7 +96,7 @@ func TestMurmur3Partitioner_LocateWithOnRelocate(t *testing.T) {
 	})
 	select {
 	case addr = <-relocates:
-		assert.Equal(t, "192.168.1.2", addr)
+		assert.Equal(t, NodeAddr{"node-2", "192.168.1.2"}, addr)
 	case <-time.After(time.Second):
 		t.Error("timeout")
 	}

@@ -15,7 +15,12 @@
 
 package counter
 
+type NodeAddr struct {
+	ID   string
+	Addr string
+}
+
 type Partitioner interface {
-	Locate(id string, onRelocate func(addr string, ok bool)) (string, func(), bool)
+	Locate(id string, onRelocate func(addr NodeAddr, ok bool)) (NodeAddr, func(), bool)
 	SetNodes(nodes map[string]string)
 }
