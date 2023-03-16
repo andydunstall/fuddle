@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package server
+package fuddle
 
 import (
 	"github.com/fuddle-io/fuddle/pkg/admin"
@@ -24,8 +24,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Server runs a fuddle node.
-type Server struct {
+// Fuddle runs a Fuddle node.
+type Fuddle struct {
 	adminService    *admin.Service
 	registryService *registry.Service
 
@@ -33,7 +33,7 @@ type Server struct {
 	logger *zap.Logger
 }
 
-func NewServer(conf *config.Config, opts ...Option) *Server {
+func New(conf *config.Config, opts ...Option) *Fuddle {
 	options := options{
 		logger:        zap.NewNop(),
 		rpcListener:   nil,
@@ -61,7 +61,7 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 		admin.WithLogger(logger),
 	)
 
-	return &Server{
+	return &Fuddle{
 		adminService:    adminService,
 		registryService: registryService,
 		conf:            conf,
@@ -69,8 +69,8 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 	}
 }
 
-// Start starts the node in a background goroutine.
-func (s *Server) Start() error {
+// Start starts the Fuddle node in a background goroutine.
+func (s *Fuddle) Start() error {
 	s.logger.Info("starting node", zap.Object("conf", s.conf))
 
 	if err := s.adminService.Start(); err != nil {
@@ -83,13 +83,13 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func (s *Server) GracefulStop() {
+func (s *Fuddle) GracefulStop() {
 	s.logger.Info("starting node graceful shutdown")
 	s.registryService.GracefulStop()
 	s.adminService.GracefulStop()
 }
 
-func (s *Server) Stop() {
+func (s *Fuddle) Stop() {
 	s.logger.Info("starting node hard shutdown")
 	s.registryService.Stop()
 	s.adminService.Stop()

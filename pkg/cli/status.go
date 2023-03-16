@@ -133,8 +133,8 @@ func displayNodes(nodes []*cluster.Node) {
 }
 
 func formatRevision(revision string) string {
-	if len(revision) > 10 {
-		return revision[:10] + "..."
+	if len(revision) > 25 {
+		return revision[:25] + "..."
 	}
 	return revision
 }

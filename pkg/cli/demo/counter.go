@@ -25,7 +25,7 @@ import (
 	"github.com/fuddle-io/fuddle/demos/counter/pkg/service/frontend"
 	"github.com/fuddle-io/fuddle/pkg/build"
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/server"
+	"github.com/fuddle-io/fuddle/pkg/fuddle"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -42,9 +42,9 @@ var CounterCmd = &cobra.Command{
 	Short: "run a demo counter service cluster",
 	Long: `Run the counter service demo.
 
-This demo shows how Fuddle can be used to observe the nodes in a cluster,
-discover nodes, and route request using application specific routing, including
-consistent hashing and load balancing with a custom policy.
+The counter service is a demo cluster that shows how Fuddle can be used for
+application specific routing between nodes, rather than just basic round robin
+load balancing.
 `,
 	RunE: runCounterService,
 }
@@ -62,9 +62,9 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 	fmt.Println(`#
 # Welcome to the Fuddle counter service demo!
 #
-# This demo shows how Fuddle can be used to observe the nodes in a cluster,
-# discover nodes, and route request using application specific routing, including
-# consistent hashing and load balancing with a custom policy.
+# The counter service is a demo cluster that shows how Fuddle can be used for
+# application specific routing between nodes, rather than just basic round robin
+# load balancing.
 #
 # Inspect the cluster with 'fuddle status'.
 #`)
@@ -76,9 +76,9 @@ func runCounterService(cmd *cobra.Command, args []string) error {
 
 	fuddleConf := fuddleNodeConfig()
 
-	fuddleNode := server.NewServer(
+	fuddleNode := fuddle.New(
 		fuddleConf,
-		server.WithLogger(demoLogger(logDir, fuddleConf.ID)),
+		fuddle.WithLogger(demoLogger(logDir, fuddleConf.ID)),
 	)
 	if err := fuddleNode.Start(); err != nil {
 		return fmt.Errorf("counter service: fuddle node: %w", err)

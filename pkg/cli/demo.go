@@ -22,7 +22,7 @@ import (
 
 var demoCmd = &cobra.Command{
 	Use:   "demo",
-	Short: "register demo nodes with the cluster",
+	Short: "start a demo cluster",
 }
 
 func init() {
