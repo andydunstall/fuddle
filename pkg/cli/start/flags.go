@@ -23,6 +23,8 @@ var (
 
 	// locality is the location of the node in the cluster.
 	locality string
+
+	logLevel string
 )
 
 func init() {
@@ -44,5 +46,12 @@ func init() {
 		"locality", "l",
 		"",
 		"the location of the node in the cluster",
+	)
+
+	Command.Flags().StringVarP(
+		&logLevel,
+		"log-level", "",
+		"info",
+		"the log level to use (one of 'debug', 'info', 'warn', 'error')",
 	)
 }
