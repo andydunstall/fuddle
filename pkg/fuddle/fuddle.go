@@ -70,11 +70,11 @@ func (s *Fuddle) Start() error {
 }
 
 func (s *Fuddle) GracefulStop() {
-	s.logger.Info("starting node graceful stop")
+	s.logger.Info("node graceful stop")
 	s.registry.GracefulStop()
 }
 
 func (s *Fuddle) Stop() {
-	s.logger.Info("starting node hard stop")
+	s.logger.Info("node hard stop")
 	s.registry.Stop()
 }

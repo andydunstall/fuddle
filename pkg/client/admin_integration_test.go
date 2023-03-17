@@ -42,7 +42,7 @@ func TestAdmin_Cluster(t *testing.T) {
 	defer cancel()
 
 	admin := NewAdmin(ln.Addr().String())
-	nodes, err := admin.Nodes(ctx)
+	nodes, err := admin.Cluster(ctx)
 	assert.NoError(t, err)
 
 	assert.Equal(t, 1, len(nodes))
@@ -62,7 +62,7 @@ func TestAdmin_Node(t *testing.T) {
 	defer cancel()
 
 	admin := NewAdmin(ln.Addr().String())
-	nodes, err := admin.Nodes(ctx)
+	nodes, err := admin.Cluster(ctx)
 	assert.NoError(t, err)
 	node, err := admin.Node(ctx, nodes[0].ID)
 	assert.NoError(t, err)
