@@ -25,6 +25,7 @@ import (
 
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/fuddle"
+	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +35,9 @@ func TestAdmin_Cluster(t *testing.T) {
 	require.NoError(t, err)
 
 	conf := config.DefaultConfig()
-	server := fuddle.New(conf, fuddle.WithListener(ln))
+	server := fuddle.New(
+		conf, fuddle.WithListener(ln), fuddle.WithLogger(testutils.Logger()),
+	)
 	require.NoError(t, server.Start())
 	defer server.Stop()
 
@@ -54,7 +57,9 @@ func TestAdmin_Node(t *testing.T) {
 	require.NoError(t, err)
 
 	conf := config.DefaultConfig()
-	server := fuddle.New(conf, fuddle.WithListener(ln))
+	server := fuddle.New(
+		conf, fuddle.WithListener(ln), fuddle.WithLogger(testutils.Logger()),
+	)
 	require.NoError(t, server.Start())
 	defer server.Stop()
 

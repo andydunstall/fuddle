@@ -121,11 +121,13 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
+	logger := s.logger.With(zap.String("path", r.URL.Path))
+
 	ws, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
-	conn := newConn(ws, s.logger)
+	conn := newConn(ws, logger)
 	defer conn.Close()
 
 	// Wait for the connected node to register.
@@ -135,11 +137,11 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	// If the first update is not the node joining this is a protocol error.
 	if registerUpdate.UpdateType != cluster.UpdateTypeRegister {
-		s.logger.Warn("protocol error: node not registered")
+		logger.Warn("protocol error: node not registered")
 		return
 	}
 	if err := s.cluster.ApplyUpdate(registerUpdate); err != nil {
-		s.logger.Warn("apply update", zap.Error(err))
+		logger.Warn("apply update", zap.Error(err))
 		return
 	}
 
@@ -165,36 +167,60 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := s.cluster.ApplyUpdate(update); err != nil {
-			s.logger.Warn("apply update", zap.Error(err))
+			logger.Warn("apply update", zap.Error(err))
 		}
 	}
 }
 
 func (s *Server) clusterRoute(w http.ResponseWriter, r *http.Request) {
+	logger := s.logger.With(zap.String("path", r.URL.Path))
+
 	if err := json.NewEncoder(w).Encode(s.cluster.Nodes()); err != nil {
-		s.logger.Error("failed to encode cluster response", zap.Error(err))
+		logger.Error(
+			"cluster request: failed to encode response",
+			zap.Error(err),
+			zap.Int("status", http.StatusInternalServerError),
+		)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	logger.Debug("cluster request: ok", zap.Int("status", http.StatusOK))
 }
 
 func (s *Server) nodeRoute(w http.ResponseWriter, r *http.Request) {
+	logger := s.logger.With(zap.String("path", r.URL.Path))
+
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if id == "" {
+		logger.Debug(
+			"node request: missing ID",
+			zap.Int("status", http.StatusBadRequest),
+		)
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 
 	node, ok := s.cluster.Node(id)
 	if !ok {
+		logger.Debug(
+			"node request: node not found",
+			zap.Int("status", http.StatusNotFound),
+		)
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
 	if err := json.NewEncoder(w).Encode(node); err != nil {
-		s.logger.Error("failed to encode node response", zap.Error(err))
+		logger.Error(
+			"node request: failed to encode response",
+			zap.Error(err),
+			zap.Int("status", http.StatusInternalServerError),
+		)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	logger.Debug("node request: ok", zap.Int("status", http.StatusOK))
 }
