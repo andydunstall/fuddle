@@ -25,6 +25,7 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
@@ -37,6 +38,11 @@ type Server struct {
 	listener   net.Listener
 	httpServer *http.Server
 	upgrader   websocket.Upgrader
+
+	promRegistry          *prometheus.Registry
+	nodeCountMetric       prometheus.Gauge
+	updateCountMetric     *prometheus.CounterVec
+	connectionCountMetric prometheus.Gauge
 
 	logger *zap.Logger
 }
@@ -52,9 +58,10 @@ func NewServer(addr string, cluster *cluster.Cluster, opts ...Option) *Server {
 	}
 
 	server := &Server{
-		cluster:  cluster,
-		listener: options.listener,
-		logger:   options.logger,
+		cluster:      cluster,
+		listener:     options.listener,
+		promRegistry: options.promRegistry,
+		logger:       options.logger,
 	}
 
 	r := mux.NewRouter()
@@ -69,6 +76,35 @@ func NewServer(addr string, cluster *cluster.Cluster, opts ...Option) *Server {
 				promhttp.HandlerOpts{Registry: options.promRegistry},
 			),
 		)
+
+		nodeCountMetric := prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "fuddle_registry_node_count",
+				Help: "Number of nodes in the registry.",
+			},
+		)
+		options.promRegistry.MustRegister(nodeCountMetric)
+		nodeCountMetric.Set(float64(len(cluster.Nodes())))
+		server.nodeCountMetric = nodeCountMetric
+
+		updateCountMetric := prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "fuddle_registry_update_count",
+				Help: "Number of updates to the registry.",
+			},
+			[]string{"type"},
+		)
+		options.promRegistry.MustRegister(updateCountMetric)
+		server.updateCountMetric = updateCountMetric
+
+		connectionCountMetric := prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "fuddle_registry_connection_count",
+				Help: "Number of connections to the registry.",
+			},
+		)
+		options.promRegistry.MustRegister(connectionCountMetric)
+		server.connectionCountMetric = connectionCountMetric
 	}
 
 	httpServer := &http.Server{
@@ -131,6 +167,11 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 	conn := newConn(ws, logger)
 	defer conn.Close()
 
+	if s.connectionCountMetric != nil {
+		s.connectionCountMetric.Inc()
+		defer s.connectionCountMetric.Dec()
+	}
+
 	// Wait for the connected node to register.
 	registerUpdate, err := conn.RecvUpdate()
 	if err != nil {
@@ -143,6 +184,12 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.updateCountMetric != nil {
+		s.updateCountMetric.With(prometheus.Labels{
+			"type": string(registerUpdate.UpdateType),
+		}).Inc()
+	}
+
 	logger.Debug(
 		"register: received update",
 		zap.Object("update", registerUpdate),
@@ -151,6 +198,10 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 	if err := s.cluster.ApplyUpdate(registerUpdate); err != nil {
 		logger.Warn("register: failed to apply register update", zap.Error(err))
 		return
+	}
+
+	if s.nodeCountMetric != nil {
+		s.nodeCountMetric.Set(float64(len(s.cluster.Nodes())))
 	}
 
 	nodeID := registerUpdate.ID
@@ -186,8 +237,18 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 			zap.Object("update", update),
 		)
 
+		if s.updateCountMetric != nil {
+			s.updateCountMetric.With(prometheus.Labels{
+				"type": string(registerUpdate.UpdateType),
+			}).Inc()
+		}
+
 		if err := s.cluster.ApplyUpdate(update); err != nil {
 			logger.Warn("apply update", zap.Error(err))
+		}
+
+		if s.nodeCountMetric != nil {
+			s.nodeCountMetric.Set(float64(len(s.cluster.Nodes())))
 		}
 	}
 }

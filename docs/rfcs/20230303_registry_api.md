@@ -1,6 +1,6 @@
 # RFC: Registry API
 
-**Status**: In progress
+**Status**: Done
 
 The Fuddle registry maintains the set of nodes in the cluster and their state.
 
@@ -119,9 +119,6 @@ A gauge of the number of nodes in the cluster.
 
 ### `fuddle_registry_connection_count`
 A gauge of the number of registry connections to this node.
-
-### `fuddle_registry_request_count`
-A counter of the number of registry requests to this node.
 
 ### `fuddle_registry_update_count`
 A counter of the number of registry updates received. With labels for the
