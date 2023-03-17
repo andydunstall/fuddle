@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package cli
+package start
 
 import (
 	"os"
@@ -28,60 +28,28 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var (
-	// bindRegistryAddr is the bind address to listen for registry clients.
-	bindRegistryAddr string
-	// advRegistryAddr is the address to advertise to registry clients.
-	advRegistryAddr string
-
-	// locality is the location of the node in the cluster.
-	locality string
-
-	// startVerbose indicates whether debug logs should be enabled on the node.
-	startVerbose bool
-)
-
-// startCmd starts a fuddle node.
-var startCmd = &cobra.Command{
+// Command starts a fuddle node.
+var Command = &cobra.Command{
 	Use:   "start",
 	Short: "start a fuddle node",
 	Long:  "start a fuddle node",
-	Run:   runStart,
+	Run:   run,
 }
 
-func init() {
-	startCmd.Flags().StringVarP(
-		&bindRegistryAddr,
-		"registry-addr", "",
-		"0.0.0.0:8220",
-		"the bind address to listen for registry clients",
-	)
-	startCmd.Flags().StringVarP(
-		&advRegistryAddr,
-		"adv-registry-addr", "",
-		"",
-		"the address to advertise to registry clients (defaults to the bind address)",
-	)
-
-	startCmd.Flags().StringVarP(
-		&locality,
-		"locality", "l",
-		"",
-		"the location of the node in the cluster",
-	)
-
-	startCmd.PersistentFlags().BoolVarP(
-		&startVerbose,
-		"verbose", "v",
-		false,
-		"if set enabled debug logs on the node",
-	)
-}
-
-func runStart(cmd *cobra.Command, args []string) {
+func run(cmd *cobra.Command, args []string) {
 	loggerConf := zap.NewProductionConfig()
-	if startVerbose {
+	switch logLevel {
+	case "debug":
 		loggerConf.Level.SetLevel(zapcore.DebugLevel)
+	case "info":
+		loggerConf.Level.SetLevel(zapcore.InfoLevel)
+	case "warn":
+		loggerConf.Level.SetLevel(zapcore.WarnLevel)
+	case "error":
+		loggerConf.Level.SetLevel(zapcore.ErrorLevel)
+	default:
+		// If the level is invalid or not specified, use info.
+		loggerConf.Level.SetLevel(zapcore.InfoLevel)
 	}
 	logger := zap.Must(loggerConf.Build())
 
