@@ -16,6 +16,7 @@
 package cli
 
 import (
+	"github.com/fuddle-io/fuddle/pkg/cli/start"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +35,7 @@ func init() {
 	cobra.EnableCommandSorting = false
 
 	fuddleCmd.AddCommand(
-		startCmd,
+		start.Command,
 		statusCmd,
 		demoCmd,
 		versionCmd,
