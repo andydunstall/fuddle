@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package cli
+package status
 
 import (
 	"context"
@@ -26,16 +26,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	statusAdminAddr string
-)
-
-var statusCmd = &cobra.Command{
+var Command = &cobra.Command{
 	Use:   "status",
 	Short: "inspect the status of the cluster",
 }
 
-var statusClusterCmd = &cobra.Command{
+var clusterCommand = &cobra.Command{
 	Use:   "cluster",
 	Short: "inspect the status of the cluster",
 	Long: `
@@ -46,7 +42,7 @@ Displays an overview of the cluster status and a list of nodes in the cluster.
 	RunE: runClusterStatus,
 }
 
-var statusNodeCmd = &cobra.Command{
+var nodeCommand = &cobra.Command{
 	Use:   "node",
 	Short: "inspect the status of a node",
 	Long: `
@@ -56,21 +52,14 @@ Inspect the status of a node.
 }
 
 func init() {
-	statusCmd.AddCommand(
-		statusClusterCmd,
-		statusNodeCmd,
-	)
-
-	statusCmd.PersistentFlags().StringVarP(
-		&statusAdminAddr,
-		"addr", "a",
-		"localhost:8220",
-		"address of the admin server to query",
+	Command.AddCommand(
+		clusterCommand,
+		nodeCommand,
 	)
 }
 
 func runClusterStatus(cmd *cobra.Command, args []string) error {
-	client := client.NewAdmin(statusAdminAddr)
+	client := client.NewAdmin(addr)
 	nodes, err := client.Nodes(context.Background())
 	if err != nil {
 		return err
@@ -88,7 +77,7 @@ func runNodeStatus(cmd *cobra.Command, args []string) error {
 
 	id := args[0]
 
-	client := client.NewAdmin(statusAdminAddr)
+	client := client.NewAdmin(addr)
 	node, err := client.Node(context.Background(), id)
 	if err != nil {
 		return err

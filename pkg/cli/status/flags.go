@@ -13,37 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package cli
+package status
 
-import (
-	"github.com/fuddle-io/fuddle/pkg/cli/start"
-	"github.com/fuddle-io/fuddle/pkg/cli/status"
-	"github.com/spf13/cobra"
+var (
+	// addr is the Fuddle registry server to query.
+	addr string
 )
 
-// fuddleCmd is the root command to run fuddle.
-var fuddleCmd = &cobra.Command{
-	Use:          "fuddle [command] (flags)",
-	Short:        "fuddle cli and server",
-	Long:         "fuddle cli and server",
-	SilenceUsage: true,
-	CompletionOptions: cobra.CompletionOptions{
-		DisableDefaultCmd: true,
-	},
-}
-
 func init() {
-	cobra.EnableCommandSorting = false
-
-	fuddleCmd.AddCommand(
-		start.Command,
-		status.Command,
-		demoCmd,
-		versionCmd,
+	Command.PersistentFlags().StringVarP(
+		&addr,
+		"addr", "a",
+		"localhost:8220",
+		"address of the Fuddle server to query",
 	)
-}
-
-// Start starts the CLI.
-func Start() error {
-	return fuddleCmd.Execute()
 }
