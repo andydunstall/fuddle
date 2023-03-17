@@ -41,3 +41,8 @@ unit tests.
 For example, if you build a HTTP server, each handler should have unit test
 coverage, but you can also add an integration test to spin up a server locally
 in a new goroutine and test the routes are integrated using a HTTP client.
+
+## Style
+Fuddle uses the [Uber style guide](https://github.com/uber-go/guide/blob/master/style.md).
+
+Linters are run using `golangci-lint run`.
