@@ -22,9 +22,8 @@ import (
 )
 
 type options struct {
-	logger        *zap.Logger
-	listener      net.Listener
-	adminListener net.Listener
+	logger   *zap.Logger
+	listener net.Listener
 }
 
 type Option interface {

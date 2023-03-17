@@ -69,7 +69,11 @@ type NodeUpdate struct {
 func (u *NodeUpdate) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("id", u.ID)
 	e.AddString("update-type", string(u.UpdateType))
-	e.AddObject("attributes", u.Attributes)
-	e.AddObject("metadata", u.Metadata)
+	if err := e.AddObject("attributes", u.Attributes); err != nil {
+		return err
+	}
+	if err := e.AddObject("metadata", u.Metadata); err != nil {
+		return err
+	}
 	return nil
 }
