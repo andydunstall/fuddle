@@ -17,6 +17,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -41,8 +43,9 @@ type Server struct {
 
 func NewServer(addr string, cluster *cluster.Cluster, opts ...Option) *Server {
 	options := options{
-		logger:   zap.NewNop(),
-		listener: nil,
+		logger:       zap.NewNop(),
+		listener:     nil,
+		promRegistry: nil,
 	}
 	for _, o := range opts {
 		o.apply(&options)
@@ -56,6 +59,17 @@ func NewServer(addr string, cluster *cluster.Cluster, opts ...Option) *Server {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/api/v1/register", server.registerRoute)
+	r.HandleFunc("/api/v1/cluster", server.clusterRoute)
+	r.HandleFunc("/api/v1/node/{id}", server.nodeRoute)
+	if options.promRegistry != nil {
+		r.Handle(
+			"/metrics",
+			promhttp.HandlerFor(
+				options.promRegistry,
+				promhttp.HandlerOpts{Registry: options.promRegistry},
+			),
+		)
+	}
 
 	httpServer := &http.Server{
 		Addr:    addr,
@@ -153,5 +167,34 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 		if err := s.cluster.ApplyUpdate(update); err != nil {
 			s.logger.Warn("apply update", zap.Error(err))
 		}
+	}
+}
+
+func (s *Server) clusterRoute(w http.ResponseWriter, r *http.Request) {
+	if err := json.NewEncoder(w).Encode(s.cluster.Nodes()); err != nil {
+		s.logger.Error("failed to encode cluster response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Server) nodeRoute(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	if id == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	node, ok := s.cluster.Node(id)
+	if !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(node); err != nil {
+		s.logger.Error("failed to encode node response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
 }

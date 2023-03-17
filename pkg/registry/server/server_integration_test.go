@@ -18,21 +18,27 @@
 package server
 
 import (
+	"encoding/json"
 	"math/rand"
 	"net"
+	"net/http"
+	"sort"
 	"testing"
 
 	fuddle "github.com/fuddle-io/fuddle-go"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // Tests registering a node. The node should register itself and receive a
 // update about the fuddle server joining the cluster.
-func TestServer_RegisterNode(t *testing.T) {
+//
+// /v1/api/register
+func TestService_RegisterNode(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
@@ -62,7 +68,9 @@ func TestServer_RegisterNode(t *testing.T) {
 }
 
 // Tests a registered node receives updates when other nodes join the cluster.
-func TestServer_ReceiveNodeJoins(t *testing.T) {
+//
+// /v1/api/register
+func TestService_RegisterReceiveNodeJoins(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
@@ -102,7 +110,9 @@ func TestServer_ReceiveNodeJoins(t *testing.T) {
 }
 
 // Tests a registered node receives updates when other nodes leave the cluster.
-func TestServer_ReceiveNodeLeaves(t *testing.T) {
+//
+// /v1/api/register
+func TestService_RegisterReceiveNodeLeaves(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
@@ -153,7 +163,9 @@ func TestServer_ReceiveNodeLeaves(t *testing.T) {
 // Tests adding 10 random nodes and verifying each node discovers one another.
 // Also checks updating on of the node and verifying all nodes discover the
 // updated node.
-func TestServer_ClusterDiscovery(t *testing.T) {
+//
+// /v1/api/register
+func TestService_RegisterClusterDiscovery(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
@@ -196,6 +208,136 @@ func TestServer_ClusterDiscovery(t *testing.T) {
 	for _, r := range addedRegistries {
 		assert.Nil(t, testutils.WaitForNode(r, updatedNode))
 	}
+}
+
+// Tests /api/v1/cluster returns the correct cluster state.
+func TestService_Cluster(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	var nodes []cluster.Node
+
+	local := testutils.RandomRegistryNode()
+	nodes = append(nodes, local)
+	c := cluster.NewCluster(local)
+	// Add 5 more random nodes.
+	for i := 0; i != 5; i++ {
+		node := testutils.RandomRegistryNode()
+		nodes = append(nodes, node)
+		c.ApplyUpdate(&cluster.NodeUpdate{
+			ID:         node.ID,
+			UpdateType: cluster.UpdateTypeRegister,
+			Attributes: &cluster.NodeAttributes{
+				Service:  node.Service,
+				Locality: node.Locality,
+				Created:  node.Created,
+				Revision: node.Revision,
+			},
+			Metadata: node.Metadata,
+		})
+	}
+
+	service := NewServer(ln.Addr().String(), c, WithListener(ln))
+	require.NoError(t, service.Start())
+	defer service.GracefulStop()
+
+	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/cluster")
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, 200, resp.StatusCode)
+
+	var recvNodes []cluster.Node
+	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&recvNodes))
+
+	// Sort the nodes to make comparison easier.
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].ID < nodes[j].ID
+	})
+	sort.Slice(recvNodes, func(i, j int) bool {
+		return recvNodes[i].ID < recvNodes[j].ID
+	})
+
+	assert.Equal(t, nodes, recvNodes)
+}
+
+// Tests /api/v1/node/{id} returns the correct node state.
+func TestService_Node(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	local := testutils.RandomRegistryNode()
+	c := cluster.NewCluster(local)
+	service := NewServer(ln.Addr().String(), c, WithListener(ln))
+	require.NoError(t, service.Start())
+	defer service.GracefulStop()
+
+	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/node/" + local.ID)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, 200, resp.StatusCode)
+
+	var node cluster.Node
+	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&node))
+
+	assert.Equal(t, node, local)
+}
+
+// Tests /api/v1/node/{id} returns 404 when a node is not found.
+func TestService_NodeNotFound(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	local := testutils.RandomRegistryNode()
+	c := cluster.NewCluster(local)
+	service := NewServer(ln.Addr().String(), c, WithListener(ln))
+	require.NoError(t, service.Start())
+	defer service.GracefulStop()
+
+	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/node/notfound")
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, 404, resp.StatusCode)
+}
+
+// Tests /metrics returns 200 when metrics are registered.
+func TestService_Metrics(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	promRegistry := prometheus.NewRegistry()
+
+	c := cluster.NewCluster(testutils.RandomRegistryNode())
+	service := NewServer(
+		ln.Addr().String(),
+		c,
+		WithListener(ln),
+		WithPromRegistry(promRegistry),
+	)
+	require.NoError(t, service.Start())
+	defer service.GracefulStop()
+
+	resp, err := http.Get("http://" + ln.Addr().String() + "/metrics")
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, 200, resp.StatusCode)
+}
+
+// Tests /metrics returns 404 when metrics are not registered.
+func TestService_MetricsNotRegistered(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	c := cluster.NewCluster(testutils.RandomRegistryNode())
+	service := NewServer(
+		ln.Addr().String(), c, WithListener(ln),
+	)
+	require.NoError(t, service.Start())
+	defer service.GracefulStop()
+
+	resp, err := http.Get("http://" + ln.Addr().String() + "/metrics")
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, 404, resp.StatusCode)
 }
 
 // randomNode returns a node with random attributes and metadata.
