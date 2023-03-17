@@ -31,11 +31,6 @@ type Config struct {
 	// AdvRegistryAddr is the address to advertise to registry clients.
 	AdvRegistryAddr string
 
-	// BindAdminAddr is the bind address to listen for admin clients.
-	BindAdminAddr string
-	// AdvAdminAddr is the address to advertise to admin clients.
-	AdvAdminAddr string
-
 	// Locality is the location of the node in the cluster.
 	Locality string
 
@@ -49,9 +44,6 @@ func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("bind-registry-addr", c.BindRegistryAddr)
 	e.AddString("adv-registry-addr", c.AdvRegistryAddr)
 
-	e.AddString("bind-admin-addr", c.BindAdminAddr)
-	e.AddString("adv-admin-addr", c.AdvAdminAddr)
-
 	e.AddString("locality", c.Locality)
 
 	e.AddString("revision", c.Revision)
@@ -64,8 +56,6 @@ func DefaultConfig() *Config {
 		ID:               "fuddle-" + uuid.New().String()[:8],
 		BindRegistryAddr: "0.0.0.0:8220",
 		AdvRegistryAddr:  "0.0.0.0:8220",
-		BindAdminAddr:    "0.0.0.0:8221",
-		AdvAdminAddr:     "0.0.0.0:8221",
 		Locality:         "unknown",
 		Revision:         build.Revision,
 	}

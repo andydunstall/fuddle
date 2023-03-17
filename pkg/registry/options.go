@@ -18,12 +18,14 @@ package registry
 import (
 	"net"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
 type options struct {
-	logger   *zap.Logger
-	listener net.Listener
+	logger       *zap.Logger
+	listener     net.Listener
+	promRegistry *prometheus.Registry
 }
 
 type Option interface {
@@ -52,4 +54,16 @@ func (o listenerOption) apply(opts *options) {
 
 func WithListener(ln net.Listener) Option {
 	return listenerOption{ln: ln}
+}
+
+type promRegistryOption struct {
+	promRegistry *prometheus.Registry
+}
+
+func (o promRegistryOption) apply(opts *options) {
+	opts.promRegistry = o.promRegistry
+}
+
+func WithPromRegistry(promRegistry *prometheus.Registry) Option {
+	return promRegistryOption{promRegistry: promRegistry}
 }
