@@ -15,6 +15,10 @@
 
 package cluster
 
+import (
+	"go.uber.org/zap/zapcore"
+)
+
 type UpdateType string
 
 const (
@@ -37,6 +41,14 @@ type NodeAttributes struct {
 	Revision string `json:"revision,omitempty"`
 }
 
+func (a *NodeAttributes) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddString("service", a.Service)
+	e.AddString("locality", a.Locality)
+	e.AddInt64("created", a.Created)
+	e.AddString("revision", a.Revision)
+	return nil
+}
+
 type NodeUpdate struct {
 	// ID is the ID of the node in the update.
 	ID string `json:"id,omitempty"`
@@ -51,5 +63,13 @@ type NodeUpdate struct {
 
 	// Metadata contains application defined metadata. If the update is type
 	// metadata, the field only contains the fields that have been updated.
-	Metadata map[string]string `json:"metadata,omitempty"`
+	Metadata Metadata `json:"metadata,omitempty"`
+}
+
+func (u *NodeUpdate) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddString("id", u.ID)
+	e.AddString("update-type", string(u.UpdateType))
+	e.AddObject("attributes", u.Attributes)
+	e.AddObject("metadata", u.Metadata)
+	return nil
 }

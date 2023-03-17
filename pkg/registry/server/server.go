@@ -125,6 +125,7 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 
 	ws, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		logger.Debug("register: upgrade error", zap.Error(err))
 		return
 	}
 	conn := newConn(ws, logger)
@@ -133,19 +134,28 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 	// Wait for the connected node to register.
 	registerUpdate, err := conn.RecvUpdate()
 	if err != nil {
+		logger.Debug("register: not received register update")
 		return
 	}
 	// If the first update is not the node joining this is a protocol error.
 	if registerUpdate.UpdateType != cluster.UpdateTypeRegister {
-		logger.Warn("protocol error: node not registered")
+		logger.Warn("register: protocol error: update not a register")
 		return
 	}
+
+	logger.Debug(
+		"register: received update",
+		zap.Object("update", registerUpdate),
+	)
+
 	if err := s.cluster.ApplyUpdate(registerUpdate); err != nil {
-		logger.Warn("apply update", zap.Error(err))
+		logger.Warn("register: failed to apply register update", zap.Error(err))
 		return
 	}
 
 	nodeID := registerUpdate.ID
+
+	logger = logger.With(zap.String("client-node", nodeID))
 
 	// Subscribe to the node map and send updates to the client. This will
 	// replay all existing nodes as JOIN updates to ensure the subscriber
@@ -156,6 +166,11 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		logger.Debug(
+			"register: send update",
+			zap.Object("update", update),
+		)
+
 		conn.AddUpdate(update)
 	})
 	defer unsubscribe()
@@ -165,6 +180,11 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
+
+		logger.Debug(
+			"register: received update",
+			zap.Object("update", update),
+		)
 
 		if err := s.cluster.ApplyUpdate(update); err != nil {
 			logger.Warn("apply update", zap.Error(err))
