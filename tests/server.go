@@ -63,9 +63,6 @@ func testConfig() *config.Config {
 	conf.BindRegistryAddr = GetSystemAddress()
 	conf.AdvRegistryAddr = conf.BindRegistryAddr
 
-	conf.BindAdminAddr = GetSystemAddress()
-	conf.AdvAdminAddr = conf.BindAdminAddr
-
 	return conf
 }
 

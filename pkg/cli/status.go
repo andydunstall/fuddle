@@ -64,7 +64,7 @@ func init() {
 	statusCmd.PersistentFlags().StringVarP(
 		&statusAdminAddr,
 		"addr", "a",
-		"localhost:8221",
+		"localhost:8220",
 		"address of the admin server to query",
 	)
 }

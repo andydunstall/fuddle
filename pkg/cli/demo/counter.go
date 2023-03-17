@@ -169,8 +169,6 @@ func fuddleNodeConfig() *config.Config {
 		ID:               "fuddle-" + uuid.New().String()[:8],
 		BindRegistryAddr: "127.0.0.1:8220",
 		AdvRegistryAddr:  "127.0.0.1:8220",
-		BindAdminAddr:    "127.0.0.1:8221",
-		AdvAdminAddr:     "127.0.0.1:8221",
 		Locality:         "us-east-1-a",
 		Revision:         build.Revision,
 	}

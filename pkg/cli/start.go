@@ -34,11 +34,6 @@ var (
 	// advRegistryAddr is the address to advertise to registry clients.
 	advRegistryAddr string
 
-	// bindAdminAddr is the bind address to listen for admin clients.
-	bindAdminAddr string
-	// advAdminAddr is the address to advertise to admin clients.
-	advAdminAddr string
-
 	// locality is the location of the node in the cluster.
 	locality string
 
@@ -69,19 +64,6 @@ func init() {
 	)
 
 	startCmd.Flags().StringVarP(
-		&bindAdminAddr,
-		"admin-addr", "",
-		"0.0.0.0:8221",
-		"the bind address to listen for admin connections",
-	)
-	startCmd.Flags().StringVarP(
-		&advAdminAddr,
-		"adv-admin-addr", "",
-		"",
-		"the address to advertise to admin clients (defaults to the bind address)",
-	)
-
-	startCmd.Flags().StringVarP(
 		&locality,
 		"locality", "l",
 		"",
@@ -109,17 +91,11 @@ func runStart(cmd *cobra.Command, args []string) {
 		BindRegistryAddr: bindRegistryAddr,
 		AdvRegistryAddr:  bindRegistryAddr,
 
-		BindAdminAddr: bindAdminAddr,
-		AdvAdminAddr:  bindAdminAddr,
-
 		Locality: locality,
 		Revision: build.Revision,
 	}
 	if advRegistryAddr != "" {
 		conf.AdvRegistryAddr = bindRegistryAddr
-	}
-	if advAdminAddr != "" {
-		conf.AdvAdminAddr = bindAdminAddr
 	}
 
 	server := fuddle.New(conf, fuddle.WithLogger(logger))

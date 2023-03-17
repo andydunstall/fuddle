@@ -35,8 +35,9 @@ type Service struct {
 
 func NewService(conf *config.Config, opts ...Option) *Service {
 	options := options{
-		logger:   zap.NewNop(),
-		listener: nil,
+		logger:       zap.NewNop(),
+		listener:     nil,
+		promRegistry: nil,
 	}
 	for _, o := range opts {
 		o.apply(&options)
@@ -53,7 +54,6 @@ func NewService(conf *config.Config, opts ...Option) *Service {
 		Revision: conf.Revision,
 		Metadata: map[string]string{
 			"addr.registry": conf.AdvRegistryAddr,
-			"addr.admin":    conf.AdvAdminAddr,
 		},
 	})
 
@@ -61,6 +61,7 @@ func NewService(conf *config.Config, opts ...Option) *Service {
 		conf.AdvRegistryAddr,
 		clusterState,
 		server.WithListener(options.listener),
+		server.WithPromRegistry(options.promRegistry),
 		server.WithLogger(logger),
 	)
 	return &Service{

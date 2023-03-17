@@ -16,7 +16,6 @@
 package fuddle
 
 import (
-	"github.com/fuddle-io/fuddle/pkg/admin"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/prometheus/client_golang/prometheus"
@@ -26,7 +25,6 @@ import (
 
 // Fuddle runs a Fuddle node.
 type Fuddle struct {
-	adminService    *admin.Service
 	registryService *registry.Service
 
 	conf   *config.Config
@@ -35,9 +33,8 @@ type Fuddle struct {
 
 func New(conf *config.Config, opts ...Option) *Fuddle {
 	options := options{
-		logger:        zap.NewNop(),
-		rpcListener:   nil,
-		adminListener: nil,
+		logger:      zap.NewNop(),
+		rpcListener: nil,
 	}
 	for _, o := range opts {
 		o.apply(&options)
@@ -51,18 +48,10 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 	registryService := registry.NewService(
 		conf,
 		registry.WithListener(options.rpcListener),
+		registry.WithPromRegistry(promRegistry),
 		registry.WithLogger(logger),
 	)
-	adminService := admin.NewService(
-		registryService.Cluster(),
-		conf,
-		admin.WithListener(options.adminListener),
-		admin.WithPromRegistry(promRegistry),
-		admin.WithLogger(logger),
-	)
-
 	return &Fuddle{
-		adminService:    adminService,
 		registryService: registryService,
 		conf:            conf,
 		logger:          logger,
@@ -73,9 +62,6 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 func (s *Fuddle) Start() error {
 	s.logger.Info("starting node", zap.Object("conf", s.conf))
 
-	if err := s.adminService.Start(); err != nil {
-		return err
-	}
 	if err := s.registryService.Start(); err != nil {
 		return err
 	}
@@ -86,11 +72,9 @@ func (s *Fuddle) Start() error {
 func (s *Fuddle) GracefulStop() {
 	s.logger.Info("starting node graceful shutdown")
 	s.registryService.GracefulStop()
-	s.adminService.GracefulStop()
 }
 
 func (s *Fuddle) Stop() {
 	s.logger.Info("starting node hard shutdown")
 	s.registryService.Stop()
-	s.adminService.Stop()
 }
