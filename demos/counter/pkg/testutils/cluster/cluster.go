@@ -133,24 +133,19 @@ func (c *Cluster) Shutdown() {
 
 func (c *Cluster) addFuddleNode() error {
 	// Add a listeners to bind to a system assigned port.
-	rpcLn, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return fmt.Errorf("add fuddle node: %s", err)
-	}
-	adminLn, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return fmt.Errorf("add fuddle node: %s", err)
 	}
 
 	conf := config.DefaultConfig()
-	conf.BindRegistryAddr = rpcLn.Addr().String()
-	conf.AdvRegistryAddr = rpcLn.Addr().String()
+	conf.BindRegistryAddr = ln.Addr().String()
+	conf.AdvRegistryAddr = ln.Addr().String()
 	conf.Locality = "us-east-1-a"
 
 	s := fuddle.New(
 		conf,
-		fuddle.WithRPCListener(rpcLn),
-		fuddle.WithAdminListener(adminLn),
+		fuddle.WithListener(ln),
 	)
 	c.nodes = append(c.nodes, node{
 		ID:      conf.ID,

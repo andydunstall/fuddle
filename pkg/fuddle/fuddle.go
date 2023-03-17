@@ -25,7 +25,7 @@ import (
 
 // Fuddle runs a Fuddle node.
 type Fuddle struct {
-	registryService *registry.Service
+	registry *registry.Service
 
 	conf   *config.Config
 	logger *zap.Logger
@@ -33,8 +33,8 @@ type Fuddle struct {
 
 func New(conf *config.Config, opts ...Option) *Fuddle {
 	options := options{
-		logger:      zap.NewNop(),
-		rpcListener: nil,
+		logger:   zap.NewNop(),
+		listener: nil,
 	}
 	for _, o := range opts {
 		o.apply(&options)
@@ -45,24 +45,24 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 	promRegistry := prometheus.NewRegistry()
 	promRegistry.MustRegister(collectors.NewGoCollector())
 
-	registryService := registry.NewService(
+	registry := registry.NewService(
 		conf,
-		registry.WithListener(options.rpcListener),
+		registry.WithListener(options.listener),
 		registry.WithPromRegistry(promRegistry),
 		registry.WithLogger(logger),
 	)
 	return &Fuddle{
-		registryService: registryService,
-		conf:            conf,
-		logger:          logger,
+		registry: registry,
+		conf:     conf,
+		logger:   logger,
 	}
 }
 
 // Start starts the Fuddle node in a background goroutine.
 func (s *Fuddle) Start() error {
-	s.logger.Info("starting node", zap.Object("conf", s.conf))
+	s.logger.Info("starting fuddle node", zap.Object("conf", s.conf))
 
-	if err := s.registryService.Start(); err != nil {
+	if err := s.registry.Start(); err != nil {
 		return err
 	}
 
@@ -70,11 +70,11 @@ func (s *Fuddle) Start() error {
 }
 
 func (s *Fuddle) GracefulStop() {
-	s.logger.Info("starting node graceful shutdown")
-	s.registryService.GracefulStop()
+	s.logger.Info("node graceful stop")
+	s.registry.GracefulStop()
 }
 
 func (s *Fuddle) Stop() {
-	s.logger.Info("starting node hard shutdown")
-	s.registryService.Stop()
+	s.logger.Info("node hard stop")
+	s.registry.Stop()
 }

@@ -77,12 +77,12 @@ func (s *Service) Start() error {
 }
 
 func (s *Service) GracefulStop() {
-	s.logger.Info("starting registry service graceful shutdown")
+	s.logger.Info("registry service graceful stop")
 	s.server.GracefulStop()
 }
 
 func (s *Service) Stop() {
-	s.logger.Info("starting registry service hard shutdown")
+	s.logger.Info("registry service hard stop")
 	s.server.Stop()
 }
 

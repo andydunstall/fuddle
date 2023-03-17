@@ -15,6 +15,19 @@
 
 package cluster
 
+import (
+	"go.uber.org/zap/zapcore"
+)
+
+type Metadata map[string]string
+
+func (m Metadata) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	for k, v := range m {
+		e.AddString(k, v)
+	}
+	return nil
+}
+
 // Node represents the state of a node that is propagated to other nodes
 // in the cluster.
 type Node struct {

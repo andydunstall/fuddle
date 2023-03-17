@@ -44,7 +44,9 @@ func TestService_RegisterNode(t *testing.T) {
 
 	serverNode := randomNode()
 	c := cluster.NewCluster(serverNode)
-	server := NewServer(ln.Addr().String(), c, WithListener(ln))
+	server := NewServer(
+		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
+	)
 	require.NoError(t, server.Start())
 	defer server.GracefulStop()
 
@@ -76,7 +78,9 @@ func TestService_RegisterReceiveNodeJoins(t *testing.T) {
 
 	serverNode := randomNode()
 	c := cluster.NewCluster(serverNode)
-	server := NewServer(ln.Addr().String(), c, WithListener(ln))
+	server := NewServer(
+		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
+	)
 	require.NoError(t, server.Start())
 	defer server.GracefulStop()
 
@@ -118,7 +122,9 @@ func TestService_RegisterReceiveNodeLeaves(t *testing.T) {
 
 	serverNode := randomNode()
 	c := cluster.NewCluster(serverNode)
-	server := NewServer(ln.Addr().String(), c, WithListener(ln))
+	server := NewServer(
+		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
+	)
 	require.NoError(t, server.Start())
 	defer server.GracefulStop()
 
@@ -171,7 +177,9 @@ func TestService_RegisterClusterDiscovery(t *testing.T) {
 
 	serverNode := randomNode()
 	c := cluster.NewCluster(serverNode)
-	server := NewServer(ln.Addr().String(), c, WithListener(ln))
+	server := NewServer(
+		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
+	)
 	require.NoError(t, server.Start())
 	defer server.GracefulStop()
 
@@ -237,7 +245,9 @@ func TestService_Cluster(t *testing.T) {
 		})
 	}
 
-	service := NewServer(ln.Addr().String(), c, WithListener(ln))
+	service := NewServer(
+		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
+	)
 	require.NoError(t, service.Start())
 	defer service.GracefulStop()
 
@@ -267,7 +277,9 @@ func TestService_Node(t *testing.T) {
 
 	local := testutils.RandomRegistryNode()
 	c := cluster.NewCluster(local)
-	service := NewServer(ln.Addr().String(), c, WithListener(ln))
+	service := NewServer(
+		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
+	)
 	require.NoError(t, service.Start())
 	defer service.GracefulStop()
 
@@ -289,7 +301,9 @@ func TestService_NodeNotFound(t *testing.T) {
 
 	local := testutils.RandomRegistryNode()
 	c := cluster.NewCluster(local)
-	service := NewServer(ln.Addr().String(), c, WithListener(ln))
+	service := NewServer(
+		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
+	)
 	require.NoError(t, service.Start())
 	defer service.GracefulStop()
 
@@ -312,6 +326,7 @@ func TestService_Metrics(t *testing.T) {
 		c,
 		WithListener(ln),
 		WithPromRegistry(promRegistry),
+		WithLogger(testutils.Logger()),
 	)
 	require.NoError(t, service.Start())
 	defer service.GracefulStop()
@@ -329,7 +344,7 @@ func TestService_MetricsNotRegistered(t *testing.T) {
 
 	c := cluster.NewCluster(testutils.RandomRegistryNode())
 	service := NewServer(
-		ln.Addr().String(), c, WithListener(ln),
+		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
 	)
 	require.NoError(t, service.Start())
 	defer service.GracefulStop()

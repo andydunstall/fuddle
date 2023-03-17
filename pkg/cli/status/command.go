@@ -60,7 +60,7 @@ func init() {
 
 func runClusterStatus(cmd *cobra.Command, args []string) error {
 	client := client.NewAdmin(addr)
-	nodes, err := client.Nodes(context.Background())
+	nodes, err := client.Cluster(context.Background())
 	if err != nil {
 		return err
 	}

@@ -13,45 +13,31 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package fuddle
+package testutils
 
 import (
-	"net"
+	"os"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-type options struct {
-	logger   *zap.Logger
-	listener net.Listener
-}
+func Logger() *zap.Logger {
+	logLevel := os.Getenv("FUDDLE_LOG_LEVEL")
 
-type Option interface {
-	apply(*options)
-}
-
-type loggerOption struct {
-	logger *zap.Logger
-}
-
-func (o loggerOption) apply(opts *options) {
-	opts.logger = o.logger
-}
-
-func WithLogger(logger *zap.Logger) Option {
-	return loggerOption{logger: logger}
-}
-
-type listenerOption struct {
-	ln net.Listener
-}
-
-func (o listenerOption) apply(opts *options) {
-	opts.listener = o.ln
-}
-
-// WithListener uses the given listener for the server instead of binding to a
-// new listener.
-func WithListener(ln net.Listener) Option {
-	return listenerOption{ln: ln}
+	loggerConf := zap.NewProductionConfig()
+	switch logLevel {
+	case "debug":
+		loggerConf.Level.SetLevel(zapcore.DebugLevel)
+	case "info":
+		loggerConf.Level.SetLevel(zapcore.InfoLevel)
+	case "warn":
+		loggerConf.Level.SetLevel(zapcore.WarnLevel)
+	case "error":
+		loggerConf.Level.SetLevel(zapcore.ErrorLevel)
+	default:
+		// If the level is invalid or not specified don't use a logger.
+		return zap.NewNop()
+	}
+	return zap.Must(loggerConf.Build())
 }
