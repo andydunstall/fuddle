@@ -24,50 +24,60 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 )
 
+// Admin is a client to query the status of the cluster.
 type Admin struct {
-	addr string
+	addr   string
+	client *http.Client
 }
 
 func NewAdmin(addr string) *Admin {
 	return &Admin{
-		addr: addr,
+		addr:   addr,
+		client: &http.Client{},
 	}
 }
 
-func (a *Admin) Nodes(ctx context.Context) ([]*cluster.Node, error) {
-	url := fmt.Sprintf("http://%s/api/v1/cluster", a.addr)
-	resp, err := http.Get(url)
+func (a *Admin) Cluster(ctx context.Context) ([]*cluster.Node, error) {
+	resp, err := a.get(ctx, "api/v1/cluster")
 	if err != nil {
-		return nil, fmt.Errorf("admin client: nodes: %w", err)
+		return nil, fmt.Errorf("admin: cluster: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("admin client: nodes: bad status code: %d", resp.StatusCode)
-	}
-
 	var nodes []*cluster.Node
 	if err = json.NewDecoder(resp.Body).Decode(&nodes); err != nil {
-		return nil, fmt.Errorf("admin client: nodes, %w", err)
+		return nil, fmt.Errorf("admin: cluster: %w", err)
 	}
 	return nodes, nil
 }
 
 func (a *Admin) Node(ctx context.Context, id string) (*cluster.Node, error) {
-	url := fmt.Sprintf("http://%s/api/v1/node/%s", a.addr, id)
-	resp, err := http.Get(url)
+	resp, err := a.get(ctx, "api/v1/node/"+id)
 	if err != nil {
-		return nil, fmt.Errorf("admin client: node: %w", err)
+		return nil, fmt.Errorf("admin: cluster: %w", err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("admin client: node: bad status code: %d", resp.StatusCode)
-	}
 
 	var node *cluster.Node
 	if err = json.NewDecoder(resp.Body).Decode(&node); err != nil {
 		return nil, fmt.Errorf("admin client: node, %w", err)
 	}
 	return node, nil
+}
+
+func (a *Admin) get(ctx context.Context, path string) (*http.Response, error) {
+	url := "http://" + a.addr + "/" + path
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("request: bad status: %d", resp.StatusCode)
+	}
+	return resp, nil
 }
