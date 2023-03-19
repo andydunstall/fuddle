@@ -57,10 +57,6 @@ sending a `sync`, though the node is not registered (likely due to missing too
 many heartbeats), the server will respond with a `NOT_REGISTERED` error causing
 the client to re-register itself.
 
-### `ping` and `pong`
-The `ping` and `pong` types are used for heartbeats, which add a new `timestamp`
-field which is set by the client and echoed back by the server.
-
 # Reconnect Strategy
 To avoid clients generating excessive load, they must use exponential backoff
 with jitter when trying to reconnect to a Fuddle server.
