@@ -20,15 +20,14 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
-// pendingUpdates stores a list of updates waiting to be sent to the connected
+// pendingMessages stores a list of messages waiting to be sent to the connected
 // client.
-type pendingUpdates struct {
-	updates []*cluster.NodeUpdate
+type pendingMessages struct {
+	messages []*message
 
 	mu *sync.Mutex
 
@@ -37,20 +36,20 @@ type pendingUpdates struct {
 	closed bool
 }
 
-func newPendingUpdates() *pendingUpdates {
+func newPendingMessages() *pendingMessages {
 	mu := &sync.Mutex{}
-	return &pendingUpdates{
-		updates: nil,
-		mu:      mu,
-		cv:      sync.NewCond(mu),
-		wg:      sync.WaitGroup{},
-		closed:  false,
+	return &pendingMessages{
+		messages: nil,
+		mu:       mu,
+		cv:       sync.NewCond(mu),
+		wg:       sync.WaitGroup{},
+		closed:   false,
 	}
 }
 
-// Wait blocks until the next update is available of the connection has been
+// Wait blocks until the next message is available of the connection has been
 // closed. If the returned bool is false the connection has been closed.
-func (p *pendingUpdates) Wait() ([]*cluster.NodeUpdate, bool) {
+func (p *pendingMessages) Wait() ([]*message, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -58,19 +57,19 @@ func (p *pendingUpdates) Wait() ([]*cluster.NodeUpdate, bool) {
 		return nil, false
 	}
 
-	// Since we can miss signals when processing updates, must only block
-	// if the updates are empty.
-	if len(p.updates) == 0 {
+	// Since we can miss signals when processing messages, must only block
+	// if the messages are empty.
+	if len(p.messages) == 0 {
 		p.cv.Wait()
 	}
 
-	updates := p.updates
-	p.updates = nil
-	return updates, true
+	messages := p.messages
+	p.messages = nil
+	return messages, true
 }
 
-// Push an update to be sent.
-func (p *pendingUpdates) Push(update *cluster.NodeUpdate) {
+// Push an message to be sent.
+func (p *pendingMessages) Push(message *message) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -78,11 +77,11 @@ func (p *pendingUpdates) Push(update *cluster.NodeUpdate) {
 		return
 	}
 
-	p.updates = append(p.updates, update)
+	p.messages = append(p.messages, message)
 	p.cv.Signal()
 }
 
-func (p *pendingUpdates) Close() {
+func (p *pendingMessages) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -93,7 +92,7 @@ func (p *pendingUpdates) Close() {
 
 type conn struct {
 	ws      *websocket.Conn
-	pending *pendingUpdates
+	pending *pendingMessages
 
 	logger *zap.Logger
 
@@ -103,7 +102,7 @@ type conn struct {
 func newConn(ws *websocket.Conn, logger *zap.Logger) *conn {
 	conn := &conn{
 		ws:      ws,
-		pending: newPendingUpdates(),
+		pending: newPendingMessages(),
 		logger:  logger,
 	}
 
@@ -113,20 +112,20 @@ func newConn(ws *websocket.Conn, logger *zap.Logger) *conn {
 	return conn
 }
 
-func (c *conn) AddUpdate(update *cluster.NodeUpdate) {
-	c.pending.Push(update)
+func (c *conn) AddMessage(m *message) {
+	c.pending.Push(m)
 }
 
-func (c *conn) RecvUpdate() (*cluster.NodeUpdate, error) {
+func (c *conn) RecvMessage() (*message, error) {
 	_, b, err := c.ws.ReadMessage()
 	if err != nil {
 		return nil, fmt.Errorf("conn recv: %w", err)
 	}
-	var update cluster.NodeUpdate
-	if err := json.Unmarshal(b, &update); err != nil {
+	var m message
+	if err := json.Unmarshal(b, &m); err != nil {
 		return nil, fmt.Errorf("conn recv: decode error: %w", err)
 	}
-	return &update, nil
+	return &m, nil
 }
 
 func (c *conn) Close() {
@@ -139,15 +138,15 @@ func (c *conn) sendPending() {
 	defer c.wg.Done()
 
 	for {
-		updates, ok := c.pending.Wait()
+		messages, ok := c.pending.Wait()
 		if !ok {
 			return
 		}
 
-		for _, update := range updates {
-			b, err := json.Marshal(update)
+		for _, m := range messages {
+			b, err := json.Marshal(m)
 			if err != nil {
-				c.logger.Error("encode update", zap.Error(err))
+				c.logger.Error("encode message", zap.Error(err))
 				continue
 			}
 

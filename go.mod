@@ -3,7 +3,7 @@ module github.com/fuddle-io/fuddle
 go 1.20
 
 require (
-	github.com/fuddle-io/fuddle-go v0.1.0
+	github.com/fuddle-io/fuddle-go v0.1.1-0.20230319142329-c94894d34340
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
