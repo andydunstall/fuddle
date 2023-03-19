@@ -1,4 +1,7 @@
 # RFC: Node Failure Detector
+
+**Status**: In Progress
+
 This RFC proposes a way for Fuddle to detect failed nodes and remove them from
 the registry.
 
