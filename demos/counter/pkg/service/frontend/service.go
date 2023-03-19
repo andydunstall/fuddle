@@ -72,7 +72,7 @@ func (s *Service) Start() error {
 			Locality: s.conf.Locality,
 			Created:  time.Now().UnixMilli(),
 			Revision: s.conf.Revision,
-			State: map[string]string{
+			Metadata: map[string]string{
 				"addr.ws": s.conf.WSAddr,
 			},
 		},
@@ -86,7 +86,7 @@ func (s *Service) Start() error {
 	registry.Subscribe(func(nodes []fuddle.Node) {
 		counterNodes := make(map[string]string)
 		for _, node := range nodes {
-			counterNodes[node.ID] = node.State["addr.rpc"]
+			counterNodes[node.ID] = node.Metadata["addr.rpc"]
 		}
 		s.partitioner.SetNodes(counterNodes)
 	}, fuddle.WithFilter(fuddle.Filter{

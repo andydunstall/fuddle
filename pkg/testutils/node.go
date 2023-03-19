@@ -66,7 +66,7 @@ func RandomNode() fuddle.Node {
 		Locality: uuid.New().String(),
 		Created:  rand.Int63(),
 		Revision: uuid.New().String(),
-		State:    RandomState(),
+		Metadata: RandomMetadata(),
 	}
 }
 
@@ -78,11 +78,11 @@ func RandomRegistryNode() cluster.Node {
 		Locality: uuid.New().String(),
 		Created:  rand.Int63(),
 		Revision: uuid.New().String(),
-		Metadata: RandomState(),
+		Metadata: RandomMetadata(),
 	}
 }
 
-func RandomState() map[string]string {
+func RandomMetadata() map[string]string {
 	return map[string]string{
 		uuid.New().String(): uuid.New().String(),
 		uuid.New().String(): uuid.New().String(),
