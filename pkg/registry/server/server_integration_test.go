@@ -210,8 +210,8 @@ func TestService_RegisterClusterDiscovery(t *testing.T) {
 	// Update the state of the first node in the cluster and wait for all
 	// nodes to discover the update.
 	updatedNode := addedNodes[0]
-	updatedNode.State["foo"] = uuid.New().String()
-	assert.Nil(t, addedRegistries[0].UpdateLocalState(updatedNode.State))
+	updatedNode.Metadata["foo"] = uuid.New().String()
+	assert.Nil(t, addedRegistries[0].UpdateLocalMetadata(updatedNode.Metadata))
 
 	for _, r := range addedRegistries {
 		assert.Nil(t, testutils.WaitForNode(r, updatedNode))
@@ -381,7 +381,7 @@ func randomSDKNode() fuddle.Node {
 		Locality: uuid.New().String(),
 		Created:  rand.Int63(),
 		Revision: uuid.New().String(),
-		State: map[string]string{
+		Metadata: map[string]string{
 			uuid.New().String(): uuid.New().String(),
 			uuid.New().String(): uuid.New().String(),
 			uuid.New().String(): uuid.New().String(),

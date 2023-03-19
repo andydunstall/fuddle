@@ -73,7 +73,7 @@ func (s *Service) Start() error {
 			Locality: s.conf.Locality,
 			Created:  time.Now().UnixMilli(),
 			Revision: s.conf.Revision,
-			State: map[string]string{
+			Metadata: map[string]string{
 				"addr.rpc": s.conf.RPCAddr,
 			},
 		},
