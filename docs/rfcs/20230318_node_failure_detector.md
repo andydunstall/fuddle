@@ -25,6 +25,13 @@ server.
 Since clients can disconnect due to brief network disruption or connection
 rebalancing, the clients connection is independent of failure detection.
 
+# Registry API
+Adds new `ping` and `pong` update types to the registry API stream described
+in [`20230303_registry_api.md`](./20230303_registry_api.md).
+
+`ping` and `pong` updates include an `int64` `timestamp` field which is set
+by the client and echoed back by the server.
+
 # Operating
 
 ## Metrics

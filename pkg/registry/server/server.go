@@ -173,12 +173,17 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Wait for the connected node to register.
-	registerUpdate, err := conn.RecvUpdate()
+	m, err := conn.RecvMessage()
 	if err != nil {
 		logger.Debug("register: not received register update")
 		return
 	}
 	// If the first update is not the node joining this is a protocol error.
+	if m.MessageType != messageTypeNodeUpdate || m.NodeUpdate == nil {
+		logger.Warn("register: protocol error: message not a node update")
+		return
+	}
+	registerUpdate := m.NodeUpdate
 	if registerUpdate.UpdateType != cluster.UpdateTypeRegister {
 		logger.Warn("register: protocol error: update not a register")
 		return
@@ -222,33 +227,53 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 			zap.Object("update", update),
 		)
 
-		conn.AddUpdate(update)
+		m := &message{
+			MessageType: messageTypeNodeUpdate,
+			NodeUpdate:  update,
+		}
+		conn.AddMessage(m)
 	})
 	defer unsubscribe()
 
 	for {
-		update, err := conn.RecvUpdate()
+		m, err := conn.RecvMessage()
 		if err != nil {
 			return
 		}
 
-		logger.Debug(
-			"register: received update",
-			zap.Object("update", update),
-		)
+		switch m.MessageType {
+		case messageTypeNodeUpdate:
+			update := m.NodeUpdate
+			if update == nil {
+				logger.Warn("register: missing node update")
+				return
+			}
 
-		if s.updateCountMetric != nil {
-			s.updateCountMetric.With(prometheus.Labels{
-				"type": string(registerUpdate.UpdateType),
-			}).Inc()
-		}
+			logger.Debug(
+				"register: received update",
+				zap.Object("update", update),
+			)
 
-		if err := s.cluster.ApplyUpdate(update); err != nil {
-			logger.Warn("apply update", zap.Error(err))
-		}
+			if s.updateCountMetric != nil {
+				s.updateCountMetric.With(prometheus.Labels{
+					"type": string(registerUpdate.UpdateType),
+				}).Inc()
+			}
 
-		if s.nodeCountMetric != nil {
-			s.nodeCountMetric.Set(float64(len(s.cluster.Nodes())))
+			if err := s.cluster.ApplyUpdate(update); err != nil {
+				logger.Warn("apply update", zap.Error(err))
+			}
+
+			if s.nodeCountMetric != nil {
+				s.nodeCountMetric.Set(float64(len(s.cluster.Nodes())))
+			}
+
+		default:
+			logger.Warn(
+				"register: unknown message type",
+				zap.String("message-type", string(m.MessageType)),
+			)
+			return
 		}
 	}
 }
