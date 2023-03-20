@@ -7,6 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Set up Go
         uses: actions/setup-go@v3
@@ -14,7 +16,11 @@ jobs:
           go-version: '1.20'
 
       - name: Protoc
-        run: PROTOC_ZIP=protoc-3.14.0-linux-x86_64.zip && curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/$PROTOC_ZIP && unzip -o $PROTOC_ZIP -d /usr/local bin/protoc && go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+        run: PROTOC_ZIP=protoc-22.2-linux-x86_64.zip &&
+          curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v22.2/$PROTOC_ZIP &&
+          unzip -o $PROTOC_ZIP -d /usr/local bin/protoc &&
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 &&
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
       - name: Generate
         run: go generate ./...
@@ -26,6 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Set up Go
         uses: actions/setup-go@v3
@@ -33,7 +41,11 @@ jobs:
           go-version: '1.20'
 
       - name: Protoc
-        run: PROTOC_ZIP=protoc-3.14.0-linux-x86_64.zip && curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/$PROTOC_ZIP && unzip -o $PROTOC_ZIP -d /usr/local bin/protoc && go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+        run: PROTOC_ZIP=protoc-22.2-linux-x86_64.zip &&
+          curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v22.2/$PROTOC_ZIP &&
+          unzip -o $PROTOC_ZIP -d /usr/local bin/protoc &&
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 &&
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
       - name: Generate
         run: go generate ./...
@@ -47,6 +59,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Set up Go
         uses: actions/setup-go@v3
@@ -54,7 +68,11 @@ jobs:
           go-version: '1.20'
 
       - name: Protoc
-        run: PROTOC_ZIP=protoc-3.14.0-linux-x86_64.zip && curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/$PROTOC_ZIP && unzip -o $PROTOC_ZIP -d /usr/local bin/protoc && go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+        run: PROTOC_ZIP=protoc-22.2-linux-x86_64.zip &&
+          curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v22.2/$PROTOC_ZIP &&
+          unzip -o $PROTOC_ZIP -d /usr/local bin/protoc &&
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 &&
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
       - name: Generate
         run: go generate ./...
