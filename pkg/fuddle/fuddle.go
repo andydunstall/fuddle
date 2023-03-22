@@ -16,15 +16,21 @@
 package fuddle
 
 import (
+	"net"
+
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 // Fuddle runs a Fuddle node.
 type Fuddle struct {
+	grpcServer *grpc.Server
+	grpcLn     net.Listener
+
 	registry *registry.Service
 
 	conf   *config.Config
@@ -47,14 +53,19 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 
 	registry := registry.NewService(
 		conf,
-		registry.WithListener(options.listener),
 		registry.WithPromRegistry(promRegistry),
 		registry.WithLogger(logger),
 	)
+
+	grpcServer := grpc.NewServer()
+	registry.RegisterGRPC(grpcServer)
+
 	return &Fuddle{
-		registry: registry,
-		conf:     conf,
-		logger:   logger,
+		grpcServer: grpcServer,
+		grpcLn:     options.listener,
+		registry:   registry,
+		conf:       conf,
+		logger:     logger,
 	}
 }
 
@@ -62,19 +73,30 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 func (s *Fuddle) Start() error {
 	s.logger.Info("starting fuddle node", zap.Object("conf", s.conf))
 
-	if err := s.registry.Start(); err != nil {
-		return err
+	ln := s.grpcLn
+	if ln == nil {
+		var err error
+		ln, err = net.Listen("tcp", s.conf.BindRegistryAddr)
+		if err != nil {
+			return err
+		}
 	}
+
+	go func() {
+		if err := s.grpcServer.Serve(ln); err != nil {
+			s.logger.Error("grpc serve", zap.Error(err))
+		}
+	}()
 
 	return nil
 }
 
 func (s *Fuddle) GracefulStop() {
 	s.logger.Info("node graceful stop")
-	s.registry.GracefulStop()
+	s.grpcServer.GracefulStop()
 }
 
 func (s *Fuddle) Stop() {
 	s.logger.Info("node hard stop")
-	s.registry.Stop()
+	s.grpcServer.Stop()
 }

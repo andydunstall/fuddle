@@ -17,67 +17,76 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
+	"time"
 
-	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Admin is a client to query the status of the cluster.
 type Admin struct {
 	addr   string
-	client *http.Client
+	conn   *grpc.ClientConn
+	client rpc.RegistryClient
 }
 
-func NewAdmin(addr string) *Admin {
+func NewAdmin(addr string) (*Admin, error) {
+	conn, client, err := connect(addr, time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("admin: %w", err)
+	}
 	return &Admin{
 		addr:   addr,
-		client: &http.Client{},
-	}
+		conn:   conn,
+		client: client,
+	}, nil
 }
 
-func (a *Admin) Cluster(ctx context.Context) ([]*cluster.Node, error) {
-	resp, err := a.get(ctx, "api/v1/cluster")
+func (a *Admin) Cluster(ctx context.Context) ([]*rpc.Node, error) {
+	resp, err := a.client.Nodes(ctx, &rpc.NodesRequest{
+		IncludeMetadata: false,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("admin: cluster: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var nodes []*cluster.Node
-	if err = json.NewDecoder(resp.Body).Decode(&nodes); err != nil {
-		return nil, fmt.Errorf("admin: cluster: %w", err)
+	if resp.Error != nil {
+		return nil, fmt.Errorf(
+			"admin: cluster: %s: %s", resp.Error.Status, resp.Error.Description,
+		)
 	}
-	return nodes, nil
+	return resp.Nodes, nil
 }
 
-func (a *Admin) Node(ctx context.Context, id string) (*cluster.Node, error) {
-	resp, err := a.get(ctx, "api/v1/node/"+id)
+func (a *Admin) Node(ctx context.Context, id string) (*rpc.Node, error) {
+	resp, err := a.client.Node(ctx, &rpc.NodeRequest{
+		NodeId: id,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("admin: cluster: %w", err)
 	}
-	defer resp.Body.Close()
-
-	var node *cluster.Node
-	if err = json.NewDecoder(resp.Body).Decode(&node); err != nil {
-		return nil, fmt.Errorf("admin client: node, %w", err)
+	if resp.Error != nil {
+		return nil, fmt.Errorf(
+			"admin: cluster: %s: %s", resp.Error.Status, resp.Error.Description,
+		)
 	}
-	return node, nil
+	return resp.Node, nil
 }
 
-func (a *Admin) get(ctx context.Context, path string) (*http.Response, error) {
-	url := "http://" + a.addr + "/" + path
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (a *Admin) Close() {
+	a.conn.Close()
+}
+
+func connect(addr string, timeout time.Duration) (*grpc.ClientConn, rpc.RegistryClient, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	conn, err := grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("request: %w", err)
+		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
 
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request: bad status: %d", resp.StatusCode)
-	}
-	return resp, nil
+	client := rpc.NewRegistryClient(conn)
+	return conn, client, nil
 }

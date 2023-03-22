@@ -3,7 +3,8 @@ module github.com/fuddle-io/fuddle
 go 1.20
 
 require (
-	github.com/fuddle-io/fuddle-go v0.1.1-0.20230319142329-c94894d34340
+	github.com/fuddle-io/fuddle-go v0.1.1-0.20230322070343-3933ef167b2b
+	github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230322065350-85501b751765
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
@@ -15,7 +16,7 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.24.0
 	google.golang.org/grpc v1.53.0
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.30.0
 )
 
 require (

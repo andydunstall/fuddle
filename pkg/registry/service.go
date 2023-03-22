@@ -18,10 +18,12 @@ package registry
 import (
 	"time"
 
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/fuddle-io/fuddle/pkg/registry/server"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 // Service manages the registry service, which provides a server for nodes
@@ -71,21 +73,10 @@ func NewService(conf *config.Config, opts ...Option) *Service {
 	}
 }
 
-func (s *Service) Start() error {
-	s.logger.Info("starting registry service")
-	return s.server.Start()
-}
-
-func (s *Service) GracefulStop() {
-	s.logger.Info("registry service graceful stop")
-	s.server.GracefulStop()
-}
-
-func (s *Service) Stop() {
-	s.logger.Info("registry service hard stop")
-	s.server.Stop()
-}
-
 func (s *Service) Cluster() *cluster.Cluster {
 	return s.clusterState
+}
+
+func (s *Service) RegisterGRPC(grpcServer *grpc.Server) {
+	rpc.RegisterRegistryServer(grpcServer, s.server)
 }

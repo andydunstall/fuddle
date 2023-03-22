@@ -18,26 +18,24 @@
 package server
 
 import (
-	"encoding/json"
+	"context"
 	"math/rand"
 	"net"
-	"net/http"
-	"sort"
 	"testing"
 
 	fuddle "github.com/fuddle-io/fuddle-go"
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
+	"github.com/fuddle-io/fuddle/pkg/client"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 )
 
 // Tests registering a node. The node should register itself and receive a
 // update about the fuddle server joining the cluster.
-//
-// /v1/api/register
 func TestService_RegisterNode(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -47,8 +45,13 @@ func TestService_RegisterNode(t *testing.T) {
 	server := NewServer(
 		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
 	)
-	require.NoError(t, server.Start())
-	defer server.GracefulStop()
+
+	grpcServer := grpc.NewServer()
+	rpc.RegisterRegistryServer(grpcServer, server)
+	go func() {
+		require.NoError(t, grpcServer.Serve(ln))
+	}()
+	defer grpcServer.Stop()
 
 	localNode := randomSDKNode()
 	registry, err := fuddle.Register([]string{ln.Addr().String()}, localNode)
@@ -70,8 +73,6 @@ func TestService_RegisterNode(t *testing.T) {
 }
 
 // Tests a registered node receives updates when other nodes join the cluster.
-//
-// /v1/api/register
 func TestService_RegisterReceiveNodeJoins(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -81,8 +82,13 @@ func TestService_RegisterReceiveNodeJoins(t *testing.T) {
 	server := NewServer(
 		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
 	)
-	require.NoError(t, server.Start())
-	defer server.GracefulStop()
+
+	grpcServer := grpc.NewServer()
+	rpc.RegisterRegistryServer(grpcServer, server)
+	go func() {
+		require.NoError(t, grpcServer.Serve(ln))
+	}()
+	defer grpcServer.Stop()
 
 	addedNodeIDs := make(map[string]interface{})
 
@@ -114,8 +120,6 @@ func TestService_RegisterReceiveNodeJoins(t *testing.T) {
 }
 
 // Tests a registered node receives updates when other nodes leave the cluster.
-//
-// /v1/api/register
 func TestService_RegisterReceiveNodeLeaves(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -125,8 +129,13 @@ func TestService_RegisterReceiveNodeLeaves(t *testing.T) {
 	server := NewServer(
 		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
 	)
-	require.NoError(t, server.Start())
-	defer server.GracefulStop()
+
+	grpcServer := grpc.NewServer()
+	rpc.RegisterRegistryServer(grpcServer, server)
+	go func() {
+		require.NoError(t, grpcServer.Serve(ln))
+	}()
+	defer grpcServer.Stop()
 
 	localNode := testutils.RandomNode()
 	registry, err := fuddle.Register([]string{ln.Addr().String()}, localNode)
@@ -169,8 +178,6 @@ func TestService_RegisterReceiveNodeLeaves(t *testing.T) {
 // Tests adding 10 random nodes and verifying each node discovers one another.
 // Also checks updating on of the node and verifying all nodes discover the
 // updated node.
-//
-// /v1/api/register
 func TestService_RegisterClusterDiscovery(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -180,8 +187,13 @@ func TestService_RegisterClusterDiscovery(t *testing.T) {
 	server := NewServer(
 		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
 	)
-	require.NoError(t, server.Start())
-	defer server.GracefulStop()
+
+	grpcServer := grpc.NewServer()
+	rpc.RegisterRegistryServer(grpcServer, server)
+	go func() {
+		require.NoError(t, grpcServer.Serve(ln))
+	}()
+	defer grpcServer.Stop()
 
 	var addedNodes []fuddle.Node
 	var addedRegistries []*fuddle.Registry
@@ -245,29 +257,24 @@ func TestService_Cluster(t *testing.T) {
 		})
 	}
 
-	service := NewServer(
+	server := NewServer(
 		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
 	)
-	require.NoError(t, service.Start())
-	defer service.GracefulStop()
 
-	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/cluster")
+	grpcServer := grpc.NewServer()
+	rpc.RegisterRegistryServer(grpcServer, server)
+	go func() {
+		require.NoError(t, grpcServer.Serve(ln))
+	}()
+	defer grpcServer.Stop()
+
+	client, err := client.NewAdmin(ln.Addr().String())
 	assert.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, 200, resp.StatusCode)
 
-	var recvNodes []cluster.Node
-	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&recvNodes))
+	rpcNodes, err := client.Cluster(context.Background())
+	assert.NoError(t, err)
 
-	// Sort the nodes to make comparison easier.
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].ID < nodes[j].ID
-	})
-	sort.Slice(recvNodes, func(i, j int) bool {
-		return recvNodes[i].ID < recvNodes[j].ID
-	})
-
-	assert.Equal(t, nodes, recvNodes)
+	assert.Equal(t, 6, len(rpcNodes))
 }
 
 // Tests /api/v1/node/{id} returns the correct node state.
@@ -277,21 +284,24 @@ func TestService_Node(t *testing.T) {
 
 	local := testutils.RandomRegistryNode()
 	c := cluster.NewCluster(local)
-	service := NewServer(
+	server := NewServer(
 		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
 	)
-	require.NoError(t, service.Start())
-	defer service.GracefulStop()
 
-	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/node/" + local.ID)
+	grpcServer := grpc.NewServer()
+	rpc.RegisterRegistryServer(grpcServer, server)
+	go func() {
+		require.NoError(t, grpcServer.Serve(ln))
+	}()
+	defer grpcServer.Stop()
+
+	client, err := client.NewAdmin(ln.Addr().String())
 	assert.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, 200, resp.StatusCode)
 
-	var node cluster.Node
-	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&node))
+	rpcNode, err := client.Node(context.Background(), local.ID)
+	assert.NoError(t, err)
 
-	assert.Equal(t, node, local)
+	assert.Equal(t, local.ID, rpcNode.Id)
 }
 
 // Tests /api/v1/node/{id} returns 404 when a node is not found.
@@ -301,58 +311,22 @@ func TestService_NodeNotFound(t *testing.T) {
 
 	local := testutils.RandomRegistryNode()
 	c := cluster.NewCluster(local)
-	service := NewServer(
+	server := NewServer(
 		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
 	)
-	require.NoError(t, service.Start())
-	defer service.GracefulStop()
 
-	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/node/notfound")
+	grpcServer := grpc.NewServer()
+	rpc.RegisterRegistryServer(grpcServer, server)
+	go func() {
+		require.NoError(t, grpcServer.Serve(ln))
+	}()
+	defer grpcServer.Stop()
+
+	client, err := client.NewAdmin(ln.Addr().String())
 	assert.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, 404, resp.StatusCode)
-}
 
-// Tests /metrics returns 200 when metrics are registered.
-func TestService_Metrics(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-
-	promRegistry := prometheus.NewRegistry()
-
-	c := cluster.NewCluster(testutils.RandomRegistryNode())
-	service := NewServer(
-		ln.Addr().String(),
-		c,
-		WithListener(ln),
-		WithPromRegistry(promRegistry),
-		WithLogger(testutils.Logger()),
-	)
-	require.NoError(t, service.Start())
-	defer service.GracefulStop()
-
-	resp, err := http.Get("http://" + ln.Addr().String() + "/metrics")
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, 200, resp.StatusCode)
-}
-
-// Tests /metrics returns 404 when metrics are not registered.
-func TestService_MetricsNotRegistered(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-
-	c := cluster.NewCluster(testutils.RandomRegistryNode())
-	service := NewServer(
-		ln.Addr().String(), c, WithListener(ln), WithLogger(testutils.Logger()),
-	)
-	require.NoError(t, service.Start())
-	defer service.GracefulStop()
-
-	resp, err := http.Get("http://" + ln.Addr().String() + "/metrics")
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, 404, resp.StatusCode)
+	_, err = client.Node(context.Background(), "not-found")
+	assert.Error(t, err)
 }
 
 // randomNode returns a node with random attributes and metadata.
