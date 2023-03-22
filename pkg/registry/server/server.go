@@ -17,16 +17,10 @@ package server
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"net"
-	"net/http"
 
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
-	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -35,16 +29,14 @@ import (
 type Server struct {
 	cluster *cluster.Cluster
 
-	listener   net.Listener
-	httpServer *http.Server
-	upgrader   websocket.Upgrader
-
 	promRegistry          *prometheus.Registry
 	nodeCountMetric       prometheus.Gauge
 	updateCountMetric     *prometheus.CounterVec
 	connectionCountMetric prometheus.Gauge
 
 	logger *zap.Logger
+
+	rpc.UnimplementedRegistryServer
 }
 
 func NewServer(addr string, cluster *cluster.Cluster, opts ...Option) *Server {
@@ -59,24 +51,11 @@ func NewServer(addr string, cluster *cluster.Cluster, opts ...Option) *Server {
 
 	server := &Server{
 		cluster:      cluster,
-		listener:     options.listener,
 		promRegistry: options.promRegistry,
 		logger:       options.logger,
 	}
 
-	r := mux.NewRouter()
-	r.HandleFunc("/api/v1/register", server.registerRoute)
-	r.HandleFunc("/api/v1/cluster", server.clusterRoute)
-	r.HandleFunc("/api/v1/node/{id}", server.nodeRoute)
 	if options.promRegistry != nil {
-		r.Handle(
-			"/metrics",
-			promhttp.HandlerFor(
-				options.promRegistry,
-				promhttp.HandlerOpts{Registry: options.promRegistry},
-			),
-		)
-
 		nodeCountMetric := prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Name: "fuddle_registry_node_count",
@@ -107,65 +86,11 @@ func NewServer(addr string, cluster *cluster.Cluster, opts ...Option) *Server {
 		server.connectionCountMetric = connectionCountMetric
 	}
 
-	httpServer := &http.Server{
-		Addr:    addr,
-		Handler: r,
-	}
-	server.httpServer = httpServer
-	server.upgrader = websocket.Upgrader{}
-
 	return server
 }
 
-// Start starts the server on the given listener.
-func (s *Server) Start() error {
-	ln := s.listener
-	if ln == nil {
-		// Setup the listener before starting to the goroutine to return any errors
-		// binding or listening to the configured address.
-		var err error
-		ln, err = net.Listen("tcp", s.httpServer.Addr)
-		if err != nil {
-			return fmt.Errorf("registry server: %w", err)
-		}
-	}
-
-	s.logger.Info(
-		"starting registry server",
-		zap.String("addr", ln.Addr().String()),
-	)
-
-	go func() {
-		if err := s.httpServer.Serve(ln); err != nil && err != http.ErrServerClosed {
-			s.logger.Error("registry serve", zap.Error(err))
-		}
-	}()
-
-	return nil
-}
-
-// GracefulStop closes the server and gracefully sheds connections.
-// TODO(AD) Doesn't yet handle gracefully closing websocket connections.
-func (s *Server) GracefulStop() {
-	if err := s.httpServer.Shutdown(context.Background()); err != nil {
-		s.logger.Error("registry server stop", zap.Error(err))
-	}
-}
-
-func (s *Server) Stop() {
-	s.httpServer.Close()
-}
-
-func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
-	logger := s.logger.With(zap.String("path", r.URL.Path))
-
-	ws, err := s.upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		logger.Debug("register: upgrade error", zap.Error(err))
-		return
-	}
-	conn := newConn(ws, logger)
-	defer conn.Close()
+func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
+	conn := newNonBlockingConn(stream)
 
 	if s.connectionCountMetric != nil {
 		s.connectionCountMetric.Inc()
@@ -173,20 +98,20 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Wait for the connected node to register.
-	m, err := conn.RecvMessage()
+	m, err := conn.Recv()
 	if err != nil {
-		logger.Debug("register: not received register update")
-		return
+		s.logger.Debug("register: not received register update")
+		return nil
 	}
 	// If the first update is not the node joining this is a protocol error.
-	if m.MessageType != messageTypeNodeUpdate || m.NodeUpdate == nil {
-		logger.Warn("register: protocol error: message not a node update")
-		return
+	if m.MessageType != rpc.MessageType_NODE_UPDATE || m.NodeUpdate == nil {
+		s.logger.Warn("register: protocol error: message not a node update")
+		return nil
 	}
 	registerUpdate := m.NodeUpdate
-	if registerUpdate.UpdateType != cluster.UpdateTypeRegister {
-		logger.Warn("register: protocol error: update not a register")
-		return
+	if registerUpdate.UpdateType != rpc.NodeUpdateType_REGISTER {
+		s.logger.Warn("register: protocol error: update not a register")
+		return nil
 	}
 
 	if s.updateCountMetric != nil {
@@ -195,23 +120,39 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 		}).Inc()
 	}
 
-	logger.Debug(
+	metadata := cluster.Metadata{}
+	for k, v := range registerUpdate.Metadata {
+		metadata[k] = v.Value
+	}
+	registerUpdateRPC := &cluster.NodeUpdate{
+		ID:         registerUpdate.NodeId,
+		UpdateType: cluster.UpdateTypeRegister,
+		Attributes: &cluster.NodeAttributes{
+			Service:  registerUpdate.Attributes.Service,
+			Locality: registerUpdate.Attributes.Locality,
+			Created:  registerUpdate.Attributes.Created,
+			Revision: registerUpdate.Attributes.Revision,
+		},
+		Metadata: metadata,
+	}
+
+	s.logger.Debug(
 		"register: received update",
-		zap.Object("update", registerUpdate),
+		zap.Object("update", registerUpdateRPC),
 	)
 
-	if err := s.cluster.ApplyUpdate(registerUpdate); err != nil {
-		logger.Warn("register: failed to apply register update", zap.Error(err))
-		return
+	if err := s.cluster.ApplyUpdate(registerUpdateRPC); err != nil {
+		s.logger.Warn("register: failed to apply register update", zap.Error(err))
+		return nil
 	}
 
 	if s.nodeCountMetric != nil {
 		s.nodeCountMetric.Set(float64(len(s.cluster.Nodes())))
 	}
 
-	nodeID := registerUpdate.ID
+	nodeID := registerUpdateRPC.ID
 
-	logger = logger.With(zap.String("client-node", nodeID))
+	logger := s.logger.With(zap.String("client-node", nodeID))
 
 	// Subscribe to the node map and send updates to the client. This will
 	// replay all existing nodes as JOIN updates to ensure the subscriber
@@ -227,106 +168,157 @@ func (s *Server) registerRoute(w http.ResponseWriter, r *http.Request) {
 			zap.Object("update", update),
 		)
 
-		m := &message{
-			MessageType: messageTypeNodeUpdate,
-			NodeUpdate:  update,
+		var updateType rpc.NodeUpdateType
+		switch update.UpdateType {
+		case cluster.UpdateTypeRegister:
+			updateType = rpc.NodeUpdateType_REGISTER
+		case cluster.UpdateTypeUnregister:
+			updateType = rpc.NodeUpdateType_UNREGISTER
+		case cluster.UpdateTypeMetadata:
+			updateType = rpc.NodeUpdateType_METADATA
 		}
-		conn.AddMessage(m)
+
+		metadata := make(map[string]*rpc.VersionedValue)
+		for k, v := range update.Metadata {
+			metadata[k] = &rpc.VersionedValue{Value: v}
+		}
+		m := &rpc.Message{
+			MessageType: rpc.MessageType_NODE_UPDATE,
+			NodeUpdate: &rpc.NodeUpdate{
+				NodeId:     update.ID,
+				UpdateType: updateType,
+				Attributes: &rpc.NodeAttributes{
+					Service:  update.Attributes.Service,
+					Locality: update.Attributes.Locality,
+					Created:  update.Attributes.Created,
+					Revision: update.Attributes.Revision,
+				},
+				Metadata: metadata,
+			},
+		}
+		if err := conn.Send(m); err != nil {
+			return
+		}
 	})
 	defer unsubscribe()
 
 	for {
-		m, err := conn.RecvMessage()
+		m, err := conn.Recv()
 		if err != nil {
-			return
+			return nil
 		}
 
 		switch m.MessageType {
-		case messageTypeNodeUpdate:
+		case rpc.MessageType_NODE_UPDATE:
 			update := m.NodeUpdate
 			if update == nil {
 				logger.Warn("register: missing node update")
-				return
+				return nil
 			}
 
-			logger.Debug(
-				"register: received update",
-				zap.Object("update", update),
-			)
+			metadataRPC := cluster.Metadata{}
+			for k, v := range update.Metadata {
+				metadataRPC[k] = v.Value
+			}
+			var updateType cluster.UpdateType
+			switch update.UpdateType {
+			case rpc.NodeUpdateType_REGISTER:
+				updateType = cluster.UpdateTypeRegister
+			case rpc.NodeUpdateType_UNREGISTER:
+				updateType = cluster.UpdateTypeUnregister
+			case rpc.NodeUpdateType_METADATA:
+				updateType = cluster.UpdateTypeMetadata
+			}
+
+			updateRPC := &cluster.NodeUpdate{
+				ID:         registerUpdate.NodeId,
+				UpdateType: updateType,
+				Attributes: &cluster.NodeAttributes{
+					Service:  registerUpdate.Attributes.Service,
+					Locality: registerUpdate.Attributes.Locality,
+					Created:  registerUpdate.Attributes.Created,
+					Revision: registerUpdate.Attributes.Revision,
+				},
+				Metadata: metadataRPC,
+			}
 
 			if s.updateCountMetric != nil {
 				s.updateCountMetric.With(prometheus.Labels{
-					"type": string(registerUpdate.UpdateType),
+					"type": string(updateRPC.UpdateType),
 				}).Inc()
 			}
 
-			if err := s.cluster.ApplyUpdate(update); err != nil {
+			if err := s.cluster.ApplyUpdate(updateRPC); err != nil {
 				logger.Warn("apply update", zap.Error(err))
 			}
 
 			if s.nodeCountMetric != nil {
 				s.nodeCountMetric.Set(float64(len(s.cluster.Nodes())))
 			}
-
 		default:
 			logger.Warn(
 				"register: unknown message type",
 				zap.String("message-type", string(m.MessageType)),
 			)
-			return
+			return nil
 		}
 	}
 }
 
-func (s *Server) clusterRoute(w http.ResponseWriter, r *http.Request) {
-	logger := s.logger.With(zap.String("path", r.URL.Path))
+func (s *Server) Nodes(ctx context.Context, req *rpc.NodesRequest) (*rpc.NodesResponse, error) {
+	nodes := s.cluster.Nodes()
+	var rpcNodes []*rpc.Node
 
-	if err := json.NewEncoder(w).Encode(s.cluster.Nodes()); err != nil {
-		logger.Error(
-			"cluster request: failed to encode response",
-			zap.Error(err),
-			zap.Int("status", http.StatusInternalServerError),
-		)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
+	for _, node := range nodes {
+		metadata := make(map[string]*rpc.VersionedValue)
+		if req.IncludeMetadata {
+			for k, v := range node.Metadata {
+				metadata[k] = &rpc.VersionedValue{Value: v}
+			}
+		}
+		rpcNode := &rpc.Node{
+			Id: node.ID,
+			Attributes: &rpc.NodeAttributes{
+				Service:  node.Service,
+				Locality: node.Locality,
+				Created:  node.Created,
+				Revision: node.Revision,
+			},
+			Metadata: metadata,
+		}
+		rpcNodes = append(rpcNodes, rpcNode)
 	}
-
-	logger.Debug("cluster request: ok", zap.Int("status", http.StatusOK))
+	return &rpc.NodesResponse{
+		Nodes: rpcNodes,
+	}, nil
 }
 
-func (s *Server) nodeRoute(w http.ResponseWriter, r *http.Request) {
-	logger := s.logger.With(zap.String("path", r.URL.Path))
-
-	vars := mux.Vars(r)
-	id := vars["id"]
-	if id == "" {
-		logger.Debug(
-			"node request: missing ID",
-			zap.Int("status", http.StatusBadRequest),
-		)
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-
-	node, ok := s.cluster.Node(id)
+func (s *Server) Node(ctx context.Context, req *rpc.NodeRequest) (*rpc.NodeResponse, error) {
+	node, ok := s.cluster.Node(req.NodeId)
 	if !ok {
-		logger.Debug(
-			"node request: node not found",
-			zap.Int("status", http.StatusNotFound),
-		)
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+		return &rpc.NodeResponse{
+			Error: &rpc.Error{
+				Status:      rpc.ErrorStatus_NOT_FOUND,
+				Description: "node not found",
+			},
+		}, nil
 	}
 
-	if err := json.NewEncoder(w).Encode(node); err != nil {
-		logger.Error(
-			"node request: failed to encode response",
-			zap.Error(err),
-			zap.Int("status", http.StatusInternalServerError),
-		)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
+	metadata := make(map[string]*rpc.VersionedValue)
+	for k, v := range node.Metadata {
+		metadata[k] = &rpc.VersionedValue{Value: v}
 	}
-
-	logger.Debug("node request: ok", zap.Int("status", http.StatusOK))
+	rpcNode := &rpc.Node{
+		Id: node.ID,
+		Attributes: &rpc.NodeAttributes{
+			Service:  node.Service,
+			Locality: node.Locality,
+			Created:  node.Created,
+			Revision: node.Revision,
+		},
+		Metadata: metadata,
+	}
+	return &rpc.NodeResponse{
+		Node: rpcNode,
+	}, nil
 }

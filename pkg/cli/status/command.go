@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"sort"
 
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/client"
-	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 )
@@ -59,7 +59,10 @@ func init() {
 }
 
 func runClusterStatus(cmd *cobra.Command, args []string) error {
-	client := client.NewAdmin(addr)
+	client, err := client.NewAdmin(addr)
+	if err != nil {
+		return err
+	}
 	nodes, err := client.Cluster(context.Background())
 	if err != nil {
 		return err
@@ -77,17 +80,20 @@ func runNodeStatus(cmd *cobra.Command, args []string) error {
 
 	id := args[0]
 
-	client := client.NewAdmin(addr)
+	client, err := client.NewAdmin(addr)
+	if err != nil {
+		return err
+	}
 	node, err := client.Node(context.Background(), id)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("ID:", node.ID)
-	fmt.Println("Service:", node.Service)
-	fmt.Println("Locality:", node.Locality)
-	fmt.Println("Created:", node.Created)
-	fmt.Println("Revision:", node.Revision)
+	fmt.Println("ID:", node.Id)
+	fmt.Println("Service:", node.Attributes.Service)
+	fmt.Println("Locality:", node.Attributes.Locality)
+	fmt.Println("Created:", node.Attributes.Created)
+	fmt.Println("Revision:", node.Attributes.Revision)
 	fmt.Println("Metadata:")
 
 	keys := []string{}
@@ -96,25 +102,25 @@ func runNodeStatus(cmd *cobra.Command, args []string) error {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		fmt.Printf("    %s: %s\n", key, node.Metadata[key])
+		fmt.Printf("    %s: %s\n", key, node.Metadata[key].Value)
 	}
 
 	return nil
 }
 
-func displayNodes(nodes []*cluster.Node) {
+func displayNodes(nodes []*rpc.Node) {
 	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].ID < nodes[j].ID
+		return nodes[i].Id < nodes[j].Id
 	})
 
 	tbl := table.New("ID", "Service", "Locality", "Created", "Revision")
 	for _, node := range nodes {
 		tbl.AddRow(
-			node.ID,
-			node.Service,
-			node.Locality,
-			node.Created,
-			formatRevision(node.Revision),
+			node.Id,
+			node.Attributes.Service,
+			node.Attributes.Locality,
+			node.Attributes.Created,
+			formatRevision(node.Attributes.Revision),
 		)
 	}
 

@@ -16,18 +16,16 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 
-	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 )
 
 // pendingMessages stores a list of messages waiting to be sent to the connected
 // client.
 type pendingMessages struct {
-	messages []*message
+	messages []*rpc.Message
 
 	mu *sync.Mutex
 
@@ -49,7 +47,7 @@ func newPendingMessages() *pendingMessages {
 
 // Wait blocks until the next message is available of the connection has been
 // closed. If the returned bool is false the connection has been closed.
-func (p *pendingMessages) Wait() ([]*message, bool) {
+func (p *pendingMessages) Wait() ([]*rpc.Message, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -63,13 +61,18 @@ func (p *pendingMessages) Wait() ([]*message, bool) {
 		p.cv.Wait()
 	}
 
+	// Check if closed since blocking.
+	if p.closed {
+		return nil, false
+	}
+
 	messages := p.messages
 	p.messages = nil
 	return messages, true
 }
 
 // Push an message to be sent.
-func (p *pendingMessages) Push(message *message) {
+func (p *pendingMessages) Push(message *rpc.Message) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -90,51 +93,47 @@ func (p *pendingMessages) Close() {
 	p.cv.Signal()
 }
 
-type conn struct {
-	ws      *websocket.Conn
+// nonBlockingConn is a wrapper around the underlying connection that ensures
+// send does not block.
+type nonBlockingConn struct {
+	conn    rpc.Registry_RegisterServer
 	pending *pendingMessages
-
-	logger *zap.Logger
 
 	wg sync.WaitGroup
 }
 
-func newConn(ws *websocket.Conn, logger *zap.Logger) *conn {
-	conn := &conn{
-		ws:      ws,
+func newNonBlockingConn(conn rpc.Registry_RegisterServer) *nonBlockingConn {
+	nonBlockingConn := &nonBlockingConn{
+		conn:    conn,
 		pending: newPendingMessages(),
-		logger:  logger,
 	}
 
-	conn.wg.Add(1)
-	go conn.sendPending()
+	nonBlockingConn.wg.Add(1)
+	go nonBlockingConn.sendPending()
 
-	return conn
+	return nonBlockingConn
 }
 
-func (c *conn) AddMessage(m *message) {
+// Send sends the given message to the client without blocking.
+func (c *nonBlockingConn) Send(m *rpc.Message) error {
 	c.pending.Push(m)
+	return nil
 }
 
-func (c *conn) RecvMessage() (*message, error) {
-	_, b, err := c.ws.ReadMessage()
+func (c *nonBlockingConn) Recv() (*rpc.Message, error) {
+	m, err := c.conn.Recv()
 	if err != nil {
 		return nil, fmt.Errorf("conn recv: %w", err)
 	}
-	var m message
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, fmt.Errorf("conn recv: decode error: %w", err)
-	}
-	return &m, nil
+	return m, nil
 }
 
-func (c *conn) Close() {
-	c.ws.Close()
+func (c *nonBlockingConn) Close() {
 	c.pending.Close()
 	c.wg.Wait()
 }
 
-func (c *conn) sendPending() {
+func (c *nonBlockingConn) sendPending() {
 	defer c.wg.Done()
 
 	for {
@@ -144,13 +143,7 @@ func (c *conn) sendPending() {
 		}
 
 		for _, m := range messages {
-			b, err := json.Marshal(m)
-			if err != nil {
-				c.logger.Error("encode message", zap.Error(err))
-				continue
-			}
-
-			if err := c.ws.WriteMessage(websocket.BinaryMessage, b); err != nil {
+			if err := c.conn.Send(m); err != nil {
 				return
 			}
 		}
