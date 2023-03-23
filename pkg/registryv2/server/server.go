@@ -163,6 +163,29 @@ func (s *Server) UpdateNode(ctx context.Context, req *rpc.UpdateNodeRequest) (*r
 }
 
 func (s *Server) Updates(req *rpc.UpdatesRequest, stream rpc.Registry_UpdatesServer) error {
+	logger := s.logger.With(zap.String("rpc", "registry.Updates"))
+
+	done := make(chan interface{})
+
+	unsubscribe := s.registry.Subscribe(func(update *rpc.NodeUpdate) {
+		logger.Debug(
+			"send update",
+			zap.String("id", update.NodeId),
+			zap.String("update-type", update.UpdateType.String()),
+		)
+
+		// TODO(AD) This shouldn't block with the registry mutex held.
+		if err := stream.Send(update); err != nil {
+			close(done)
+		}
+	})
+	defer unsubscribe()
+
+	select {
+	case <-stream.Context().Done():
+	case <-done:
+	}
+
 	return nil
 }
 

@@ -161,3 +161,168 @@ func TestRegistry_Nodes(t *testing.T) {
 		assert.True(t, proto.Equal(nodes[i], nodesWithMetadata[i]))
 	}
 }
+
+// Tests subscribign to register updates.
+func TestRegistry_SubscribeToRegister(t *testing.T) {
+	r := NewRegistry()
+
+	var receivedUpdates []*rpc.NodeUpdate
+	unsubscribe := r.Subscribe(func(update *rpc.NodeUpdate) {
+		receivedUpdates = append(receivedUpdates, update)
+	})
+	defer unsubscribe()
+
+	var expectedUpdates []*rpc.NodeUpdate
+	for i := 0; i != 10; i++ {
+		node := testutils.RandomRPCNode()
+		assert.NoError(t, r.Register(node))
+
+		expectedUpdates = append(expectedUpdates, &rpc.NodeUpdate{
+			NodeId:     node.Id,
+			UpdateType: rpc.NodeUpdateType_REGISTER,
+			Attributes: CopyAttributes(node.Attributes),
+			Metadata:   CopyMetadata(node.Metadata),
+		})
+	}
+	sort.Slice(expectedUpdates, func(i, j int) bool {
+		return expectedUpdates[i].NodeId < expectedUpdates[j].NodeId
+	})
+
+	sort.Slice(receivedUpdates, func(i, j int) bool {
+		return receivedUpdates[i].NodeId < receivedUpdates[j].NodeId
+	})
+
+	assert.Equal(t, 10, len(receivedUpdates))
+	for i := 0; i != 10; i++ {
+		assert.True(t, proto.Equal(expectedUpdates[i], receivedUpdates[i]))
+	}
+}
+
+// Tests subscribing to unregister updates.
+func TestRegistry_SubscribeToUnregister(t *testing.T) {
+	r := NewRegistry()
+
+	var receivedUpdates []*rpc.NodeUpdate
+	unsubscribe := r.Subscribe(func(update *rpc.NodeUpdate) {
+		receivedUpdates = append(receivedUpdates, update)
+	})
+	defer unsubscribe()
+
+	var registeredIDs []string
+	for i := 0; i != 10; i++ {
+		node := testutils.RandomRPCNode()
+		assert.NoError(t, r.Register(node))
+		registeredIDs = append(registeredIDs, node.Id)
+	}
+
+	var expectedUpdates []*rpc.NodeUpdate
+	for _, id := range registeredIDs {
+		assert.NoError(t, r.Unregister(id))
+
+		expectedUpdates = append(expectedUpdates, &rpc.NodeUpdate{
+			NodeId:     id,
+			UpdateType: rpc.NodeUpdateType_UNREGISTER,
+		})
+	}
+	sort.Slice(expectedUpdates, func(i, j int) bool {
+		return expectedUpdates[i].NodeId < expectedUpdates[j].NodeId
+	})
+
+	// Discard the first 10 register updates.
+	receivedUpdates = receivedUpdates[10:]
+	sort.Slice(receivedUpdates, func(i, j int) bool {
+		return receivedUpdates[i].NodeId < receivedUpdates[j].NodeId
+	})
+
+	assert.Equal(t, 10, len(receivedUpdates))
+	for i := 0; i != 10; i++ {
+		assert.True(t, proto.Equal(expectedUpdates[i], receivedUpdates[i]))
+	}
+}
+
+// Tests subscribing to metadata updates.
+func TestRegistry_SubscribeToMetadata(t *testing.T) {
+	r := NewRegistry()
+
+	var receivedUpdates []*rpc.NodeUpdate
+	unsubscribe := r.Subscribe(func(update *rpc.NodeUpdate) {
+		receivedUpdates = append(receivedUpdates, update)
+	})
+	defer unsubscribe()
+
+	var registeredIDs []string
+	for i := 0; i != 10; i++ {
+		node := testutils.RandomRPCNode()
+		assert.NoError(t, r.Register(node))
+		registeredIDs = append(registeredIDs, node.Id)
+	}
+
+	var expectedUpdates []*rpc.NodeUpdate
+	for _, id := range registeredIDs {
+		metadata := testutils.RandomMetadata()
+		versionedMetadataUpdate := make(map[string]*rpc.VersionedValue)
+		for k, v := range metadata {
+			versionedMetadataUpdate[k] = &rpc.VersionedValue{
+				Value: v,
+			}
+		}
+
+		assert.NoError(t, r.UpdateNode(id, metadata))
+
+		expectedUpdates = append(expectedUpdates, &rpc.NodeUpdate{
+			NodeId:     id,
+			UpdateType: rpc.NodeUpdateType_METADATA,
+			Metadata:   versionedMetadataUpdate,
+		})
+	}
+	sort.Slice(expectedUpdates, func(i, j int) bool {
+		return expectedUpdates[i].NodeId < expectedUpdates[j].NodeId
+	})
+
+	// Discard the first 10 register updates.
+	receivedUpdates = receivedUpdates[10:]
+	sort.Slice(receivedUpdates, func(i, j int) bool {
+		return receivedUpdates[i].NodeId < receivedUpdates[j].NodeId
+	})
+
+	assert.Equal(t, 10, len(receivedUpdates))
+	for i := 0; i != 10; i++ {
+		assert.True(t, proto.Equal(expectedUpdates[i], receivedUpdates[i]))
+	}
+}
+
+// Tests we receive register updates for all nodes in the registry when
+// subscribing.
+func TestRegistry_SubscribeBootstrap(t *testing.T) {
+	r := NewRegistry()
+
+	var expectedUpdates []*rpc.NodeUpdate
+	for i := 0; i != 10; i++ {
+		node := testutils.RandomRPCNode()
+		assert.NoError(t, r.Register(node))
+
+		expectedUpdates = append(expectedUpdates, &rpc.NodeUpdate{
+			NodeId:     node.Id,
+			UpdateType: rpc.NodeUpdateType_REGISTER,
+			Attributes: CopyAttributes(node.Attributes),
+			Metadata:   CopyMetadata(node.Metadata),
+		})
+	}
+	sort.Slice(expectedUpdates, func(i, j int) bool {
+		return expectedUpdates[i].NodeId < expectedUpdates[j].NodeId
+	})
+
+	var receivedUpdates []*rpc.NodeUpdate
+	unsubscribe := r.Subscribe(func(update *rpc.NodeUpdate) {
+		receivedUpdates = append(receivedUpdates, update)
+	})
+	defer unsubscribe()
+	sort.Slice(receivedUpdates, func(i, j int) bool {
+		return receivedUpdates[i].NodeId < receivedUpdates[j].NodeId
+	})
+
+	assert.Equal(t, 10, len(receivedUpdates))
+	for i := 0; i != 10; i++ {
+		assert.True(t, proto.Equal(expectedUpdates[i], receivedUpdates[i]))
+	}
+}
