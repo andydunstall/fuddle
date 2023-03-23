@@ -20,6 +20,7 @@ import (
 	"time"
 
 	fuddle "github.com/fuddle-io/fuddle-go"
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/google/uuid"
 )
@@ -82,6 +83,21 @@ func RandomRegistryNode() cluster.Node {
 	}
 }
 
+// RandomRPCNode returns a node with random attributes and state.
+func RandomRPCNode() *rpc.Node {
+	metadata := RandomVersionedMetadata()
+	return &rpc.Node{
+		Id: uuid.New().String(),
+		Attributes: &rpc.NodeAttributes{
+			Service:  uuid.New().String(),
+			Locality: uuid.New().String(),
+			Created:  rand.Int63(),
+			Revision: uuid.New().String(),
+		},
+		Metadata: metadata,
+	}
+}
+
 func RandomMetadata() map[string]string {
 	return map[string]string{
 		uuid.New().String(): uuid.New().String(),
@@ -90,4 +106,16 @@ func RandomMetadata() map[string]string {
 		uuid.New().String(): uuid.New().String(),
 		uuid.New().String(): uuid.New().String(),
 	}
+}
+
+func RandomVersionedMetadata() map[string]*rpc.VersionedValue {
+	metadata := make(map[string]*rpc.VersionedValue)
+	for i := 0; i != 5; i++ {
+		version := rand.Uint64()
+		metadata[uuid.New().String()] = &rpc.VersionedValue{
+			Value:   uuid.New().String(),
+			Version: version,
+		}
+	}
+	return metadata
 }
