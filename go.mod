@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/fuddle-io/fuddle-go v0.1.1-0.20230322070343-3933ef167b2b
-	github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230322065350-85501b751765
+	github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230323053844-a7eb3fce9135
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
