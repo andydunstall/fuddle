@@ -30,7 +30,7 @@ func TestServer_RegisterThenQueryNode(t *testing.T) {
 	s := NewServer(NewRegistry())
 
 	registeredNode := testutils.RandomRPCNode()
-	_, err := s.RegisterV2(context.Background(), &rpc.RegisterRequest{
+	_, err := s.Register(context.Background(), &rpc.RegisterRequest{
 		Node: registeredNode,
 	})
 	assert.NoError(t, err)
@@ -47,7 +47,7 @@ func TestServer_RegisterThenUnregisterNode(t *testing.T) {
 	s := NewServer(NewRegistry())
 
 	registeredNode := testutils.RandomRPCNode()
-	_, err := s.RegisterV2(context.Background(), &rpc.RegisterRequest{
+	_, err := s.Register(context.Background(), &rpc.RegisterRequest{
 		Node: registeredNode,
 	})
 	assert.NoError(t, err)
@@ -81,7 +81,7 @@ func TestServer_RegisterInvalidNode(t *testing.T) {
 	// Set empty ID.
 	registeredNode.Id = ""
 
-	resp, err := s.RegisterV2(context.Background(), &rpc.RegisterRequest{
+	resp, err := s.Register(context.Background(), &rpc.RegisterRequest{
 		Node: registeredNode,
 	})
 	assert.NoError(t, err)
@@ -93,13 +93,13 @@ func TestServer_RegisterAlreadyRegister(t *testing.T) {
 
 	registeredNode := testutils.RandomRPCNode()
 
-	resp, err := s.RegisterV2(context.Background(), &rpc.RegisterRequest{
+	resp, err := s.Register(context.Background(), &rpc.RegisterRequest{
 		Node: registeredNode,
 	})
 	assert.NoError(t, err)
 	assert.Nil(t, resp.Error)
 
-	resp, err = s.RegisterV2(context.Background(), &rpc.RegisterRequest{
+	resp, err = s.Register(context.Background(), &rpc.RegisterRequest{
 		Node: registeredNode,
 	})
 	assert.NoError(t, err)
@@ -111,7 +111,7 @@ func TestServer_UpdateNode(t *testing.T) {
 
 	registeredNode := testutils.RandomRPCNode()
 
-	regResp, err := s.RegisterV2(context.Background(), &rpc.RegisterRequest{
+	regResp, err := s.Register(context.Background(), &rpc.RegisterRequest{
 		Node: registeredNode,
 	})
 	assert.NoError(t, err)
@@ -145,7 +145,7 @@ func TestServer_UpdateNodeNilMetadata(t *testing.T) {
 
 	registeredNode := testutils.RandomRPCNode()
 
-	regResp, err := s.RegisterV2(context.Background(), &rpc.RegisterRequest{
+	regResp, err := s.Register(context.Background(), &rpc.RegisterRequest{
 		Node: registeredNode,
 	})
 	assert.NoError(t, err)
@@ -179,7 +179,7 @@ func TestServer_Nodes(t *testing.T) {
 	for i := 0; i != 10; i++ {
 		registeredNode := testutils.RandomRPCNode()
 
-		_, err := s.RegisterV2(context.Background(), &rpc.RegisterRequest{
+		_, err := s.Register(context.Background(), &rpc.RegisterRequest{
 			Node: registeredNode,
 		})
 		assert.NoError(t, err)

@@ -96,10 +96,6 @@ func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.R
 	return &rpc.RegisterResponse{}, nil
 }
 
-func (s *Server) RegisterV2(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
-	return s.Register(ctx, req)
-}
-
 func (s *Server) Unregister(ctx context.Context, req *rpc.UnregisterRequest) (*rpc.UnregisterResponse, error) {
 	logger := s.logger.With(zap.String("rpc", "registry.Unregister"))
 
