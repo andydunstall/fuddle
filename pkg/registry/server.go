@@ -13,23 +13,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package server
+package registry
 
 import (
 	"context"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
-	"github.com/fuddle-io/fuddle/pkg/registryv2/registry"
 	"go.uber.org/zap"
 )
 
 type Server struct {
-	registry *registry.Registry
+	registry *Registry
 
 	logger *zap.Logger
+
+	rpc.UnimplementedRegistryServer
 }
 
-func NewServer(registry *registry.Registry, opts ...Option) *Server {
+func NewServer(registry *Registry, opts ...Option) *Server {
 	options := options{
 		logger: zap.NewNop(),
 	}
@@ -47,7 +48,7 @@ func (s *Server) RegisterV2(ctx context.Context, req *rpc.RegisterRequest) (*rpc
 	logger := s.logger.With(zap.String("rpc", "registry.RegisterV2"))
 
 	err := s.registry.Register(req.Node)
-	if err == registry.ErrAlreadyRegistered {
+	if err == ErrAlreadyRegistered {
 		logger.Warn(
 			"node already registered",
 			zap.String("id", req.Node.Id),
@@ -60,7 +61,7 @@ func (s *Server) RegisterV2(ctx context.Context, req *rpc.RegisterRequest) (*rpc
 			},
 		}, nil
 	}
-	if err == registry.ErrInvalidUpdate {
+	if err == ErrInvalidUpdate {
 		logger.Warn(
 			"invalid node",
 			zap.String("id", req.Node.Id),
@@ -111,6 +112,12 @@ func (s *Server) Unregister(ctx context.Context, req *rpc.UnregisterRequest) (*r
 			},
 		}, nil
 	}
+
+	logger.Debug(
+		"node unregistered",
+		zap.String("id", req.NodeId),
+	)
+
 	return &rpc.UnregisterResponse{}, nil
 }
 
@@ -119,7 +126,7 @@ func (s *Server) UpdateNode(ctx context.Context, req *rpc.UpdateNodeRequest) (*r
 
 	err := s.registry.UpdateNode(req.NodeId, req.Metadata)
 
-	if err == registry.ErrNotFound {
+	if err == ErrNotFound {
 		logger.Warn(
 			"node not found",
 			zap.String("id", req.NodeId),
@@ -132,7 +139,7 @@ func (s *Server) UpdateNode(ctx context.Context, req *rpc.UpdateNodeRequest) (*r
 			},
 		}, nil
 	}
-	if err == registry.ErrInvalidUpdate {
+	if err == ErrInvalidUpdate {
 		logger.Warn(
 			"invalid update",
 			zap.String("id", req.NodeId),
@@ -158,6 +165,11 @@ func (s *Server) UpdateNode(ctx context.Context, req *rpc.UpdateNodeRequest) (*r
 			},
 		}, nil
 	}
+
+	logger.Debug(
+		"node metadata updated",
+		zap.String("id", req.NodeId),
+	)
 
 	return &rpc.UpdateNodeResponse{}, nil
 }
@@ -193,7 +205,7 @@ func (s *Server) Node(ctx context.Context, req *rpc.NodeRequest) (*rpc.NodeRespo
 	logger := s.logger.With(zap.String("rpc", "registry.Node"))
 
 	n, err := s.registry.Node(req.NodeId)
-	if err == registry.ErrNotFound {
+	if err == ErrNotFound {
 		logger.Debug(
 			"node not found",
 			zap.String("id", req.NodeId),

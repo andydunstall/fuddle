@@ -16,6 +16,7 @@
 package frontend
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -34,7 +35,7 @@ type Service struct {
 
 	conf *Config
 
-	registry *fuddle.Registry
+	fuddleClient *fuddle.Fuddle
 
 	logger *zap.Logger
 }
@@ -64,26 +65,28 @@ func NewService(conf *Config, opts ...Option) *Service {
 }
 
 func (s *Service) Start() error {
-	registry, err := fuddle.Register(
-		s.conf.FuddleAddrs,
-		fuddle.Node{
-			ID:       s.conf.ID,
-			Service:  "frontend",
-			Locality: s.conf.Locality,
-			Created:  time.Now().UnixMilli(),
-			Revision: s.conf.Revision,
-			Metadata: map[string]string{
-				"addr.ws": s.conf.WSAddr,
-			},
-		},
-	)
+	fuddleClient, err := fuddle.Connect(s.conf.FuddleAddrs)
 	if err != nil {
 		return fmt.Errorf("frontend service: start: %w", err)
 	}
-	s.registry = registry
+
+	_, err = fuddleClient.Register(context.Background(), fuddle.Node{
+		ID:       s.conf.ID,
+		Service:  "frontend",
+		Locality: s.conf.Locality,
+		Created:  time.Now().UnixMilli(),
+		Revision: s.conf.Revision,
+		Metadata: map[string]string{
+			"addr.ws": s.conf.WSAddr,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("frontend service: start: %w", err)
+	}
+	s.fuddleClient = fuddleClient
 
 	// Subscribe to counter nodes updates and add to the partitioner.
-	registry.Subscribe(func(nodes []fuddle.Node) {
+	fuddleClient.Subscribe(func(nodes []fuddle.Node) {
 		counterNodes := make(map[string]string)
 		for _, node := range nodes {
 			counterNodes[node.ID] = node.Metadata["addr.rpc"]
@@ -97,17 +100,13 @@ func (s *Service) Start() error {
 }
 
 func (s *Service) GracefulStop() {
-	if err := s.registry.Unregister(); err != nil {
-		s.logger.Error("failed to unregister", zap.Error(err))
-	}
+	s.fuddleClient.Close()
 	s.server.GracefulStop()
 	s.counter.Close()
 }
 
 func (s *Service) Stop() {
-	if err := s.registry.Unregister(); err != nil {
-		s.logger.Error("failed to unregister", zap.Error(err))
-	}
+	s.fuddleClient.Close()
 	s.server.Stop()
 	s.counter.Close()
 }
