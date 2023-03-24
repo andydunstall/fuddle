@@ -16,6 +16,7 @@
 package counter
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -31,7 +32,7 @@ type Service struct {
 
 	rpcListener net.Listener
 
-	registry *fuddle.Registry
+	fuddleClient *fuddle.Fuddle
 
 	conf *Config
 
@@ -65,23 +66,25 @@ func NewService(conf *Config, opts ...Option) *Service {
 func (s *Service) Start() error {
 	s.logger.Info("starting node", zap.Object("conf", s.conf))
 
-	registry, err := fuddle.Register(
-		s.conf.FuddleAddrs,
-		fuddle.Node{
-			ID:       s.conf.ID,
-			Service:  "counter",
-			Locality: s.conf.Locality,
-			Created:  time.Now().UnixMilli(),
-			Revision: s.conf.Revision,
-			Metadata: map[string]string{
-				"addr.rpc": s.conf.RPCAddr,
-			},
+	fuddleClient, err := fuddle.Connect(s.conf.FuddleAddrs)
+	if err != nil {
+		return fmt.Errorf("frontend service: start: %w", err)
+	}
+
+	_, err = fuddleClient.Register(context.Background(), fuddle.Node{
+		ID:       s.conf.ID,
+		Service:  "counter",
+		Locality: s.conf.Locality,
+		Created:  time.Now().UnixMilli(),
+		Revision: s.conf.Revision,
+		Metadata: map[string]string{
+			"addr.rpc": s.conf.RPCAddr,
 		},
-	)
+	})
 	if err != nil {
 		return fmt.Errorf("counter service: start: %w", err)
 	}
-	s.registry = registry
+	s.fuddleClient = fuddleClient
 
 	return s.grpcServer.Start(s.rpcListener)
 }
@@ -89,21 +92,13 @@ func (s *Service) Start() error {
 func (s *Service) GracefulStop() {
 	s.logger.Info("starting node graceful shutdown")
 
-	// Unregister the node from the cluster before shutting down the server.
-	if err := s.registry.Unregister(); err != nil {
-		s.logger.Error("failed to unregister", zap.Error(err))
-	}
-
+	s.fuddleClient.Close()
 	s.grpcServer.GracefulStop()
 }
 
 func (s *Service) Stop() {
 	s.logger.Info("starting node hard shutdown")
 
-	// Unregister the node from the cluster before shutting down the server.
-	if err := s.registry.Unregister(); err != nil {
-		s.logger.Error("failed to unregister", zap.Error(err))
-	}
-
+	s.fuddleClient.Close()
 	s.grpcServer.Stop()
 }

@@ -28,8 +28,14 @@ var (
 	ErrInvalidUpdate     = fmt.Errorf("invalid update")
 )
 
+type subscriber struct {
+	Callback func(update *rpc.NodeUpdate)
+}
+
 type Registry struct {
 	nodes map[string]*rpc.Node
+
+	subscribers map[*subscriber]interface{}
 
 	// mu protects the fields above.
 	mu sync.Mutex
@@ -37,7 +43,8 @@ type Registry struct {
 
 func NewRegistry() *Registry {
 	return &Registry{
-		nodes: make(map[string]*rpc.Node),
+		nodes:       make(map[string]*rpc.Node),
+		subscribers: make(map[*subscriber]interface{}),
 	}
 }
 
@@ -46,7 +53,7 @@ func (r *Registry) Node(id string) (*rpc.Node, error) {
 	defer r.mu.Unlock()
 
 	if n, ok := r.nodes[id]; ok {
-		return n, nil
+		return CopyNode(n), nil
 	}
 	return nil, ErrNotFound
 }
@@ -69,6 +76,34 @@ func (r *Registry) Nodes(includeMetadata bool) []*rpc.Node {
 	return nodes
 }
 
+func (r *Registry) Subscribe(cb func(update *rpc.NodeUpdate)) func() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	sub := &subscriber{
+		Callback: cb,
+	}
+	r.subscribers[sub] = struct{}{}
+
+	// Bootstrap by sending register updates for nodes in the registry.
+	for _, node := range r.nodes {
+		update := &rpc.NodeUpdate{
+			NodeId:     node.Id,
+			UpdateType: rpc.NodeUpdateType_REGISTER,
+			Attributes: CopyAttributes(node.Attributes),
+			Metadata:   CopyMetadata(node.Metadata),
+		}
+		sub.Callback(update)
+	}
+
+	return func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		delete(r.subscribers, sub)
+	}
+}
+
 func (r *Registry) Register(node *rpc.Node) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -83,6 +118,17 @@ func (r *Registry) Register(node *rpc.Node) error {
 
 	r.nodes[node.Id] = node
 
+	update := &rpc.NodeUpdate{
+		NodeId:     node.Id,
+		UpdateType: rpc.NodeUpdateType_REGISTER,
+		Attributes: CopyAttributes(node.Attributes),
+		Metadata:   CopyMetadata(node.Metadata),
+	}
+	// Note call subscribers with mutex locked to guarantee order.
+	for sub := range r.subscribers {
+		sub.Callback(update)
+	}
+
 	return nil
 }
 
@@ -90,8 +136,22 @@ func (r *Registry) Unregister(id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// If the ID is not found do nothing.
+	_, ok := r.nodes[id]
+	if !ok {
+		// If the ID is not found do nothing.
+		return nil
+	}
+
 	delete(r.nodes, id)
+
+	update := &rpc.NodeUpdate{
+		NodeId:     id,
+		UpdateType: rpc.NodeUpdateType_UNREGISTER,
+	}
+	// Note call subscribers with mutex locked to guarantee order.
+	for sub := range r.subscribers {
+		sub.Callback(update)
+	}
 
 	return nil
 }
@@ -109,32 +169,53 @@ func (r *Registry) UpdateNode(id string, metadata map[string]string) error {
 		return ErrInvalidUpdate
 	}
 
+	versionedMetadataUpdate := make(map[string]*rpc.VersionedValue)
 	for k, v := range metadata {
 		n.Metadata[k] = &rpc.VersionedValue{
 			Value: v,
 		}
+		versionedMetadataUpdate[k] = &rpc.VersionedValue{
+			Value: v,
+		}
+	}
+
+	update := &rpc.NodeUpdate{
+		NodeId:     id,
+		UpdateType: rpc.NodeUpdateType_METADATA,
+		Metadata:   versionedMetadataUpdate,
+	}
+	// Note call subscribers with mutex locked to guarantee order.
+	for sub := range r.subscribers {
+		sub.Callback(update)
 	}
 
 	return nil
 }
 
 func CopyNode(n *rpc.Node) *rpc.Node {
-	metadata := make(map[string]*rpc.VersionedValue)
-	for k, v := range n.Metadata {
-		metadata[k] = &rpc.VersionedValue{
+	return &rpc.Node{
+		Id:         n.Id,
+		Attributes: CopyAttributes(n.Attributes),
+		Metadata:   CopyMetadata(n.Metadata),
+	}
+}
+
+func CopyAttributes(attrs *rpc.NodeAttributes) *rpc.NodeAttributes {
+	return &rpc.NodeAttributes{
+		Service:  attrs.Service,
+		Locality: attrs.Locality,
+		Created:  attrs.Created,
+		Revision: attrs.Revision,
+	}
+}
+
+func CopyMetadata(metadata map[string]*rpc.VersionedValue) map[string]*rpc.VersionedValue {
+	cp := make(map[string]*rpc.VersionedValue)
+	for k, v := range metadata {
+		cp[k] = &rpc.VersionedValue{
 			Value:   v.Value,
 			Version: v.Version,
 		}
 	}
-
-	return &rpc.Node{
-		Id: n.Id,
-		Attributes: &rpc.NodeAttributes{
-			Service:  n.Attributes.Service,
-			Locality: n.Attributes.Locality,
-			Created:  n.Attributes.Created,
-			Revision: n.Attributes.Revision,
-		},
-		Metadata: metadata,
-	}
+	return cp
 }

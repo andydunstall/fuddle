@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package server
+package registry
 
 import (
 	"context"
@@ -21,14 +21,13 @@ import (
 	"testing"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
-	"github.com/fuddle-io/fuddle/pkg/registryv2/registry"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
 func TestServer_RegisterThenQueryNode(t *testing.T) {
-	s := NewServer(registry.NewRegistry())
+	s := NewServer(NewRegistry())
 
 	registeredNode := testutils.RandomRPCNode()
 	_, err := s.RegisterV2(context.Background(), &rpc.RegisterRequest{
@@ -45,7 +44,7 @@ func TestServer_RegisterThenQueryNode(t *testing.T) {
 }
 
 func TestServer_RegisterThenUnregisterNode(t *testing.T) {
-	s := NewServer(registry.NewRegistry())
+	s := NewServer(NewRegistry())
 
 	registeredNode := testutils.RandomRPCNode()
 	_, err := s.RegisterV2(context.Background(), &rpc.RegisterRequest{
@@ -66,7 +65,7 @@ func TestServer_RegisterThenUnregisterNode(t *testing.T) {
 }
 
 func TestServer_NodeNotFound(t *testing.T) {
-	s := NewServer(registry.NewRegistry())
+	s := NewServer(NewRegistry())
 
 	resp, err := s.Node(context.Background(), &rpc.NodeRequest{
 		NodeId: "foo",
@@ -76,7 +75,7 @@ func TestServer_NodeNotFound(t *testing.T) {
 }
 
 func TestServer_RegisterInvalidNode(t *testing.T) {
-	s := NewServer(registry.NewRegistry())
+	s := NewServer(NewRegistry())
 
 	registeredNode := testutils.RandomRPCNode()
 	// Set empty ID.
@@ -90,7 +89,7 @@ func TestServer_RegisterInvalidNode(t *testing.T) {
 }
 
 func TestServer_RegisterAlreadyRegister(t *testing.T) {
-	s := NewServer(registry.NewRegistry())
+	s := NewServer(NewRegistry())
 
 	registeredNode := testutils.RandomRPCNode()
 
@@ -108,7 +107,7 @@ func TestServer_RegisterAlreadyRegister(t *testing.T) {
 }
 
 func TestServer_UpdateNode(t *testing.T) {
-	s := NewServer(registry.NewRegistry())
+	s := NewServer(NewRegistry())
 
 	registeredNode := testutils.RandomRPCNode()
 
@@ -126,7 +125,7 @@ func TestServer_UpdateNode(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, updateResp.Error)
 
-	expectedNode := registry.CopyNode(registeredNode)
+	expectedNode := CopyNode(registeredNode)
 	for k, v := range update {
 		expectedNode.Metadata[k] = &rpc.VersionedValue{
 			Value: v,
@@ -142,7 +141,7 @@ func TestServer_UpdateNode(t *testing.T) {
 }
 
 func TestServer_UpdateNodeNilMetadata(t *testing.T) {
-	s := NewServer(registry.NewRegistry())
+	s := NewServer(NewRegistry())
 
 	registeredNode := testutils.RandomRPCNode()
 
@@ -161,7 +160,7 @@ func TestServer_UpdateNodeNilMetadata(t *testing.T) {
 }
 
 func TestServer_UpdateNodeNotFound(t *testing.T) {
-	s := NewServer(registry.NewRegistry())
+	s := NewServer(NewRegistry())
 
 	resp, err := s.UpdateNode(context.Background(), &rpc.UpdateNodeRequest{
 		NodeId: "foo",
@@ -174,7 +173,7 @@ func TestServer_UpdateNodeNotFound(t *testing.T) {
 }
 
 func TestServer_Nodes(t *testing.T) {
-	s := NewServer(registry.NewRegistry())
+	s := NewServer(NewRegistry())
 
 	var nodes []*rpc.Node
 	for i := 0; i != 10; i++ {

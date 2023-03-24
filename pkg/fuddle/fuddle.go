@@ -18,10 +18,9 @@ package fuddle
 import (
 	"net"
 
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -30,8 +29,6 @@ import (
 type Fuddle struct {
 	grpcServer *grpc.Server
 	grpcLn     net.Listener
-
-	registry *registry.Service
 
 	conf   *config.Config
 	logger *zap.Logger
@@ -48,22 +45,17 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 
 	logger := options.logger.With(zap.String("service", "server"))
 
-	promRegistry := prometheus.NewRegistry()
-	promRegistry.MustRegister(collectors.NewGoCollector())
-
-	registry := registry.NewService(
-		conf,
-		registry.WithPromRegistry(promRegistry),
+	registryServer := registry.NewServer(
+		registry.NewRegistry(),
 		registry.WithLogger(logger),
 	)
 
 	grpcServer := grpc.NewServer()
-	registry.RegisterGRPC(grpcServer)
+	rpc.RegisterRegistryServer(grpcServer, registryServer)
 
 	return &Fuddle{
 		grpcServer: grpcServer,
 		grpcLn:     options.listener,
-		registry:   registry,
 		conf:       conf,
 		logger:     logger,
 	}

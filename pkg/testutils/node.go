@@ -21,34 +21,47 @@ import (
 
 	fuddle "github.com/fuddle-io/fuddle-go"
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
-	"github.com/fuddle-io/fuddle/pkg/registry/cluster"
 	"github.com/google/uuid"
 )
 
-func WaitForNodes(registry *fuddle.Registry, count int) ([]fuddle.Node, error) {
+func WaitForNode(client *fuddle.Fuddle, id string) (fuddle.Node, error) {
+	var node fuddle.Node
+	found := false
 	recvCh := make(chan interface{})
-	var nodes []fuddle.Node
-	unsubscribe := registry.Subscribe(func(n []fuddle.Node) {
-		if len(n) == count {
-			nodes = n
-			close(recvCh)
+	unsubscribe := client.Subscribe(func(nodes []fuddle.Node) {
+		if found {
+			return
+		}
+
+		for _, n := range nodes {
+			if n.ID == id {
+				found = true
+				node = n
+				close(recvCh)
+				return
+			}
 		}
 	})
 	defer unsubscribe()
 
 	if err := WaitWithTimeout(recvCh, time.Millisecond*500); err != nil {
-		return nil, err
+		return node, err
 	}
-	return nodes, nil
+	return node, nil
 }
 
-func WaitForNode(registry *fuddle.Registry, node fuddle.Node) error {
+func WaitForCount(client *fuddle.Fuddle, count int) error {
+	found := false
 	recvCh := make(chan interface{})
-	unsubscribe := registry.Subscribe(func(nodes []fuddle.Node) {
-		for _, n := range nodes {
-			if n.Equal(node) {
-				close(recvCh)
-			}
+	unsubscribe := client.Subscribe(func(nodes []fuddle.Node) {
+		if found {
+			return
+		}
+
+		if len(nodes) == count {
+			found = true
+			close(recvCh)
+			return
 		}
 	})
 	defer unsubscribe()
@@ -71,9 +84,9 @@ func RandomNode() fuddle.Node {
 	}
 }
 
-// RandomRegistryNode returns a node with random attributes and metadata.
-func RandomRegistryNode() cluster.Node {
-	return cluster.Node{
+// RandomSDKNode returns a node with random attributes and state.
+func RandomSDKNode() fuddle.Node {
+	return fuddle.Node{
 		ID:       uuid.New().String(),
 		Service:  uuid.New().String(),
 		Locality: uuid.New().String(),
@@ -118,4 +131,19 @@ func RandomVersionedMetadata() map[string]*rpc.VersionedValue {
 		}
 	}
 	return metadata
+}
+
+func RPCNodeToSDKNode(n *rpc.Node) fuddle.Node {
+	metadata := make(map[string]string)
+	for k, vv := range n.Metadata {
+		metadata[k] = vv.Value
+	}
+	return fuddle.Node{
+		ID:       n.Id,
+		Service:  n.Attributes.Service,
+		Locality: n.Attributes.Locality,
+		Created:  n.Attributes.Created,
+		Revision: n.Attributes.Revision,
+		Metadata: metadata,
+	}
 }
