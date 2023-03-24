@@ -132,14 +132,14 @@ func (r *Registry) Register(node *rpc.Node) error {
 	return nil
 }
 
-func (r *Registry) Unregister(id string) error {
+func (r *Registry) Unregister(id string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	_, ok := r.nodes[id]
 	if !ok {
 		// If the ID is not found do nothing.
-		return nil
+		return false
 	}
 
 	delete(r.nodes, id)
@@ -153,7 +153,7 @@ func (r *Registry) Unregister(id string) error {
 		sub.Callback(update)
 	}
 
-	return nil
+	return true
 }
 
 func (r *Registry) UpdateNode(id string, metadata map[string]string) error {

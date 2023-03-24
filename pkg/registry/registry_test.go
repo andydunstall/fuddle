@@ -41,7 +41,7 @@ func TestRegistry_RegisterThenUnregister(t *testing.T) {
 
 	registeredNode := testutils.RandomRPCNode()
 	assert.NoError(t, r.Register(registeredNode))
-	assert.NoError(t, r.Unregister(registeredNode.Id))
+	assert.True(t, r.Unregister(registeredNode.Id))
 
 	_, err := r.Node(registeredNode.Id)
 	assert.Equal(t, ErrNotFound, err)
@@ -217,7 +217,7 @@ func TestRegistry_SubscribeToUnregister(t *testing.T) {
 
 	var expectedUpdates []*rpc.NodeUpdate
 	for _, id := range registeredIDs {
-		assert.NoError(t, r.Unregister(id))
+		assert.True(t, r.Unregister(id))
 
 		expectedUpdates = append(expectedUpdates, &rpc.NodeUpdate{
 			NodeId:     id,

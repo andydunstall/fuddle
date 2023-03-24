@@ -99,24 +99,17 @@ func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.R
 func (s *Server) Unregister(ctx context.Context, req *rpc.UnregisterRequest) (*rpc.UnregisterResponse, error) {
 	logger := s.logger.With(zap.String("rpc", "registry.Unregister"))
 
-	if err := s.registry.Unregister(req.NodeId); err != nil {
-		logger.Error(
-			"unknown error",
+	if s.registry.Unregister(req.NodeId) {
+		logger.Debug(
+			"node unregistered",
 			zap.String("id", req.NodeId),
 		)
-
-		return &rpc.UnregisterResponse{
-			Error: &rpc.Error{
-				Status:      rpc.ErrorStatus_UNKNOWN,
-				Description: err.Error(),
-			},
-		}, nil
+	} else {
+		logger.Warn(
+			"node already unregistered",
+			zap.String("id", req.NodeId),
+		)
 	}
-
-	logger.Debug(
-		"node unregistered",
-		zap.String("id", req.NodeId),
-	)
 
 	return &rpc.UnregisterResponse{}, nil
 }
