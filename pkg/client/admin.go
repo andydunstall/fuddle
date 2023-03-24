@@ -32,8 +32,15 @@ type Admin struct {
 	client rpc.RegistryClient
 }
 
-func NewAdmin(addr string) (*Admin, error) {
-	conn, client, err := connect(addr, time.Second)
+func NewAdmin(addr string, opts ...Option) (*Admin, error) {
+	options := options{
+		connectTimeout: time.Second,
+	}
+	for _, o := range opts {
+		o.apply(&options)
+	}
+
+	conn, client, err := connect(addr, options.connectTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("admin: %w", err)
 	}
@@ -82,7 +89,13 @@ func connect(addr string, timeout time.Duration) (*grpc.ClientConn, rpc.Registry
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.DialContext(
+		ctx,
+		addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		// Block until connected so we know the address is ok.
+		grpc.WithBlock(),
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
