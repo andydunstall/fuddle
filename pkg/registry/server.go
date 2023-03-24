@@ -17,6 +17,7 @@ package registry
 
 import (
 	"context"
+	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"go.uber.org/zap"
@@ -47,7 +48,7 @@ func NewServer(registry *Registry, opts ...Option) *Server {
 func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
 	logger := s.logger.With(zap.String("rpc", "registry.Register"))
 
-	err := s.registry.Register(req.Node)
+	err := s.registry.Register(req.Node, time.Now())
 	if err == ErrAlreadyRegistered {
 		logger.Warn(
 			"node already registered",
@@ -240,4 +241,48 @@ func (s *Server) Nodes(ctx context.Context, req *rpc.NodesRequest) (*rpc.NodesRe
 	return &rpc.NodesResponse{
 		Nodes: nodes,
 	}, nil
+}
+
+func (s *Server) Heartbeat(ctx context.Context, req *rpc.HeartbeatRequest) (*rpc.HeartbeatResponse, error) {
+	logger := s.logger.With(zap.String("rpc", "registry.Heartbeat"))
+
+	errorsResp := make(map[string]*rpc.Error)
+	for _, nodeID := range req.Nodes {
+		err := s.registry.MarkContact(nodeID, time.Now())
+		if err == ErrNotFound {
+			logger.Warn(
+				"node not found",
+				zap.String("id", nodeID),
+			)
+
+			errorsResp[nodeID] = &rpc.Error{
+				Status:      rpc.ErrorStatus_NOT_REGISTERED,
+				Description: err.Error(),
+			}
+		} else if err != nil {
+			logger.Error(
+				"unknown error",
+				zap.String("id", nodeID),
+			)
+
+			errorsResp[nodeID] = &rpc.Error{
+				Status:      rpc.ErrorStatus_UNKNOWN,
+				Description: err.Error(),
+			}
+		}
+	}
+
+	logger.Debug("heatbeat", zap.Strings("nodes", req.Nodes))
+
+	return &rpc.HeartbeatResponse{
+		Heartbeat: req.Heartbeat,
+		Errors:    errorsResp,
+	}, nil
+}
+
+func (s *Server) UnregisterDownNodes() {
+	unregistered := s.registry.UnregisterDownNodes(time.Now(), time.Second*30)
+	for _, id := range unregistered {
+		s.logger.Warn("unregistered down node", zap.String("id", id))
+	}
 }
