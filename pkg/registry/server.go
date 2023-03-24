@@ -44,8 +44,8 @@ func NewServer(registry *Registry, opts ...Option) *Server {
 	}
 }
 
-func (s *Server) RegisterV2(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
-	logger := s.logger.With(zap.String("rpc", "registry.RegisterV2"))
+func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
+	logger := s.logger.With(zap.String("rpc", "registry.Register"))
 
 	err := s.registry.Register(req.Node)
 	if err == ErrAlreadyRegistered {
@@ -94,6 +94,10 @@ func (s *Server) RegisterV2(ctx context.Context, req *rpc.RegisterRequest) (*rpc
 	)
 
 	return &rpc.RegisterResponse{}, nil
+}
+
+func (s *Server) RegisterV2(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
+	return s.Register(ctx, req)
 }
 
 func (s *Server) Unregister(ctx context.Context, req *rpc.UnregisterRequest) (*rpc.UnregisterResponse, error) {
