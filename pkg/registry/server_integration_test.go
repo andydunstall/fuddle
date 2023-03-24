@@ -41,6 +41,7 @@ func TestServer_Register(t *testing.T) {
 
 	c, err := fuddle.Connect([]string{addr}, fuddle.WithLogger(testutils.Logger()))
 	require.NoError(t, err)
+	defer c.Close()
 
 	registeredNode := testutils.RandomSDKNode()
 	_, err = c.Register(context.TODO(), registeredNode)
@@ -58,6 +59,7 @@ func TestServer_Unregister(t *testing.T) {
 
 	c, err := fuddle.Connect([]string{addr}, fuddle.WithLogger(testutils.Logger()))
 	require.NoError(t, err)
+	defer c.Close()
 
 	registeredNode := testutils.RandomSDKNode()
 	n, err := c.Register(context.TODO(), registeredNode)
@@ -76,6 +78,7 @@ func TestServer_UpdateMetadata(t *testing.T) {
 
 	c, err := fuddle.Connect([]string{addr}, fuddle.WithLogger(testutils.Logger()))
 	require.NoError(t, err)
+	defer c.Close()
 
 	registeredNode := testutils.RandomSDKNode()
 	n, err := c.Register(context.TODO(), registeredNode)

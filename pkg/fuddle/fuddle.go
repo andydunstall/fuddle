@@ -17,6 +17,7 @@ package fuddle
 
 import (
 	"net"
+	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/config"
@@ -27,11 +28,15 @@ import (
 
 // Fuddle runs a Fuddle node.
 type Fuddle struct {
+	registryServer *registry.Server
+
 	grpcServer *grpc.Server
 	grpcLn     net.Listener
 
 	conf   *config.Config
 	logger *zap.Logger
+
+	done chan interface{}
 }
 
 func New(conf *config.Config, opts ...Option) *Fuddle {
@@ -54,10 +59,12 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 	rpc.RegisterRegistryServer(grpcServer, registryServer)
 
 	return &Fuddle{
-		grpcServer: grpcServer,
-		grpcLn:     options.listener,
-		conf:       conf,
-		logger:     logger,
+		registryServer: registryServer,
+		grpcServer:     grpcServer,
+		grpcLn:         options.listener,
+		conf:           conf,
+		logger:         logger,
+		done:           make(chan interface{}),
 	}
 }
 
@@ -80,15 +87,32 @@ func (s *Fuddle) Start() error {
 		}
 	}()
 
+	go s.livenessChecks()
+
 	return nil
 }
 
 func (s *Fuddle) GracefulStop() {
 	s.logger.Info("node graceful stop")
+	close(s.done)
 	s.grpcServer.GracefulStop()
 }
 
 func (s *Fuddle) Stop() {
 	s.logger.Info("node hard stop")
+	close(s.done)
 	s.grpcServer.Stop()
+}
+
+func (s *Fuddle) livenessChecks() {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			s.registryServer.UnregisterDownNodes()
+		case <-s.done:
+			return
+		}
+	}
 }

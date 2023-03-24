@@ -18,6 +18,7 @@ package registry
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 )
@@ -33,7 +34,8 @@ type subscriber struct {
 }
 
 type Registry struct {
-	nodes map[string]*rpc.Node
+	nodes       map[string]*rpc.Node
+	lastContact map[string]time.Time
 
 	subscribers map[*subscriber]interface{}
 
@@ -44,6 +46,7 @@ type Registry struct {
 func NewRegistry() *Registry {
 	return &Registry{
 		nodes:       make(map[string]*rpc.Node),
+		lastContact: make(map[string]time.Time),
 		subscribers: make(map[*subscriber]interface{}),
 	}
 }
@@ -104,7 +107,7 @@ func (r *Registry) Subscribe(cb func(update *rpc.NodeUpdate)) func() {
 	}
 }
 
-func (r *Registry) Register(node *rpc.Node) error {
+func (r *Registry) Register(node *rpc.Node, t time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -117,6 +120,7 @@ func (r *Registry) Register(node *rpc.Node) error {
 	}
 
 	r.nodes[node.Id] = node
+	r.lastContact[node.Id] = t
 
 	update := &rpc.NodeUpdate{
 		NodeId:     node.Id,
@@ -132,28 +136,11 @@ func (r *Registry) Register(node *rpc.Node) error {
 	return nil
 }
 
-func (r *Registry) Unregister(id string) error {
+func (r *Registry) Unregister(id string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	_, ok := r.nodes[id]
-	if !ok {
-		// If the ID is not found do nothing.
-		return nil
-	}
-
-	delete(r.nodes, id)
-
-	update := &rpc.NodeUpdate{
-		NodeId:     id,
-		UpdateType: rpc.NodeUpdateType_UNREGISTER,
-	}
-	// Note call subscribers with mutex locked to guarantee order.
-	for sub := range r.subscribers {
-		sub.Callback(update)
-	}
-
-	return nil
+	return r.unregisterLocked(id)
 }
 
 func (r *Registry) UpdateNode(id string, metadata map[string]string) error {
@@ -190,6 +177,56 @@ func (r *Registry) UpdateNode(id string, metadata map[string]string) error {
 	}
 
 	return nil
+}
+
+func (r *Registry) MarkContact(id string, t time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.nodes[id]; !ok {
+		return ErrNotFound
+	}
+
+	r.lastContact[id] = t
+
+	return nil
+}
+
+func (r *Registry) UnregisterDownNodes(t time.Time, threshold time.Duration) []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var unregistered []string
+	for id := range r.nodes {
+		if r.lastContact[id].Add(threshold).Before(t) {
+			unregistered = append(unregistered, id)
+			r.unregisterLocked(id)
+		}
+	}
+
+	return unregistered
+}
+
+func (r *Registry) unregisterLocked(id string) bool {
+	_, ok := r.nodes[id]
+	if !ok {
+		// If the ID is not found do nothing.
+		return false
+	}
+
+	delete(r.nodes, id)
+	delete(r.lastContact, id)
+
+	update := &rpc.NodeUpdate{
+		NodeId:     id,
+		UpdateType: rpc.NodeUpdateType_UNREGISTER,
+	}
+	// Note call subscribers with mutex locked to guarantee order.
+	for sub := range r.subscribers {
+		sub.Callback(update)
+	}
+
+	return true
 }
 
 func CopyNode(n *rpc.Node) *rpc.Node {

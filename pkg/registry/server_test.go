@@ -206,3 +206,53 @@ func TestServer_Nodes(t *testing.T) {
 		assert.True(t, proto.Equal(nodes[i], nodesWithMetadata[i]))
 	}
 }
+
+func TestServer_HeartbeatOK(t *testing.T) {
+	s := NewServer(NewRegistry())
+
+	registeredNode := testutils.RandomRPCNode()
+	_, err := s.Register(context.Background(), &rpc.RegisterRequest{
+		Node: registeredNode,
+	})
+	assert.NoError(t, err)
+
+	resp, err := s.Heartbeat(context.Background(), &rpc.HeartbeatRequest{
+		Heartbeat: &rpc.Heartbeat{
+			Timestamp: 10,
+		},
+		Nodes: []string{registeredNode.Id},
+	})
+	assert.NoError(t, err)
+
+	expected := &rpc.HeartbeatResponse{
+		Heartbeat: &rpc.Heartbeat{
+			Timestamp: 10,
+		},
+	}
+	assert.True(t, proto.Equal(expected, resp))
+}
+
+func TestServer_HeartbeatNotFound(t *testing.T) {
+	s := NewServer(NewRegistry())
+
+	resp, err := s.Heartbeat(context.Background(), &rpc.HeartbeatRequest{
+		Heartbeat: &rpc.Heartbeat{
+			Timestamp: 10,
+		},
+		Nodes: []string{"not-found"},
+	})
+	assert.NoError(t, err)
+
+	expected := &rpc.HeartbeatResponse{
+		Heartbeat: &rpc.Heartbeat{
+			Timestamp: 10,
+		},
+		Errors: map[string]*rpc.Error{
+			"not-found": &rpc.Error{
+				Status:      rpc.ErrorStatus_NOT_REGISTERED,
+				Description: "not found",
+			},
+		},
+	}
+	assert.True(t, proto.Equal(expected, resp))
+}
