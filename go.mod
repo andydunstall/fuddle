@@ -3,7 +3,7 @@ module github.com/fuddle-io/fuddle
 go 1.20
 
 require (
-	github.com/fuddle-io/fuddle-go v0.1.1-0.20230324065924-bfea967b14be
+	github.com/fuddle-io/fuddle-go v0.1.1-0.20230325145147-e83fe5e20e15
 	github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230324142249-a08c8d71e25d
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
