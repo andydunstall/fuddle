@@ -86,15 +86,17 @@ func (s *Service) Start() error {
 	s.fuddleClient = fuddleClient
 
 	// Subscribe to counter nodes updates and add to the partitioner.
-	fuddleClient.Subscribe(func(nodes []fuddle.Node) {
+	fuddleClient.Subscribe(func() {
+		filter := fuddle.Filter{
+			"counter": {},
+		}
+
 		counterNodes := make(map[string]string)
-		for _, node := range nodes {
+		for _, node := range fuddleClient.Nodes(fuddle.WithFilter(filter)) {
 			counterNodes[node.ID] = node.Metadata["addr.rpc"]
 		}
 		s.partitioner.SetNodes(counterNodes)
-	}, fuddle.WithFilter(fuddle.Filter{
-		"counter": {},
-	}))
+	})
 
 	return s.server.Start(s.wsListener)
 }
