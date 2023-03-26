@@ -39,6 +39,7 @@ func TestServer_RegisterThenQueryNode(t *testing.T) {
 		NodeId: registeredNode.Id,
 	})
 	assert.NoError(t, err)
+	assert.Nil(t, resp.Error)
 
 	assert.True(t, proto.Equal(resp.Node, registeredNode))
 }
