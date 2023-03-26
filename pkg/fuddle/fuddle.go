@@ -22,6 +22,7 @@ import (
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry"
+	registryv2 "github.com/fuddle-io/fuddle/pkg/registryv2"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -29,6 +30,7 @@ import (
 // Fuddle runs a Fuddle node.
 type Fuddle struct {
 	registryServer *registry.Server
+	registry       *registryv2.Registry
 
 	grpcServer *grpc.Server
 	grpcLn     net.Listener
@@ -55,11 +57,30 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 		registry.WithLogger(logger),
 	)
 
+	registryLogger := options.logger.With(zap.String("stream", "registry"))
+	registry := registryv2.NewRegistry(&rpc.Member{
+		Id:       conf.ID,
+		ClientId: conf.ID,
+		Service:  "fuddle",
+		Locality: conf.Locality,
+		Created:  time.Now().UnixMilli(),
+		Revision: conf.Revision,
+		Metadata: map[string]string{
+			"registry-addr": conf.AdvRegistryAddr,
+		},
+	}, registryv2.WithLogger(registryLogger))
+	registryV2Server := registryv2.NewServer(
+		registry,
+		registryv2.WithLogger(registryLogger),
+	)
+
 	grpcServer := grpc.NewServer()
 	rpc.RegisterRegistryServer(grpcServer, registryServer)
+	rpc.RegisterRegistryV2Server(grpcServer, registryV2Server)
 
 	return &Fuddle{
 		registryServer: registryServer,
+		registry:       registry,
 		grpcServer:     grpcServer,
 		grpcLn:         options.listener,
 		conf:           conf,
@@ -87,7 +108,7 @@ func (s *Fuddle) Start() error {
 		}
 	}()
 
-	go s.livenessChecks()
+	go s.handleLivenessChecks()
 
 	return nil
 }
@@ -104,13 +125,16 @@ func (s *Fuddle) Stop() {
 	s.grpcServer.Stop()
 }
 
-func (s *Fuddle) livenessChecks() {
+func (s *Fuddle) handleLivenessChecks() {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			s.registryServer.UnregisterDownNodes()
+
+			s.registry.MarkFailedMembers()
+			s.registry.UnregisterFailedMembers()
 		case <-s.done:
 			return
 		}
