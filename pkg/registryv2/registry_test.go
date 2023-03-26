@@ -96,12 +96,16 @@ func TestRegistry_RegisterInvalidMember(t *testing.T) {
 	}
 }
 
-func TestRegistry_RegisterAlreadyRegistered(t *testing.T) {
+func TestRegistry_RegisterAlreadyRegisteredWithDifferentClientID(t *testing.T) {
 	r := NewRegistry(testutils.RandomMember())
 
-	member := testutils.RandomMember()
-	assert.NoError(t, r.Register(member))
-	assert.Equal(t, ErrAlreadyRegistered, r.Register(member))
+	m1 := testutils.RandomMember()
+	assert.NoError(t, r.Register(m1))
+
+	m2 := CopyMember(m1)
+	m2.ClientId = "no-match"
+
+	assert.Equal(t, ErrAlreadyRegistered, r.Register(m2))
 }
 
 func TestRegistry_RegisterThenUnregister(t *testing.T) {
@@ -175,6 +179,30 @@ func TestRegistry_HeartbeatRevivesDownNode(t *testing.T) {
 	// A heartbeat before the reconnect timeout expires should mark the member
 	// as up.
 	r.Heartbeat(member.ClientId, WithTime(time.Unix(25, 0)))
+
+	m, ok = r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_UP, m.Status)
+	// Updating the status should update the version.
+	assert.Equal(t, uint64(3), m.Version)
+}
+
+func TestRegistry_RegisterRevivesDownNode(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember(), WithHeartbeatTimeout(10*time.Second))
+
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member, WithTime(time.Unix(0, 0))))
+
+	r.MarkFailedMembers(WithTime(time.Unix(20, 0)))
+
+	m, ok := r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_DOWN, m.Status)
+	assert.Equal(t, uint64(2), m.Version)
+
+	// A re-register before the reconnect timeout expires should mark the member
+	// as up.
+	assert.NoError(t, r.Register(member, WithTime(time.Unix(25, 0))))
 
 	m, ok = r.Member(member.Id)
 	assert.True(t, ok)
@@ -457,6 +485,34 @@ func TestRegistry_SubscribeUpdatesReceiveStateUpdates(t *testing.T) {
 	expectedMember.Version = 2
 
 	r.setStatusLocked(member.Id, rpc.MemberStatus_DOWN, time.Now())
+
+	assert.Equal(t, expectedMember, receivedMember)
+}
+
+func TestRegistry_SubscribeUpdatesReceiveReRegisterUpdates(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
+
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member))
+
+	r.setStatusLocked(member.Id, rpc.MemberStatus_DOWN, time.Now())
+
+	var receivedMember *rpc.Member
+	r.Subscribe(map[string]uint64{
+		localMember.Id: 1,
+		member.Id:      1,
+	}, func(update *rpc.MemberUpdate) {
+		assert.Equal(t, rpc.MemberUpdateType_STATE, update.UpdateType)
+		receivedMember = update.Member
+	})
+
+	// Register the member again to revive it.
+	assert.NoError(t, r.Register(member))
+
+	expectedMember := member
+	expectedMember.Status = rpc.MemberStatus_UP
+	expectedMember.Version = 3
 
 	assert.Equal(t, expectedMember, receivedMember)
 }

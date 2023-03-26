@@ -108,21 +108,34 @@ func (r *Registry) Register(member *rpc.Member, opts ...Option) error {
 		return ErrInvalidUpdate
 	}
 
-	if _, ok := r.members[member.Id]; ok {
-		return ErrAlreadyRegistered
+	version := uint64(1)
+	// We support clients re-registering the same node again, though it must
+	// have the same client ID as before.
+	existing, alreadyExists := r.members[member.Id]
+	if alreadyExists {
+		if existing.ClientId != member.ClientId {
+			return ErrAlreadyRegistered
+		}
+
+		version = existing.Version + 1
 	}
 
 	member = CopyMember(member)
 
 	member.Status = rpc.MemberStatus_UP
-	member.Version = 1
+	member.Version = version
 	r.members[member.Id] = member
 
 	r.lastContact[member.Id] = options.time
 
+	updateType := rpc.MemberUpdateType_REGISTER
+	if alreadyExists {
+		updateType = rpc.MemberUpdateType_STATE
+	}
+
 	update := &rpc.MemberUpdate{
 		Id:         member.Id,
-		UpdateType: rpc.MemberUpdateType_REGISTER,
+		UpdateType: updateType,
 		Member:     CopyMember(member),
 	}
 	// Note call subscribers with mutex locked to guarantee order.

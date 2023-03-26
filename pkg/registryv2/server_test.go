@@ -56,6 +56,7 @@ func TestServer_RegisterAlreadyRegistered(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, resp.Error)
 
+	registeredMember.ClientId = "no-match"
 	resp, err = s.RegisterMember(context.Background(), &rpc.RegisterMemberRequest{
 		Member: registeredMember,
 	})
