@@ -61,7 +61,7 @@ func TestServer_RegisterAlreadyRegistered(t *testing.T) {
 		Member: registeredMember,
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatusV2_ALREADY_REGISTERED, resp.Error.Status)
+	assert.Equal(t, rpc.ErrorStatus_ALREADY_REGISTERED, resp.Error.Status)
 }
 
 func TestServer_RegisterInvalidMember(t *testing.T) {
@@ -74,7 +74,7 @@ func TestServer_RegisterInvalidMember(t *testing.T) {
 		Member: registeredMember,
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatusV2_INVALID_MEMBER, resp.Error.Status)
+	assert.Equal(t, rpc.ErrorStatus_INVALID_MEMBER, resp.Error.Status)
 }
 
 func TestServer_Unregister(t *testing.T) {
@@ -96,7 +96,7 @@ func TestServer_Unregister(t *testing.T) {
 		Id: registeredMember.Id,
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatusV2_NOT_FOUND, resp.Error.Status)
+	assert.Equal(t, rpc.ErrorStatus_NOT_FOUND, resp.Error.Status)
 }
 
 func TestServer_UpdateMemberMetadataThenLookup(t *testing.T) {
@@ -147,7 +147,7 @@ func TestServer_UpdateMemberMetadataNotRegistered(t *testing.T) {
 		Metadata: nil,
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatusV2_INVALID_MEMBER, updateResp.Error.Status)
+	assert.Equal(t, rpc.ErrorStatus_INVALID_MEMBER, updateResp.Error.Status)
 }
 
 func TestServer_UpdateMemberMetadataInvalidMember(t *testing.T) {
@@ -158,7 +158,7 @@ func TestServer_UpdateMemberMetadataInvalidMember(t *testing.T) {
 		Metadata: testutils.RandomMetadata(),
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatusV2_NOT_REGISTERED, resp.Error.Status)
+	assert.Equal(t, rpc.ErrorStatus_NOT_REGISTERED, resp.Error.Status)
 }
 
 func TestServer_MemberNotFound(t *testing.T) {
@@ -168,5 +168,5 @@ func TestServer_MemberNotFound(t *testing.T) {
 		Id: "not-found",
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatusV2_NOT_FOUND, resp.Error.Status)
+	assert.Equal(t, rpc.ErrorStatus_NOT_FOUND, resp.Error.Status)
 }

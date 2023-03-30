@@ -29,7 +29,7 @@ import (
 type Admin struct {
 	addr   string
 	conn   *grpc.ClientConn
-	client rpc.RegistryV2Client
+	client rpc.RegistryClient
 }
 
 func NewAdmin(addr string, opts ...Option) (*Admin, error) {
@@ -83,7 +83,7 @@ func (a *Admin) Close() {
 	a.conn.Close()
 }
 
-func connect(addr string, timeout time.Duration) (*grpc.ClientConn, rpc.RegistryV2Client, error) {
+func connect(addr string, timeout time.Duration) (*grpc.ClientConn, rpc.RegistryClient, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -98,6 +98,6 @@ func connect(addr string, timeout time.Duration) (*grpc.ClientConn, rpc.Registry
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
 
-	client := rpc.NewRegistryV2Client(conn)
+	client := rpc.NewRegistryClient(conn)
 	return conn, client, nil
 }
