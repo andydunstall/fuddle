@@ -75,7 +75,7 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 	grpcServer := grpc.NewServer(
 		grpc.KeepaliveEnforcementPolicy(enforcementPolicy),
 	)
-	rpc.RegisterRegistryV2Server(grpcServer, registryServer)
+	rpc.RegisterRegistryServer(grpcServer, registryServer)
 
 	return &Fuddle{
 		registry:   r,

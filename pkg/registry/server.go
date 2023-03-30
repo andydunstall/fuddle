@@ -27,7 +27,7 @@ type Server struct {
 
 	logger *zap.Logger
 
-	rpc.UnimplementedRegistryV2Server
+	rpc.UnimplementedRegistryServer
 }
 
 func NewServer(registry *Registry, opts ...Option) *Server {
@@ -51,19 +51,19 @@ func (s *Server) RegisterMember(ctx context.Context, req *rpc.RegisterMemberRequ
 	if err == ErrAlreadyRegistered {
 		logger.Warn("member already registered", zap.String("id", req.Member.Id))
 		return &rpc.RegisterMemberResponse{
-			Error: errorResponse(rpc.ErrorStatusV2_ALREADY_REGISTERED, err.Error()),
+			Error: errorResponse(rpc.ErrorStatus_ALREADY_REGISTERED, err.Error()),
 		}, nil
 	}
 	if err == ErrInvalidUpdate {
 		logger.Warn("invalid member", zap.String("id", req.Member.Id))
 		return &rpc.RegisterMemberResponse{
-			Error: errorResponse(rpc.ErrorStatusV2_INVALID_MEMBER, err.Error()),
+			Error: errorResponse(rpc.ErrorStatus_INVALID_MEMBER, err.Error()),
 		}, nil
 	}
 	if err != nil {
 		logger.Error("unknown error", zap.String("id", req.Member.Id))
 		return &rpc.RegisterMemberResponse{
-			Error: errorResponse(rpc.ErrorStatusV2_UNKNOWN, err.Error()),
+			Error: errorResponse(rpc.ErrorStatus_UNKNOWN, err.Error()),
 		}, nil
 	}
 
@@ -91,19 +91,19 @@ func (s *Server) UpdateMemberMetadata(ctx context.Context, req *rpc.UpdateMember
 	if err == ErrNotRegistered {
 		logger.Warn("member not registered", zap.String("id", req.Id))
 		return &rpc.UpdateMemberMetadataResponse{
-			Error: errorResponse(rpc.ErrorStatusV2_NOT_REGISTERED, err.Error()),
+			Error: errorResponse(rpc.ErrorStatus_NOT_REGISTERED, err.Error()),
 		}, nil
 	}
 	if err == ErrInvalidUpdate {
 		logger.Warn("invalid updatea", zap.String("id", req.Id))
 		return &rpc.UpdateMemberMetadataResponse{
-			Error: errorResponse(rpc.ErrorStatusV2_INVALID_MEMBER, err.Error()),
+			Error: errorResponse(rpc.ErrorStatus_INVALID_MEMBER, err.Error()),
 		}, nil
 	}
 	if err != nil {
 		logger.Error("unknown error", zap.String("id", req.Id))
 		return &rpc.UpdateMemberMetadataResponse{
-			Error: errorResponse(rpc.ErrorStatusV2_UNKNOWN, err.Error()),
+			Error: errorResponse(rpc.ErrorStatus_UNKNOWN, err.Error()),
 		}, nil
 	}
 
@@ -112,7 +112,7 @@ func (s *Server) UpdateMemberMetadata(ctx context.Context, req *rpc.UpdateMember
 	return &rpc.UpdateMemberMetadataResponse{}, nil
 }
 
-func (s *Server) Subscribe(req *rpc.SubscribeRequest, stream rpc.RegistryV2_SubscribeServer) error {
+func (s *Server) Subscribe(req *rpc.SubscribeRequest, stream rpc.Registry_SubscribeServer) error {
 	logger := s.logger.With(zap.String("rpc", "registry.Subscribe"))
 
 	done := make(chan interface{})
@@ -139,14 +139,14 @@ func (s *Server) Subscribe(req *rpc.SubscribeRequest, stream rpc.RegistryV2_Subs
 	return nil
 }
 
-func (s *Server) Heartbeat(ctx context.Context, req *rpc.HeartbeatRequestV2) (*rpc.HeartbeatResponseV2, error) {
+func (s *Server) Heartbeat(ctx context.Context, req *rpc.HeartbeatRequest) (*rpc.HeartbeatResponse, error) {
 	logger := s.logger.With(zap.String("rpc", "registry.Heartbeat"))
 
 	s.registry.Heartbeat(req.ClientId)
 
 	logger.Debug("heartbeat", zap.String("client-id", req.ClientId))
 
-	return &rpc.HeartbeatResponseV2{}, nil
+	return &rpc.HeartbeatResponse{}, nil
 }
 
 func (s *Server) Member(ctx context.Context, req *rpc.MemberRequest) (*rpc.MemberResponse, error) {
@@ -156,7 +156,7 @@ func (s *Server) Member(ctx context.Context, req *rpc.MemberRequest) (*rpc.Membe
 	if !ok {
 		logger.Debug("member not found", zap.String("id", req.Id))
 		return &rpc.MemberResponse{
-			Error: errorResponse(rpc.ErrorStatusV2_NOT_FOUND, "not found"),
+			Error: errorResponse(rpc.ErrorStatus_NOT_FOUND, "not found"),
 		}, nil
 	}
 
@@ -179,8 +179,8 @@ func (s *Server) Members(context.Context, *rpc.MembersRequest) (*rpc.MembersResp
 	}, nil
 }
 
-func errorResponse(status rpc.ErrorStatusV2, description string) *rpc.ErrorV2 {
-	return &rpc.ErrorV2{
+func errorResponse(status rpc.ErrorStatus, description string) *rpc.Error {
+	return &rpc.Error{
 		Status:      status,
 		Description: description,
 	}
