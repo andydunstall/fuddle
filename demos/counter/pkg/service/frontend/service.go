@@ -65,12 +65,12 @@ func NewService(conf *Config, opts ...Option) *Service {
 }
 
 func (s *Service) Start() error {
-	fuddleClient, err := fuddle.Connect(s.conf.FuddleAddrs)
+	fuddleClient, err := fuddle.Connect(context.Background(), s.conf.FuddleAddrs)
 	if err != nil {
 		return fmt.Errorf("frontend service: start: %w", err)
 	}
 
-	_, err = fuddleClient.Register(context.Background(), fuddle.Node{
+	if err = fuddleClient.Register(context.Background(), fuddle.Member{
 		ID:       s.conf.ID,
 		Service:  "frontend",
 		Locality: s.conf.Locality,
@@ -79,23 +79,22 @@ func (s *Service) Start() error {
 		Metadata: map[string]string{
 			"addr.ws": s.conf.WSAddr,
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return fmt.Errorf("frontend service: start: %w", err)
 	}
 	s.fuddleClient = fuddleClient
 
-	// Subscribe to counter nodes updates and add to the partitioner.
+	// Subscribe to counter members updates and add to the partitioner.
 	fuddleClient.Subscribe(func() {
 		filter := fuddle.Filter{
 			"counter": {},
 		}
 
-		counterNodes := make(map[string]string)
-		for _, node := range fuddleClient.Nodes(fuddle.WithFilter(filter)) {
-			counterNodes[node.ID] = node.Metadata["addr.rpc"]
+		counterMembers := make(map[string]string)
+		for _, member := range fuddleClient.Members(fuddle.WithFilter(&filter)) {
+			counterMembers[member.ID] = member.Metadata["addr.rpc"]
 		}
-		s.partitioner.SetNodes(counterNodes)
+		s.partitioner.SetNodes(counterMembers)
 	})
 
 	return s.server.Start(s.wsListener)

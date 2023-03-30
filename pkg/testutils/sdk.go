@@ -17,24 +17,28 @@ package testutils
 
 import (
 	"context"
-	"fmt"
-	"time"
+
+	fuddle "github.com/fuddle-io/fuddle-go"
 )
 
-func WaitWithTimeout(ch chan interface{}, timeout time.Duration) error {
-	select {
-	case <-ch:
-		return nil
-	case <-time.After(timeout):
-		return fmt.Errorf("timeout")
-	}
-}
+func WaitForMembers(ctx context.Context, client *fuddle.Fuddle, count int) error {
+	found := false
+	recvCh := make(chan interface{})
+	unsubscribe := client.Subscribe(func() {
+		if found {
+			return
+		}
 
-func WaitWithContext(ctx context.Context, ch chan interface{}) error {
-	select {
-	case <-ch:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+		if len(client.Members()) == count {
+			found = true
+			close(recvCh)
+			return
+		}
+	})
+	defer unsubscribe()
+
+	if err := WaitWithContext(ctx, recvCh); err != nil {
+		return err
 	}
+	return nil
 }

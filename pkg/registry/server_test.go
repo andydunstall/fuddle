@@ -17,243 +17,156 @@ package registry
 
 import (
 	"context"
-	"sort"
 	"testing"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/proto"
 )
 
-func TestServer_RegisterThenQueryNode(t *testing.T) {
-	s := NewServer(NewRegistry())
+func TestServer_RegisterThenLookupMember(t *testing.T) {
+	s := NewServer(NewRegistry(testutils.RandomMember()))
 
-	registeredNode := testutils.RandomRPCNode()
-	_, err := s.Register(context.Background(), &rpc.RegisterRequest{
-		Node: registeredNode,
+	registeredMember := testutils.RandomMember()
+	registerResp, err := s.RegisterMember(context.Background(), &rpc.RegisterMemberRequest{
+		Member: registeredMember,
 	})
 	assert.NoError(t, err)
+	assert.Nil(t, registerResp.Error)
 
-	resp, err := s.Node(context.Background(), &rpc.NodeRequest{
-		NodeId: registeredNode.Id,
+	expectedMember := registeredMember
+	expectedMember.Version = 1
+
+	memberResp, err := s.Member(context.Background(), &rpc.MemberRequest{
+		Id: registeredMember.Id,
+	})
+	assert.NoError(t, err)
+	assert.Nil(t, memberResp.Error)
+	assert.Equal(t, expectedMember, memberResp.Member)
+}
+
+func TestServer_RegisterAlreadyRegistered(t *testing.T) {
+	s := NewServer(NewRegistry(testutils.RandomMember()))
+
+	registeredMember := testutils.RandomMember()
+
+	resp, err := s.RegisterMember(context.Background(), &rpc.RegisterMemberRequest{
+		Member: registeredMember,
 	})
 	assert.NoError(t, err)
 	assert.Nil(t, resp.Error)
 
-	assert.True(t, proto.Equal(resp.Node, registeredNode))
+	registeredMember.ClientId = "no-match"
+	resp, err = s.RegisterMember(context.Background(), &rpc.RegisterMemberRequest{
+		Member: registeredMember,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, rpc.ErrorStatusV2_ALREADY_REGISTERED, resp.Error.Status)
 }
 
-func TestServer_RegisterThenUnregisterNode(t *testing.T) {
-	s := NewServer(NewRegistry())
+func TestServer_RegisterInvalidMember(t *testing.T) {
+	s := NewServer(NewRegistry(testutils.RandomMember()))
 
-	registeredNode := testutils.RandomRPCNode()
-	_, err := s.Register(context.Background(), &rpc.RegisterRequest{
-		Node: registeredNode,
+	registeredMember := testutils.RandomMember()
+	registeredMember.Id = ""
+
+	resp, err := s.RegisterMember(context.Background(), &rpc.RegisterMemberRequest{
+		Member: registeredMember,
 	})
 	assert.NoError(t, err)
-
-	_, err = s.Unregister(context.Background(), &rpc.UnregisterRequest{
-		NodeId: registeredNode.Id,
-	})
-	assert.NoError(t, err)
-
-	resp, err := s.Node(context.Background(), &rpc.NodeRequest{
-		NodeId: registeredNode.Id,
-	})
-	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatus_NOT_FOUND, resp.Error.Status)
+	assert.Equal(t, rpc.ErrorStatusV2_INVALID_MEMBER, resp.Error.Status)
 }
 
-func TestServer_NodeNotFound(t *testing.T) {
-	s := NewServer(NewRegistry())
+func TestServer_Unregister(t *testing.T) {
+	s := NewServer(NewRegistry(testutils.RandomMember()))
 
-	resp, err := s.Node(context.Background(), &rpc.NodeRequest{
-		NodeId: "foo",
+	registeredMember := testutils.RandomMember()
+	registerResp, err := s.RegisterMember(context.Background(), &rpc.RegisterMemberRequest{
+		Member: registeredMember,
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatus_NOT_FOUND, resp.Error.Status)
+	assert.Nil(t, registerResp.Error)
+
+	_, err = s.UnregisterMember(context.Background(), &rpc.UnregisterMemberRequest{
+		Id: registeredMember.Id,
+	})
+	assert.NoError(t, err)
+
+	resp, err := s.Member(context.Background(), &rpc.MemberRequest{
+		Id: registeredMember.Id,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, rpc.ErrorStatusV2_NOT_FOUND, resp.Error.Status)
 }
 
-func TestServer_RegisterInvalidNode(t *testing.T) {
-	s := NewServer(NewRegistry())
+func TestServer_UpdateMemberMetadataThenLookup(t *testing.T) {
+	s := NewServer(NewRegistry(testutils.RandomMember()))
 
-	registeredNode := testutils.RandomRPCNode()
-	// Set empty ID.
-	registeredNode.Id = ""
-
-	resp, err := s.Register(context.Background(), &rpc.RegisterRequest{
-		Node: registeredNode,
+	registeredMember := testutils.RandomMember()
+	registerResp, err := s.RegisterMember(context.Background(), &rpc.RegisterMemberRequest{
+		Member: registeredMember,
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatus_PROTOCOL, resp.Error.Status)
-}
-
-func TestServer_RegisterAlreadyRegister(t *testing.T) {
-	s := NewServer(NewRegistry())
-
-	registeredNode := testutils.RandomRPCNode()
-
-	resp, err := s.Register(context.Background(), &rpc.RegisterRequest{
-		Node: registeredNode,
-	})
-	assert.NoError(t, err)
-	assert.Nil(t, resp.Error)
-
-	resp, err = s.Register(context.Background(), &rpc.RegisterRequest{
-		Node: registeredNode,
-	})
-	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatus_ALREADY_REGISTERED, resp.Error.Status)
-}
-
-func TestServer_UpdateNode(t *testing.T) {
-	s := NewServer(NewRegistry())
-
-	registeredNode := testutils.RandomRPCNode()
-
-	regResp, err := s.Register(context.Background(), &rpc.RegisterRequest{
-		Node: registeredNode,
-	})
-	assert.NoError(t, err)
-	assert.Nil(t, regResp.Error)
+	assert.Nil(t, registerResp.Error)
 
 	update := testutils.RandomMetadata()
-	updateResp, err := s.UpdateNode(context.Background(), &rpc.UpdateNodeRequest{
-		NodeId:   registeredNode.Id,
+
+	updateResp, err := s.UpdateMemberMetadata(context.Background(), &rpc.UpdateMemberMetadataRequest{
+		Id:       registeredMember.Id,
 		Metadata: update,
 	})
 	assert.NoError(t, err)
 	assert.Nil(t, updateResp.Error)
 
-	expectedNode := CopyNode(registeredNode)
+	expectedMember := registeredMember
 	for k, v := range update {
-		expectedNode.Metadata[k] = &rpc.VersionedValue{
-			Value: v,
-		}
+		expectedMember.Metadata[k] = v
 	}
+	expectedMember.Version = 2
 
-	nodeResp, err := s.Node(context.Background(), &rpc.NodeRequest{
-		NodeId: registeredNode.Id,
+	memberResp, err := s.Member(context.Background(), &rpc.MemberRequest{
+		Id: registeredMember.Id,
 	})
 	assert.NoError(t, err)
-
-	assert.True(t, proto.Equal(nodeResp.Node, expectedNode))
+	assert.Nil(t, memberResp.Error)
+	assert.Equal(t, expectedMember, memberResp.Member)
 }
 
-func TestServer_UpdateNodeNilMetadata(t *testing.T) {
-	s := NewServer(NewRegistry())
+func TestServer_UpdateMemberMetadataNotRegistered(t *testing.T) {
+	s := NewServer(NewRegistry(testutils.RandomMember()))
 
-	registeredNode := testutils.RandomRPCNode()
-
-	regResp, err := s.Register(context.Background(), &rpc.RegisterRequest{
-		Node: registeredNode,
+	registeredMember := testutils.RandomMember()
+	registerResp, err := s.RegisterMember(context.Background(), &rpc.RegisterMemberRequest{
+		Member: registeredMember,
 	})
 	assert.NoError(t, err)
-	assert.Nil(t, regResp.Error)
+	assert.Nil(t, registerResp.Error)
 
-	updateResp, err := s.UpdateNode(context.Background(), &rpc.UpdateNodeRequest{
-		NodeId:   registeredNode.Id,
+	updateResp, err := s.UpdateMemberMetadata(context.Background(), &rpc.UpdateMemberMetadataRequest{
+		Id:       registeredMember.Id,
 		Metadata: nil,
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatus_PROTOCOL, updateResp.Error.Status)
+	assert.Equal(t, rpc.ErrorStatusV2_INVALID_MEMBER, updateResp.Error.Status)
 }
 
-func TestServer_UpdateNodeNotFound(t *testing.T) {
-	s := NewServer(NewRegistry())
+func TestServer_UpdateMemberMetadataInvalidMember(t *testing.T) {
+	s := NewServer(NewRegistry(testutils.RandomMember()))
 
-	resp, err := s.UpdateNode(context.Background(), &rpc.UpdateNodeRequest{
-		NodeId: "foo",
-		Metadata: map[string]string{
-			"bar": "car",
-		},
+	resp, err := s.UpdateMemberMetadata(context.Background(), &rpc.UpdateMemberMetadataRequest{
+		Id:       "not-found",
+		Metadata: testutils.RandomMetadata(),
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, rpc.ErrorStatus_NOT_FOUND, resp.Error.Status)
+	assert.Equal(t, rpc.ErrorStatusV2_NOT_REGISTERED, resp.Error.Status)
 }
 
-func TestServer_Nodes(t *testing.T) {
-	s := NewServer(NewRegistry())
+func TestServer_MemberNotFound(t *testing.T) {
+	s := NewServer(NewRegistry(testutils.RandomMember()))
 
-	var nodes []*rpc.Node
-	for i := 0; i != 10; i++ {
-		registeredNode := testutils.RandomRPCNode()
-
-		_, err := s.Register(context.Background(), &rpc.RegisterRequest{
-			Node: registeredNode,
-		})
-		assert.NoError(t, err)
-
-		nodes = append(nodes, registeredNode)
-	}
-
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].Id < nodes[j].Id
-	})
-
-	resp, err := s.Nodes(context.Background(), &rpc.NodesRequest{
-		IncludeMetadata: true,
+	resp, err := s.Member(context.Background(), &rpc.MemberRequest{
+		Id: "not-found",
 	})
 	assert.NoError(t, err)
-
-	nodesWithMetadata := resp.Nodes
-	sort.Slice(nodesWithMetadata, func(i, j int) bool {
-		return nodesWithMetadata[i].Id < nodesWithMetadata[j].Id
-	})
-
-	assert.Equal(t, 10, len(nodesWithMetadata))
-	for i := 0; i != 10; i++ {
-		assert.True(t, proto.Equal(nodes[i], nodesWithMetadata[i]))
-	}
-}
-
-func TestServer_HeartbeatOK(t *testing.T) {
-	s := NewServer(NewRegistry())
-
-	registeredNode := testutils.RandomRPCNode()
-	_, err := s.Register(context.Background(), &rpc.RegisterRequest{
-		Node: registeredNode,
-	})
-	assert.NoError(t, err)
-
-	resp, err := s.Heartbeat(context.Background(), &rpc.HeartbeatRequest{
-		Heartbeat: &rpc.Heartbeat{
-			Timestamp: 10,
-		},
-		Nodes: []string{registeredNode.Id},
-	})
-	assert.NoError(t, err)
-
-	expected := &rpc.HeartbeatResponse{
-		Heartbeat: &rpc.Heartbeat{
-			Timestamp: 10,
-		},
-	}
-	assert.True(t, proto.Equal(expected, resp))
-}
-
-func TestServer_HeartbeatNotFound(t *testing.T) {
-	s := NewServer(NewRegistry())
-
-	resp, err := s.Heartbeat(context.Background(), &rpc.HeartbeatRequest{
-		Heartbeat: &rpc.Heartbeat{
-			Timestamp: 10,
-		},
-		Nodes: []string{"not-found"},
-	})
-	assert.NoError(t, err)
-
-	expected := &rpc.HeartbeatResponse{
-		Heartbeat: &rpc.Heartbeat{
-			Timestamp: 10,
-		},
-		Errors: map[string]*rpc.Error{
-			"not-found": &rpc.Error{
-				Status:      rpc.ErrorStatus_NOT_REGISTERED,
-				Description: "not found",
-			},
-		},
-	}
-	assert.True(t, proto.Equal(expected, resp))
+	assert.Equal(t, rpc.ErrorStatusV2_NOT_FOUND, resp.Error.Status)
 }
