@@ -90,6 +90,7 @@ func runMemberStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("ID:", member.Id)
+	fmt.Println("Status:", member.Status)
 	fmt.Println("Service:", member.Service)
 	fmt.Println("Locality:", member.Locality)
 	fmt.Println("Created:", member.Created)
