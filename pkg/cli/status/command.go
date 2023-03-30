@@ -113,10 +113,11 @@ func displayMembers(members []*rpc.Member) {
 		return members[i].Id < members[j].Id
 	})
 
-	tbl := table.New("ID", "Service", "Locality", "Created", "Revision")
+	tbl := table.New("ID", "Status", "Service", "Locality", "Created", "Revision")
 	for _, member := range members {
 		tbl.AddRow(
 			member.Id,
+			member.Status,
 			member.Service,
 			member.Locality,
 			member.Created,
