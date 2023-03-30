@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package status
+package info
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 )
 
 var Command = &cobra.Command{
-	Use:   "status",
+	Use:   "info",
 	Short: "inspect the status of the cluster",
 }
 
@@ -90,6 +90,7 @@ func runMemberStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("ID:", member.Id)
+	fmt.Println("Status:", member.Status)
 	fmt.Println("Service:", member.Service)
 	fmt.Println("Locality:", member.Locality)
 	fmt.Println("Created:", member.Created)
@@ -113,10 +114,11 @@ func displayMembers(members []*rpc.Member) {
 		return members[i].Id < members[j].Id
 	})
 
-	tbl := table.New("ID", "Service", "Locality", "Created", "Revision")
+	tbl := table.New("ID", "Status", "Service", "Locality", "Created", "Revision")
 	for _, member := range members {
 		tbl.AddRow(
 			member.Id,
+			member.Status,
 			member.Service,
 			member.Locality,
 			member.Created,
