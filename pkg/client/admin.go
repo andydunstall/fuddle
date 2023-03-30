@@ -29,7 +29,7 @@ import (
 type Admin struct {
 	addr   string
 	conn   *grpc.ClientConn
-	client rpc.RegistryClient
+	client rpc.RegistryV2Client
 }
 
 func NewAdmin(addr string, opts ...Option) (*Admin, error) {
@@ -51,10 +51,8 @@ func NewAdmin(addr string, opts ...Option) (*Admin, error) {
 	}, nil
 }
 
-func (a *Admin) Cluster(ctx context.Context) ([]*rpc.Node, error) {
-	resp, err := a.client.Nodes(ctx, &rpc.NodesRequest{
-		IncludeMetadata: false,
-	})
+func (a *Admin) Cluster(ctx context.Context) ([]*rpc.Member, error) {
+	resp, err := a.client.Members(ctx, &rpc.MembersRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("admin: cluster: %w", err)
 	}
@@ -63,12 +61,12 @@ func (a *Admin) Cluster(ctx context.Context) ([]*rpc.Node, error) {
 			"admin: cluster: %s: %s", resp.Error.Status, resp.Error.Description,
 		)
 	}
-	return resp.Nodes, nil
+	return resp.Members, nil
 }
 
-func (a *Admin) Node(ctx context.Context, id string) (*rpc.Node, error) {
-	resp, err := a.client.Node(ctx, &rpc.NodeRequest{
-		NodeId: id,
+func (a *Admin) Member(ctx context.Context, id string) (*rpc.Member, error) {
+	resp, err := a.client.Member(ctx, &rpc.MemberRequest{
+		Id: id,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("admin: cluster: %w", err)
@@ -78,14 +76,14 @@ func (a *Admin) Node(ctx context.Context, id string) (*rpc.Node, error) {
 			"admin: cluster: %s: %s", resp.Error.Status, resp.Error.Description,
 		)
 	}
-	return resp.Node, nil
+	return resp.Member, nil
 }
 
 func (a *Admin) Close() {
 	a.conn.Close()
 }
 
-func connect(addr string, timeout time.Duration) (*grpc.ClientConn, rpc.RegistryClient, error) {
+func connect(addr string, timeout time.Duration) (*grpc.ClientConn, rpc.RegistryV2Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -100,6 +98,6 @@ func connect(addr string, timeout time.Duration) (*grpc.ClientConn, rpc.Registry
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
 
-	client := rpc.NewRegistryClient(conn)
+	client := rpc.NewRegistryV2Client(conn)
 	return conn, client, nil
 }

@@ -66,12 +66,12 @@ func NewService(conf *Config, opts ...Option) *Service {
 func (s *Service) Start() error {
 	s.logger.Info("starting node", zap.Object("conf", s.conf))
 
-	fuddleClient, err := fuddle.Connect(s.conf.FuddleAddrs)
+	fuddleClient, err := fuddle.Connect(context.Background(), s.conf.FuddleAddrs)
 	if err != nil {
 		return fmt.Errorf("frontend service: start: %w", err)
 	}
 
-	_, err = fuddleClient.Register(context.Background(), fuddle.Node{
+	if err = fuddleClient.Register(context.Background(), fuddle.Member{
 		ID:       s.conf.ID,
 		Service:  "counter",
 		Locality: s.conf.Locality,
@@ -80,8 +80,7 @@ func (s *Service) Start() error {
 		Metadata: map[string]string{
 			"addr.rpc": s.conf.RPCAddr,
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return fmt.Errorf("counter service: start: %w", err)
 	}
 	s.fuddleClient = fuddleClient

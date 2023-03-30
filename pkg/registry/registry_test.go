@@ -16,7 +16,6 @@
 package registry
 
 import (
-	"sort"
 	"testing"
 	"time"
 
@@ -26,339 +25,539 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestRegistry_RegisterThenQueryNode(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_LookupLocalMember(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
 
-	registeredNode := testutils.RandomRPCNode()
-	assert.NoError(t, r.Register(registeredNode, time.Now()))
+	expectedMember := localMember
+	expectedMember.Status = rpc.MemberStatus_UP
+	expectedMember.Version = 1
 
-	n, err := r.Node(registeredNode.Id)
-	assert.NoError(t, err)
-	assert.True(t, proto.Equal(n, registeredNode))
+	m, ok := r.Member(localMember.Id)
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(expectedMember, m))
 }
 
-func TestRegistry_RegisterThenUnregister(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_LookupMemberNotFound(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember())
 
-	registeredNode := testutils.RandomRPCNode()
-	assert.NoError(t, r.Register(registeredNode, time.Now()))
-	assert.True(t, r.Unregister(registeredNode.Id))
-
-	_, err := r.Node(registeredNode.Id)
-	assert.Equal(t, ErrNotFound, err)
+	_, ok := r.Member("not-found")
+	assert.False(t, ok)
 }
 
-func TestRegistry_NodeNotFound(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_Register(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember())
 
-	_, err := r.Node("foo")
-	assert.Equal(t, ErrNotFound, err)
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member))
+
+	expectedMember := member
+	expectedMember.Status = rpc.MemberStatus_UP
+	expectedMember.Version = 1
+
+	m, ok := r.Member(member.Id)
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(expectedMember, m))
 }
 
-func TestRegistry_RegisterInvalidUpdate(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_RegisterInvalidMember(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember())
 
-	nodeMissingID := testutils.RandomRPCNode()
-	nodeMissingID.Id = ""
+	memberMissingID := testutils.RandomMember()
+	memberMissingID.Id = ""
 
-	nodeMissingAttrs := testutils.RandomRPCNode()
-	nodeMissingAttrs.Attributes = nil
+	memberMissingClientID := testutils.RandomMember()
+	memberMissingClientID.ClientId = ""
 
-	nodeMissingMetadata := testutils.RandomRPCNode()
-	nodeMissingMetadata.Metadata = nil
+	memberMissingMetadata := testutils.RandomMember()
+	memberMissingMetadata.Metadata = nil
 
 	tests := []struct {
-		Name string
-		Node *rpc.Node
+		Name   string
+		Member *rpc.Member
 	}{
 		{
-			Name: "missing id",
-			Node: nodeMissingID,
+			Name:   "missing id",
+			Member: memberMissingID,
 		},
 		{
-			Name: "missing attrs",
-			Node: nodeMissingAttrs,
+			Name:   "missing client id",
+			Member: memberMissingClientID,
 		},
 		{
-			Name: "missing metadata",
-			Node: nodeMissingMetadata,
+			Name:   "missing metadata",
+			Member: memberMissingMetadata,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
-			assert.Equal(t, ErrInvalidUpdate, r.Register(tt.Node, time.Now()))
+			assert.Equal(t, ErrInvalidUpdate, r.Register(tt.Member))
 		})
 	}
 }
 
-func TestRegistry_RegisterAlreadyRegister(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_RegisterAlreadyRegisteredWithDifferentClientID(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember())
 
-	registeredNode := testutils.RandomRPCNode()
-	assert.NoError(t, r.Register(registeredNode, time.Now()))
+	m1 := testutils.RandomMember()
+	assert.NoError(t, r.Register(m1))
 
-	// Register the same node again which should fail.
-	assert.Equal(t, ErrAlreadyRegistered, r.Register(registeredNode, time.Now()))
+	m2 := CopyMember(m1)
+	m2.ClientId = "no-match"
+
+	assert.Equal(t, ErrAlreadyRegistered, r.Register(m2))
 }
 
-func TestRegistry_UpdateNode(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_RegisterThenUnregister(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember())
 
-	registeredNode := testutils.RandomRPCNode()
-	assert.NoError(t, r.Register(registeredNode, time.Now()))
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member))
+	assert.True(t, r.Unregister(member.Id))
 
-	update := testutils.RandomMetadata()
-	assert.NoError(t, r.UpdateNode(registeredNode.Id, update))
+	_, ok := r.Member(member.Id)
+	assert.False(t, ok)
 
-	expectedNode := CopyNode(registeredNode)
-	for k, v := range update {
-		expectedNode.Metadata[k] = &rpc.VersionedValue{
-			Value: v,
-		}
-	}
-
-	n, err := r.Node(registeredNode.Id)
-	assert.NoError(t, err)
-	assert.True(t, proto.Equal(n, expectedNode))
 }
 
-func TestRegistry_UpdateNodeNilMetadata(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_UpdateMemberMetadata(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember())
 
-	registeredNode := testutils.RandomRPCNode()
-	assert.NoError(t, r.Register(registeredNode, time.Now()))
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member))
 
-	assert.Equal(t, ErrInvalidUpdate, r.UpdateNode(registeredNode.Id, nil))
+	metadata := testutils.RandomMetadata()
+	assert.NoError(t, r.UpdateMemberMetadata(member.Id, metadata))
+
+	expectedMember := CopyMember(member)
+	for k, v := range metadata {
+		expectedMember.Metadata[k] = v
+	}
+	expectedMember.Version = 2
+
+	m, ok := r.Member(member.Id)
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(expectedMember, m))
 }
 
-func TestRegistry_UpdateNodeNotFound(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_UpdateMemberMetadataInvalid(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember())
 
-	assert.Equal(t, ErrNotFound, r.UpdateNode("foo", map[string]string{"a": "b"}))
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member))
+
+	assert.Equal(
+		t,
+		ErrInvalidUpdate,
+		r.UpdateMemberMetadata(member.Id, nil),
+	)
 }
 
-func TestRegistry_Nodes(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_UpdateMemberMetadataNotRegistered(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember())
 
-	var nodes []*rpc.Node
-	for i := 0; i != 10; i++ {
-		registeredNode := testutils.RandomRPCNode()
-		assert.NoError(t, r.Register(registeredNode, time.Now()))
-
-		nodes = append(nodes, registeredNode)
-	}
-
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].Id < nodes[j].Id
-	})
-
-	nodesWithMetadata := r.Nodes(true)
-	sort.Slice(nodesWithMetadata, func(i, j int) bool {
-		return nodesWithMetadata[i].Id < nodesWithMetadata[j].Id
-	})
-
-	assert.Equal(t, 10, len(nodesWithMetadata))
-	for i := 0; i != 10; i++ {
-		assert.True(t, proto.Equal(nodes[i], nodesWithMetadata[i]))
-	}
+	assert.Equal(
+		t,
+		ErrNotRegistered,
+		r.UpdateMemberMetadata("not-found", make(map[string]string)),
+	)
 }
 
-// Tests subscribign to register updates.
-func TestRegistry_SubscribeToRegister(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_HeartbeatRevivesDownNode(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember(), WithHeartbeatTimeout(10*time.Second))
 
-	var receivedUpdates []*rpc.NodeUpdate
-	unsubscribe := r.Subscribe(func(update *rpc.NodeUpdate) {
-		receivedUpdates = append(receivedUpdates, update)
-	})
-	defer unsubscribe()
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member, WithTime(time.Unix(0, 0))))
 
-	var expectedUpdates []*rpc.NodeUpdate
-	for i := 0; i != 10; i++ {
-		node := testutils.RandomRPCNode()
-		assert.NoError(t, r.Register(node, time.Now()))
+	r.MarkFailedMembers(WithTime(time.Unix(20, 0)))
 
-		expectedUpdates = append(expectedUpdates, &rpc.NodeUpdate{
-			NodeId:     node.Id,
-			UpdateType: rpc.NodeUpdateType_REGISTER,
-			Attributes: CopyAttributes(node.Attributes),
-			Metadata:   CopyMetadata(node.Metadata),
-		})
-	}
-	sort.Slice(expectedUpdates, func(i, j int) bool {
-		return expectedUpdates[i].NodeId < expectedUpdates[j].NodeId
-	})
+	m, ok := r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_DOWN, m.Status)
+	assert.Equal(t, uint64(2), m.Version)
 
-	sort.Slice(receivedUpdates, func(i, j int) bool {
-		return receivedUpdates[i].NodeId < receivedUpdates[j].NodeId
-	})
+	// A heartbeat before the reconnect timeout expires should mark the member
+	// as up.
+	r.Heartbeat(member.ClientId, WithTime(time.Unix(25, 0)))
 
-	assert.Equal(t, 10, len(receivedUpdates))
-	for i := 0; i != 10; i++ {
-		assert.True(t, proto.Equal(expectedUpdates[i], receivedUpdates[i]))
-	}
+	m, ok = r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_UP, m.Status)
+	// Updating the status should update the version.
+	assert.Equal(t, uint64(3), m.Version)
 }
 
-// Tests subscribing to unregister updates.
-func TestRegistry_SubscribeToUnregister(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_RegisterRevivesDownNode(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember(), WithHeartbeatTimeout(10*time.Second))
 
-	var receivedUpdates []*rpc.NodeUpdate
-	unsubscribe := r.Subscribe(func(update *rpc.NodeUpdate) {
-		receivedUpdates = append(receivedUpdates, update)
-	})
-	defer unsubscribe()
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member, WithTime(time.Unix(0, 0))))
 
-	var registeredIDs []string
-	for i := 0; i != 10; i++ {
-		node := testutils.RandomRPCNode()
-		assert.NoError(t, r.Register(node, time.Now()))
-		registeredIDs = append(registeredIDs, node.Id)
-	}
+	r.MarkFailedMembers(WithTime(time.Unix(20, 0)))
 
-	var expectedUpdates []*rpc.NodeUpdate
-	for _, id := range registeredIDs {
-		assert.True(t, r.Unregister(id))
+	m, ok := r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_DOWN, m.Status)
+	assert.Equal(t, uint64(2), m.Version)
 
-		expectedUpdates = append(expectedUpdates, &rpc.NodeUpdate{
-			NodeId:     id,
-			UpdateType: rpc.NodeUpdateType_UNREGISTER,
-		})
-	}
-	sort.Slice(expectedUpdates, func(i, j int) bool {
-		return expectedUpdates[i].NodeId < expectedUpdates[j].NodeId
-	})
+	// A re-register before the reconnect timeout expires should mark the member
+	// as up.
+	assert.NoError(t, r.Register(member, WithTime(time.Unix(25, 0))))
 
-	// Discard the first 10 register updates.
-	receivedUpdates = receivedUpdates[10:]
-	sort.Slice(receivedUpdates, func(i, j int) bool {
-		return receivedUpdates[i].NodeId < receivedUpdates[j].NodeId
-	})
-
-	assert.Equal(t, 10, len(receivedUpdates))
-	for i := 0; i != 10; i++ {
-		assert.True(t, proto.Equal(expectedUpdates[i], receivedUpdates[i]))
-	}
+	m, ok = r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_UP, m.Status)
+	// Updating the status should update the version.
+	assert.Equal(t, uint64(3), m.Version)
 }
 
-// Tests subscribing to metadata updates.
-func TestRegistry_SubscribeToMetadata(t *testing.T) {
-	r := NewRegistry()
+// Tests members that receive regular heartbeats are not marked as failed.
+// Registers a member at t100, receives a heartbeat at t105, t110, and t115, then
+// marks failed members at t120 with a t10 heartbeat timeout.
+func TestRegistry_MarkFailedMembersIgnoresMembersWithHeartbeat(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember(), WithHeartbeatTimeout(10*time.Second))
 
-	var receivedUpdates []*rpc.NodeUpdate
-	unsubscribe := r.Subscribe(func(update *rpc.NodeUpdate) {
-		receivedUpdates = append(receivedUpdates, update)
-	})
-	defer unsubscribe()
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member, WithTime(time.Unix(100, 0))))
 
-	var registeredIDs []string
-	for i := 0; i != 10; i++ {
-		node := testutils.RandomRPCNode()
-		assert.NoError(t, r.Register(node, time.Now()))
-		registeredIDs = append(registeredIDs, node.Id)
-	}
+	r.Heartbeat(member.ClientId, WithTime(time.Unix(105, 0)))
+	r.Heartbeat(member.ClientId, WithTime(time.Unix(110, 0)))
+	r.Heartbeat(member.ClientId, WithTime(time.Unix(115, 0)))
 
-	var expectedUpdates []*rpc.NodeUpdate
-	for _, id := range registeredIDs {
-		metadata := testutils.RandomMetadata()
-		versionedMetadataUpdate := make(map[string]*rpc.VersionedValue)
-		for k, v := range metadata {
-			versionedMetadataUpdate[k] = &rpc.VersionedValue{
-				Value: v,
-			}
-		}
+	r.MarkFailedMembers(WithTime(time.Unix(120, 0)))
 
-		assert.NoError(t, r.UpdateNode(id, metadata))
-
-		expectedUpdates = append(expectedUpdates, &rpc.NodeUpdate{
-			NodeId:     id,
-			UpdateType: rpc.NodeUpdateType_METADATA,
-			Metadata:   versionedMetadataUpdate,
-		})
-	}
-	sort.Slice(expectedUpdates, func(i, j int) bool {
-		return expectedUpdates[i].NodeId < expectedUpdates[j].NodeId
-	})
-
-	// Discard the first 10 register updates.
-	receivedUpdates = receivedUpdates[10:]
-	sort.Slice(receivedUpdates, func(i, j int) bool {
-		return receivedUpdates[i].NodeId < receivedUpdates[j].NodeId
-	})
-
-	assert.Equal(t, 10, len(receivedUpdates))
-	for i := 0; i != 10; i++ {
-		assert.True(t, proto.Equal(expectedUpdates[i], receivedUpdates[i]))
-	}
+	m, ok := r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_UP, m.Status)
+	// The version should not have updated.
+	assert.Equal(t, uint64(1), m.Version)
 }
 
-// Tests we receive register updates for all nodes in the registry when
-// subscribing.
-func TestRegistry_SubscribeBootstrap(t *testing.T) {
-	r := NewRegistry()
+// Tests members that never receive a heartbeat are marked as failed.
+// Registers a member at t0, then marks failed members at t20 with a t10 heartbeat
+// timeout.
+func TestRegistry_MarkFailedMembersFailsMembersWithNoHeartbeats(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember(), WithHeartbeatTimeout(10*time.Second))
 
-	var expectedUpdates []*rpc.NodeUpdate
-	for i := 0; i != 10; i++ {
-		node := testutils.RandomRPCNode()
-		assert.NoError(t, r.Register(node, time.Now()))
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member, WithTime(time.Unix(0, 0))))
 
-		expectedUpdates = append(expectedUpdates, &rpc.NodeUpdate{
-			NodeId:     node.Id,
-			UpdateType: rpc.NodeUpdateType_REGISTER,
-			Attributes: CopyAttributes(node.Attributes),
-			Metadata:   CopyMetadata(node.Metadata),
-		})
-	}
-	sort.Slice(expectedUpdates, func(i, j int) bool {
-		return expectedUpdates[i].NodeId < expectedUpdates[j].NodeId
-	})
+	// Add heartbeat for another client ID.
+	r.Heartbeat("foo", WithTime(time.Unix(19, 0)))
 
-	var receivedUpdates []*rpc.NodeUpdate
-	unsubscribe := r.Subscribe(func(update *rpc.NodeUpdate) {
-		receivedUpdates = append(receivedUpdates, update)
-	})
-	defer unsubscribe()
-	sort.Slice(receivedUpdates, func(i, j int) bool {
-		return receivedUpdates[i].NodeId < receivedUpdates[j].NodeId
-	})
+	r.MarkFailedMembers(WithTime(time.Unix(20, 0)))
 
-	assert.Equal(t, 10, len(receivedUpdates))
-	for i := 0; i != 10; i++ {
-		assert.True(t, proto.Equal(expectedUpdates[i], receivedUpdates[i]))
-	}
+	m, ok := r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_DOWN, m.Status)
+	assert.Equal(t, uint64(2), m.Version)
 }
 
-func TestRegistry_UnregisterDownNodes(t *testing.T) {
-	r := NewRegistry()
+// Tests MarkFailedMembers doesn't mark members that have just registered but not
+// yet sent a heartbeat as down.
+// Registers a member at t100, then marks failed members at t105 with a t10 heartbeat
+// timeout.
+func TestRegistry_MarkFailedMembersIgnoresJustRegistered(t *testing.T) {
+	r := NewRegistry(testutils.RandomMember(), WithHeartbeatTimeout(10*time.Second))
 
-	// Register two nodes, both should be up.
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member, WithTime(time.Unix(100, 0))))
 
-	n1 := testutils.RandomRPCNode()
-	assert.NoError(t, r.Register(n1, time.Unix(1, 0)))
+	r.MarkFailedMembers(WithTime(time.Unix(105, 0)))
 
-	n2 := testutils.RandomRPCNode()
-	assert.NoError(t, r.Register(n2, time.Unix(2, 0)))
-
-	assert.Equal(t, []string(nil), r.UnregisterDownNodes(
-		time.Unix(3, 0), time.Second*10,
-	))
-
-	// Mark contact for only the first node. The second should be unregistered
-	// when checking.
-
-	assert.NoError(t, r.MarkContact(n1.Id, time.Unix(10, 0)))
-
-	// Expect the second node to be unregistered.
-	assert.Equal(t, []string{n2.Id}, r.UnregisterDownNodes(
-		time.Unix(15, 0), time.Second*10,
-	))
-
-	_, err := r.Node(n2.Id)
-	assert.Equal(t, ErrNotFound, err)
+	m, ok := r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_UP, m.Status)
+	assert.Equal(t, uint64(1), m.Version)
 }
 
-func TestRegistry_MarkContactNotFound(t *testing.T) {
-	r := NewRegistry()
+func TestRegistry_MarkFailedMembersIgnoresLocalNode(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
 
-	assert.Equal(t, ErrNotFound, r.MarkContact("not found", time.Now()))
+	r.MarkFailedMembers(WithTime(time.Unix(100, 0)))
+
+	m, ok := r.Member(localMember.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_UP, m.Status)
+	assert.Equal(t, uint64(1), m.Version)
+}
+
+func TestRegistry_UnregisterFailedMembers(t *testing.T) {
+	r := NewRegistry(
+		testutils.RandomMember(),
+		WithHeartbeatTimeout(10*time.Second),
+		WithReconnectTimeout(100*time.Second),
+	)
+
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member, WithTime(time.Unix(0, 0))))
+
+	r.MarkFailedMembers(WithTime(time.Unix(20, 0)))
+
+	m, ok := r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_DOWN, m.Status)
+
+	// Unregistering failed members BEFORE the reconnect timeout should do
+	// nothing.
+	r.UnregisterFailedMembers(WithTime(time.Unix(50, 0)))
+
+	// The member should still be registered.
+	_, ok = r.Member(member.Id)
+	assert.True(t, ok)
+
+	// Marking failed members again should not change the down time.
+	r.MarkFailedMembers(WithTime(time.Unix(100, 0)))
+
+	// Unregistering failed members AFTER the reconnect timeout unregister the
+	// member.
+	r.UnregisterFailedMembers(WithTime(time.Unix(150, 0)))
+
+	_, ok = r.Member(member.Id)
+	assert.False(t, ok)
+}
+
+func TestRegistry_UnregisterFailedMembersIgnoresRevivedNode(t *testing.T) {
+	r := NewRegistry(
+		testutils.RandomMember(),
+		WithHeartbeatTimeout(10*time.Second),
+		WithReconnectTimeout(100*time.Second),
+	)
+
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member, WithTime(time.Unix(0, 0))))
+
+	r.MarkFailedMembers(WithTime(time.Unix(20, 0)))
+
+	m, ok := r.Member(member.Id)
+	assert.True(t, ok)
+	assert.Equal(t, rpc.MemberStatus_DOWN, m.Status)
+
+	// Revive the member.
+	r.Heartbeat(member.ClientId, WithTime(time.Unix(145, 0)))
+
+	r.UnregisterFailedMembers(WithTime(time.Unix(150, 0)))
+
+	// The member should still be registered.
+	_, ok = r.Member(member.Id)
+	assert.True(t, ok)
+}
+
+func TestRegistry_SubscribeBootstrapReceiveRegisters(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
+
+	m1 := testutils.RandomMember()
+	assert.NoError(t, r.Register(m1))
+	m2 := testutils.RandomMember()
+	assert.NoError(t, r.Register(m2))
+	m3 := testutils.RandomMember()
+	assert.NoError(t, r.Register(m3))
+
+	receivedRegisterUpdates := make(map[string]interface{})
+
+	// Subscribe knowing about the local member and m1, so expect to receive
+	// m2 and m3.
+	r.Subscribe(map[string]uint64{
+		localMember.Id: 1,
+		m1.Id:          1,
+	}, func(update *rpc.MemberUpdate) {
+		assert.Equal(t, rpc.MemberUpdateType_REGISTER, update.UpdateType)
+		receivedRegisterUpdates[update.Id] = struct{}{}
+	})
+
+	expectedIDs := map[string]interface{}{
+		m2.Id: struct{}{},
+		m3.Id: struct{}{},
+	}
+	assert.Equal(t, expectedIDs, receivedRegisterUpdates)
+}
+
+func TestRegistry_SubscribeBootstrapReceiveStateUpdates(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
+
+	m1 := testutils.RandomMember()
+	assert.NoError(t, r.Register(m1))
+	assert.NoError(t, r.UpdateMemberMetadata(m1.Id, testutils.RandomMetadata()))
+	assert.NoError(t, r.UpdateMemberMetadata(m1.Id, testutils.RandomMetadata()))
+	// Hacky just to update status.
+	r.setStatusLocked(m1.Id, rpc.MemberStatus_DOWN, time.Now())
+
+	m2 := testutils.RandomMember()
+	assert.NoError(t, r.Register(m2))
+	assert.NoError(t, r.UpdateMemberMetadata(m2.Id, testutils.RandomMetadata()))
+	assert.NoError(t, r.UpdateMemberMetadata(m2.Id, testutils.RandomMetadata()))
+	// Hacky just to update status.
+	r.setStatusLocked(m2.Id, rpc.MemberStatus_DOWN, time.Now())
+	r.setStatusLocked(m2.Id, rpc.MemberStatus_UP, time.Now())
+
+	receivedStateUpdates := make(map[string]uint64)
+
+	// Subscribe knowing about the local member and m1, so expect to receive
+	// m2 and m3.
+	r.Subscribe(map[string]uint64{
+		localMember.Id: 1,
+		// Missing updates for members.
+		m1.Id: 1,
+		m2.Id: 2,
+	}, func(update *rpc.MemberUpdate) {
+		assert.Equal(t, rpc.MemberUpdateType_STATE, update.UpdateType)
+		receivedStateUpdates[update.Id] = update.Member.Version
+	})
+
+	expectedIDs := map[string]uint64{
+		m1.Id: 4,
+		m2.Id: 5,
+	}
+	assert.Equal(t, expectedIDs, receivedStateUpdates)
+}
+
+func TestRegistry_SubscribeBootstrapReceiveUnregisters(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
+
+	m1 := testutils.RandomMember()
+	assert.NoError(t, r.Register(m1))
+
+	receivedUnregisterUpdates := make(map[string]interface{})
+
+	// Subscribe knowing about the local member and m1, so expect to receive
+	// m2 and m3.
+	r.Subscribe(map[string]uint64{
+		localMember.Id: 1,
+		m1.Id:          1,
+		// Member not in the registry.
+		"member-1": 5,
+		"member-2": 7,
+		"member-3": 2,
+	}, func(update *rpc.MemberUpdate) {
+		assert.Equal(t, rpc.MemberUpdateType_UNREGISTER, update.UpdateType)
+		receivedUnregisterUpdates[update.Id] = struct{}{}
+	})
+
+	expectedIDs := map[string]interface{}{
+		"member-1": struct{}{},
+		"member-2": struct{}{},
+		"member-3": struct{}{},
+	}
+	assert.Equal(t, expectedIDs, receivedUnregisterUpdates)
+}
+
+func TestRegistry_SubscribeUpdatesReceiveRegisters(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
+
+	var receivedMember *rpc.Member
+	r.Subscribe(map[string]uint64{localMember.Id: 1}, func(update *rpc.MemberUpdate) {
+		assert.Equal(t, rpc.MemberUpdateType_REGISTER, update.UpdateType)
+		receivedMember = update.Member
+	})
+
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member))
+
+	expectedMember := member
+	expectedMember.Version = 1
+
+	assert.Equal(t, expectedMember, receivedMember)
+}
+
+func TestRegistry_SubscribeUpdatesReceiveStateUpdates(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
+
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member))
+
+	var receivedMember *rpc.Member
+	r.Subscribe(map[string]uint64{
+		localMember.Id: 1,
+		member.Id:      1,
+	}, func(update *rpc.MemberUpdate) {
+		assert.Equal(t, rpc.MemberUpdateType_STATE, update.UpdateType)
+		receivedMember = update.Member
+	})
+
+	expectedMember := member
+	expectedMember.Status = rpc.MemberStatus_DOWN
+	expectedMember.Version = 2
+
+	r.setStatusLocked(member.Id, rpc.MemberStatus_DOWN, time.Now())
+
+	assert.Equal(t, expectedMember, receivedMember)
+}
+
+func TestRegistry_SubscribeUpdatesReceiveReRegisterUpdates(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
+
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member))
+
+	r.setStatusLocked(member.Id, rpc.MemberStatus_DOWN, time.Now())
+
+	var receivedMember *rpc.Member
+	r.Subscribe(map[string]uint64{
+		localMember.Id: 1,
+		member.Id:      1,
+	}, func(update *rpc.MemberUpdate) {
+		assert.Equal(t, rpc.MemberUpdateType_STATE, update.UpdateType)
+		receivedMember = update.Member
+	})
+
+	// Register the member again to revive it.
+	assert.NoError(t, r.Register(member))
+
+	expectedMember := member
+	expectedMember.Status = rpc.MemberStatus_UP
+	expectedMember.Version = 3
+
+	assert.Equal(t, expectedMember, receivedMember)
+}
+
+func TestRegistry_SubscribeUpdatesReceiveUnregisters(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
+
+	member := testutils.RandomMember()
+	assert.NoError(t, r.Register(member))
+
+	var receivedMember string
+	r.Subscribe(map[string]uint64{
+		localMember.Id: 1,
+		member.Id:      1,
+	}, func(update *rpc.MemberUpdate) {
+		assert.Equal(t, rpc.MemberUpdateType_UNREGISTER, update.UpdateType)
+		receivedMember = update.Id
+	})
+
+	r.Unregister(member.Id)
+
+	assert.Equal(t, member.Id, receivedMember)
+}
+
+func TestRegistry_Unsubscribe(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
+
+	unsubscribe := r.Subscribe(map[string]uint64{localMember.Id: 1}, func(update *rpc.MemberUpdate) {
+		t.Error("unexpected notification")
+	})
+	unsubscribe()
+
+	assert.NoError(t, r.Register(testutils.RandomMember()))
+}
+
+func TestRegistry_Members(t *testing.T) {
+	localMember := testutils.RandomMember()
+	r := NewRegistry(localMember)
+
+	expectedMember := localMember
+	expectedMember.Status = rpc.MemberStatus_UP
+	expectedMember.Version = 1
+
+	members := r.Members()
+	assert.Equal(t, []*rpc.Member{expectedMember}, members)
 }

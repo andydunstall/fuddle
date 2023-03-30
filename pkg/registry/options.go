@@ -16,11 +16,16 @@
 package registry
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 )
 
 type options struct {
-	logger *zap.Logger
+	logger           *zap.Logger
+	time             time.Time
+	heartbeatTimeout time.Duration
+	reconnectTimeout time.Duration
 }
 
 type Option interface {
@@ -37,4 +42,40 @@ func (o loggerOption) apply(opts *options) {
 
 func WithLogger(logger *zap.Logger) Option {
 	return loggerOption{logger: logger}
+}
+
+type timeOption struct {
+	time time.Time
+}
+
+func (o timeOption) apply(opts *options) {
+	opts.time = o.time
+}
+
+func WithTime(t time.Time) Option {
+	return timeOption{time: t}
+}
+
+type heartbeatTimeoutOption struct {
+	timeout time.Duration
+}
+
+func (o heartbeatTimeoutOption) apply(opts *options) {
+	opts.heartbeatTimeout = o.timeout
+}
+
+func WithHeartbeatTimeout(timeout time.Duration) Option {
+	return heartbeatTimeoutOption{timeout: timeout}
+}
+
+type reconnectTimeoutOption struct {
+	timeout time.Duration
+}
+
+func (o reconnectTimeoutOption) apply(opts *options) {
+	opts.reconnectTimeout = o.timeout
+}
+
+func WithReconnectTimeout(timeout time.Duration) Option {
+	return reconnectTimeoutOption{timeout: timeout}
 }

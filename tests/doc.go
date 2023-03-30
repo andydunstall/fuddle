@@ -13,28 +13,5 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package testutils
-
-import (
-	"context"
-	"fmt"
-	"time"
-)
-
-func WaitWithTimeout(ch chan interface{}, timeout time.Duration) error {
-	select {
-	case <-ch:
-		return nil
-	case <-time.After(timeout):
-		return fmt.Errorf("timeout")
-	}
-}
-
-func WaitWithContext(ctx context.Context, ch chan interface{}) error {
-	select {
-	case <-ch:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
+// Package tests implements end to end system tests for Fuddle.
+package tests

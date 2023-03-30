@@ -17,7 +17,6 @@ package registry
 
 import (
 	"context"
-	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"go.uber.org/zap"
@@ -28,7 +27,7 @@ type Server struct {
 
 	logger *zap.Logger
 
-	rpc.UnimplementedRegistryServer
+	rpc.UnimplementedRegistryV2Server
 }
 
 func NewServer(registry *Registry, opts ...Option) *Server {
@@ -45,143 +44,87 @@ func NewServer(registry *Registry, opts ...Option) *Server {
 	}
 }
 
-func (s *Server) Register(ctx context.Context, req *rpc.RegisterRequest) (*rpc.RegisterResponse, error) {
-	logger := s.logger.With(zap.String("rpc", "registry.Register"))
+func (s *Server) RegisterMember(ctx context.Context, req *rpc.RegisterMemberRequest) (*rpc.RegisterMemberResponse, error) {
+	logger := s.logger.With(zap.String("rpc", "registry.RegisterMember"))
 
-	err := s.registry.Register(req.Node, time.Now())
+	err := s.registry.Register(req.Member)
 	if err == ErrAlreadyRegistered {
-		logger.Warn(
-			"node already registered",
-			zap.String("id", req.Node.Id),
-		)
-
-		return &rpc.RegisterResponse{
-			Error: &rpc.Error{
-				Status:      rpc.ErrorStatus_ALREADY_REGISTERED,
-				Description: err.Error(),
-			},
+		logger.Warn("member already registered", zap.String("id", req.Member.Id))
+		return &rpc.RegisterMemberResponse{
+			Error: errorResponse(rpc.ErrorStatusV2_ALREADY_REGISTERED, err.Error()),
 		}, nil
 	}
 	if err == ErrInvalidUpdate {
-		logger.Warn(
-			"invalid node",
-			zap.String("id", req.Node.Id),
-		)
-
-		return &rpc.RegisterResponse{
-			Error: &rpc.Error{
-				Status:      rpc.ErrorStatus_PROTOCOL,
-				Description: err.Error(),
-			},
+		logger.Warn("invalid member", zap.String("id", req.Member.Id))
+		return &rpc.RegisterMemberResponse{
+			Error: errorResponse(rpc.ErrorStatusV2_INVALID_MEMBER, err.Error()),
 		}, nil
 	}
 	if err != nil {
-		logger.Error(
-			"unknown error",
-			zap.String("id", req.Node.Id),
-		)
-
-		return &rpc.RegisterResponse{
-			Error: &rpc.Error{
-				Status:      rpc.ErrorStatus_UNKNOWN,
-				Description: err.Error(),
-			},
+		logger.Error("unknown error", zap.String("id", req.Member.Id))
+		return &rpc.RegisterMemberResponse{
+			Error: errorResponse(rpc.ErrorStatusV2_UNKNOWN, err.Error()),
 		}, nil
 	}
 
-	logger.Debug(
-		"node registered",
-		zap.String("id", req.Node.Id),
-	)
+	logger.Debug("member registered", zap.String("id", req.Member.Id))
 
-	return &rpc.RegisterResponse{}, nil
+	return &rpc.RegisterMemberResponse{}, nil
 }
 
-func (s *Server) Unregister(ctx context.Context, req *rpc.UnregisterRequest) (*rpc.UnregisterResponse, error) {
-	logger := s.logger.With(zap.String("rpc", "registry.Unregister"))
+func (s *Server) UnregisterMember(ctx context.Context, req *rpc.UnregisterMemberRequest) (*rpc.UnregisterMemberResponse, error) {
+	logger := s.logger.With(zap.String("rpc", "registry.UnregisterMember"))
 
-	if s.registry.Unregister(req.NodeId) {
-		logger.Debug(
-			"node unregistered",
-			zap.String("id", req.NodeId),
-		)
+	if s.registry.Unregister(req.Id) {
+		logger.Debug("member unregistered", zap.String("id", req.Id))
 	} else {
-		logger.Warn(
-			"node already unregistered",
-			zap.String("id", req.NodeId),
-		)
+		logger.Warn("node already unregistered", zap.String("id", req.Id))
 	}
 
-	return &rpc.UnregisterResponse{}, nil
+	return &rpc.UnregisterMemberResponse{}, nil
 }
 
-func (s *Server) UpdateNode(ctx context.Context, req *rpc.UpdateNodeRequest) (*rpc.UpdateNodeResponse, error) {
-	logger := s.logger.With(zap.String("rpc", "registry.Unregister"))
+func (s *Server) UpdateMemberMetadata(ctx context.Context, req *rpc.UpdateMemberMetadataRequest) (*rpc.UpdateMemberMetadataResponse, error) {
+	logger := s.logger.With(zap.String("rpc", "registry.UpdateMemberMetadata"))
 
-	err := s.registry.UpdateNode(req.NodeId, req.Metadata)
-
-	if err == ErrNotFound {
-		logger.Warn(
-			"node not found",
-			zap.String("id", req.NodeId),
-		)
-
-		return &rpc.UpdateNodeResponse{
-			Error: &rpc.Error{
-				Status:      rpc.ErrorStatus_NOT_FOUND,
-				Description: err.Error(),
-			},
+	err := s.registry.UpdateMemberMetadata(req.Id, req.Metadata)
+	if err == ErrNotRegistered {
+		logger.Warn("member not registered", zap.String("id", req.Id))
+		return &rpc.UpdateMemberMetadataResponse{
+			Error: errorResponse(rpc.ErrorStatusV2_NOT_REGISTERED, err.Error()),
 		}, nil
 	}
 	if err == ErrInvalidUpdate {
-		logger.Warn(
-			"invalid update",
-			zap.String("id", req.NodeId),
-		)
-
-		return &rpc.UpdateNodeResponse{
-			Error: &rpc.Error{
-				Status:      rpc.ErrorStatus_PROTOCOL,
-				Description: err.Error(),
-			},
+		logger.Warn("invalid updatea", zap.String("id", req.Id))
+		return &rpc.UpdateMemberMetadataResponse{
+			Error: errorResponse(rpc.ErrorStatusV2_INVALID_MEMBER, err.Error()),
 		}, nil
 	}
 	if err != nil {
-		logger.Error(
-			"unknown error",
-			zap.String("id", req.NodeId),
-		)
-
-		return &rpc.UpdateNodeResponse{
-			Error: &rpc.Error{
-				Status:      rpc.ErrorStatus_UNKNOWN,
-				Description: err.Error(),
-			},
+		logger.Error("unknown error", zap.String("id", req.Id))
+		return &rpc.UpdateMemberMetadataResponse{
+			Error: errorResponse(rpc.ErrorStatusV2_UNKNOWN, err.Error()),
 		}, nil
 	}
 
-	logger.Debug(
-		"node metadata updated",
-		zap.String("id", req.NodeId),
-	)
+	logger.Debug("member metadata updated", zap.String("id", req.Id))
 
-	return &rpc.UpdateNodeResponse{}, nil
+	return &rpc.UpdateMemberMetadataResponse{}, nil
 }
 
-func (s *Server) Updates(req *rpc.UpdatesRequest, stream rpc.Registry_UpdatesServer) error {
-	logger := s.logger.With(zap.String("rpc", "registry.Updates"))
+func (s *Server) Subscribe(req *rpc.SubscribeRequest, stream rpc.RegistryV2_SubscribeServer) error {
+	logger := s.logger.With(zap.String("rpc", "registry.Subscribe"))
 
 	done := make(chan interface{})
-
-	unsubscribe := s.registry.Subscribe(func(update *rpc.NodeUpdate) {
+	unsubscribe := s.registry.Subscribe(req.Versions, func(update *rpc.MemberUpdate) {
 		logger.Debug(
 			"send update",
-			zap.String("id", update.NodeId),
+			zap.String("id", update.Id),
 			zap.String("update-type", update.UpdateType.String()),
 		)
-
-		// TODO(AD) This shouldn't block with the registry mutex held.
 		if err := stream.Send(update); err != nil {
+			logger.Debug("stream closed", zap.Error(err))
+
 			close(done)
 		}
 	})
@@ -189,100 +132,56 @@ func (s *Server) Updates(req *rpc.UpdatesRequest, stream rpc.Registry_UpdatesSer
 
 	select {
 	case <-stream.Context().Done():
+		logger.Debug("stream context cancelled")
 	case <-done:
 	}
 
 	return nil
 }
 
-func (s *Server) Node(ctx context.Context, req *rpc.NodeRequest) (*rpc.NodeResponse, error) {
-	logger := s.logger.With(zap.String("rpc", "registry.Node"))
-
-	n, err := s.registry.Node(req.NodeId)
-	if err == ErrNotFound {
-		logger.Debug(
-			"node not found",
-			zap.String("id", req.NodeId),
-		)
-
-		return &rpc.NodeResponse{
-			Error: &rpc.Error{
-				Status:      rpc.ErrorStatus_NOT_FOUND,
-				Description: err.Error(),
-			},
-		}, nil
-	}
-	if err != nil {
-		logger.Error(
-			"unknown error",
-			zap.String("id", req.NodeId),
-		)
-
-		return &rpc.NodeResponse{
-			Error: &rpc.Error{
-				Status:      rpc.ErrorStatus_UNKNOWN,
-				Description: err.Error(),
-			},
-		}, nil
-	}
-
-	logger.Debug(
-		"node found",
-		zap.String("id", req.NodeId),
-	)
-
-	return &rpc.NodeResponse{
-		Node: n,
-	}, nil
-}
-
-func (s *Server) Nodes(ctx context.Context, req *rpc.NodesRequest) (*rpc.NodesResponse, error) {
-	nodes := s.registry.Nodes(req.IncludeMetadata)
-	return &rpc.NodesResponse{
-		Nodes: nodes,
-	}, nil
-}
-
-func (s *Server) Heartbeat(ctx context.Context, req *rpc.HeartbeatRequest) (*rpc.HeartbeatResponse, error) {
+func (s *Server) Heartbeat(ctx context.Context, req *rpc.HeartbeatRequestV2) (*rpc.HeartbeatResponseV2, error) {
 	logger := s.logger.With(zap.String("rpc", "registry.Heartbeat"))
 
-	errorsResp := make(map[string]*rpc.Error)
-	for _, nodeID := range req.Nodes {
-		err := s.registry.MarkContact(nodeID, time.Now())
-		if err == ErrNotFound {
-			logger.Warn(
-				"node not found",
-				zap.String("id", nodeID),
-			)
+	s.registry.Heartbeat(req.ClientId)
 
-			errorsResp[nodeID] = &rpc.Error{
-				Status:      rpc.ErrorStatus_NOT_REGISTERED,
-				Description: err.Error(),
-			}
-		} else if err != nil {
-			logger.Error(
-				"unknown error",
-				zap.String("id", nodeID),
-			)
+	logger.Debug("heartbeat", zap.String("client-id", req.ClientId))
 
-			errorsResp[nodeID] = &rpc.Error{
-				Status:      rpc.ErrorStatus_UNKNOWN,
-				Description: err.Error(),
-			}
-		}
+	return &rpc.HeartbeatResponseV2{}, nil
+}
+
+func (s *Server) Member(ctx context.Context, req *rpc.MemberRequest) (*rpc.MemberResponse, error) {
+	logger := s.logger.With(zap.String("rpc", "registry.Member"))
+
+	m, ok := s.registry.Member(req.Id)
+	if !ok {
+		logger.Debug("member not found", zap.String("id", req.Id))
+		return &rpc.MemberResponse{
+			Error: errorResponse(rpc.ErrorStatusV2_NOT_FOUND, "not found"),
+		}, nil
 	}
 
-	logger.Debug("heatbeat", zap.Strings("nodes", req.Nodes))
+	logger.Debug("member found", zap.String("id", req.Id))
 
-	return &rpc.HeartbeatResponse{
-		Heartbeat: req.Heartbeat,
-		Errors:    errorsResp,
+	return &rpc.MemberResponse{
+		Member: m,
 	}, nil
 }
 
-func (s *Server) UnregisterDownNodes() {
-	unregistered := s.registry.UnregisterDownNodes(time.Now(), time.Second*30)
-	for _, id := range unregistered {
-		s.logger.Warn("unregistered down node", zap.String("id", id))
+func (s *Server) Members(context.Context, *rpc.MembersRequest) (*rpc.MembersResponse, error) {
+	logger := s.logger.With(zap.String("rpc", "registry.Members"))
+
+	members := s.registry.Members()
+
+	logger.Debug("members found", zap.Int("num", len(members)))
+
+	return &rpc.MembersResponse{
+		Members: members,
+	}, nil
+}
+
+func errorResponse(status rpc.ErrorStatusV2, description string) *rpc.ErrorV2 {
+	return &rpc.ErrorV2{
+		Status:      status,
+		Description: description,
 	}
 }

@@ -13,28 +13,49 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package testutils
+package cluster
 
 import (
-	"context"
-	"fmt"
-	"time"
+	"github.com/fuddle-io/fuddle/pkg/testutils"
+	"go.uber.org/zap"
 )
 
-func WaitWithTimeout(ch chan interface{}, timeout time.Duration) error {
-	select {
-	case <-ch:
-		return nil
-	case <-time.After(timeout):
-		return fmt.Errorf("timeout")
+type options struct {
+	nodes  int
+	logger *zap.Logger
+}
+
+func defaultOptions() *options {
+	return &options{
+		nodes:  3,
+		logger: testutils.Logger(),
 	}
 }
 
-func WaitWithContext(ctx context.Context, ch chan interface{}) error {
-	select {
-	case <-ch:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+type Option interface {
+	apply(*options)
+}
+
+type nodesOption struct {
+	nodes int
+}
+
+func (o nodesOption) apply(opts *options) {
+	opts.nodes = o.nodes
+}
+
+func WithNodes(nodes int) Option {
+	return nodesOption{nodes: nodes}
+}
+
+type loggerOption struct {
+	logger *zap.Logger
+}
+
+func (o loggerOption) apply(opts *options) {
+	opts.logger = o.logger
+}
+
+func WithLogger(logger *zap.Logger) Option {
+	return loggerOption{logger: logger}
 }

@@ -37,24 +37,24 @@ var clusterCommand = &cobra.Command{
 	Long: `
 Inspect the status of the cluster.
 
-Displays an overview of the cluster status and a list of nodes in the cluster.
+Displays an overview of the cluster status and a list of members in the cluster.
 `,
 	RunE: runClusterStatus,
 }
 
-var nodeCommand = &cobra.Command{
-	Use:   "node",
-	Short: "inspect the status of a node",
+var memberCommand = &cobra.Command{
+	Use:   "member",
+	Short: "inspect the status of a member",
 	Long: `
-Inspect the status of a node.
+Inspect the status of a member.
 `,
-	RunE: runNodeStatus,
+	RunE: runMemberStatus,
 }
 
 func init() {
 	Command.AddCommand(
 		clusterCommand,
-		nodeCommand,
+		memberCommand,
 	)
 }
 
@@ -63,19 +63,19 @@ func runClusterStatus(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	nodes, err := client.Cluster(context.Background())
+	members, err := client.Cluster(context.Background())
 	if err != nil {
 		return err
 	}
 
-	displayNodes(nodes)
+	displayMembers(members)
 
 	return nil
 }
 
-func runNodeStatus(cmd *cobra.Command, args []string) error {
+func runMemberStatus(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("missing node ID")
+		return fmt.Errorf("missing member ID")
 	}
 
 	id := args[0]
@@ -84,43 +84,43 @@ func runNodeStatus(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	node, err := client.Node(context.Background(), id)
+	member, err := client.Member(context.Background(), id)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("ID:", node.Id)
-	fmt.Println("Service:", node.Attributes.Service)
-	fmt.Println("Locality:", node.Attributes.Locality)
-	fmt.Println("Created:", node.Attributes.Created)
-	fmt.Println("Revision:", node.Attributes.Revision)
+	fmt.Println("ID:", member.Id)
+	fmt.Println("Service:", member.Service)
+	fmt.Println("Locality:", member.Locality)
+	fmt.Println("Created:", member.Created)
+	fmt.Println("Revision:", member.Revision)
 	fmt.Println("Metadata:")
 
 	keys := []string{}
-	for key := range node.Metadata {
+	for key := range member.Metadata {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		fmt.Printf("    %s: %s\n", key, node.Metadata[key].Value)
+		fmt.Printf("    %s: %s\n", key, member.Metadata[key])
 	}
 
 	return nil
 }
 
-func displayNodes(nodes []*rpc.Node) {
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].Id < nodes[j].Id
+func displayMembers(members []*rpc.Member) {
+	sort.Slice(members, func(i, j int) bool {
+		return members[i].Id < members[j].Id
 	})
 
 	tbl := table.New("ID", "Service", "Locality", "Created", "Revision")
-	for _, node := range nodes {
+	for _, member := range members {
 		tbl.AddRow(
-			node.Id,
-			node.Attributes.Service,
-			node.Attributes.Locality,
-			node.Attributes.Created,
-			formatRevision(node.Attributes.Revision),
+			member.Id,
+			member.Service,
+			member.Locality,
+			member.Created,
+			formatRevision(member.Revision),
 		)
 	}
 

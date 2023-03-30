@@ -18,6 +18,7 @@ package testutils
 import (
 	"math/rand"
 
+	fuddle "github.com/fuddle-io/fuddle-go"
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/google/uuid"
 )
@@ -31,5 +32,26 @@ func RandomMember() *rpc.Member {
 		Created:  rand.Int63(),
 		Revision: uuid.New().String(),
 		Metadata: RandomMetadata(),
+	}
+}
+
+func RandomSDKMember() fuddle.Member {
+	return fuddle.Member{
+		ID:       uuid.New().String(),
+		Service:  uuid.New().String(),
+		Locality: uuid.New().String(),
+		Created:  rand.Int63(),
+		Revision: uuid.New().String(),
+		Metadata: RandomMetadata(),
+	}
+}
+
+func RandomMetadata() map[string]string {
+	return map[string]string{
+		uuid.New().String(): uuid.New().String(),
+		uuid.New().String(): uuid.New().String(),
+		uuid.New().String(): uuid.New().String(),
+		uuid.New().String(): uuid.New().String(),
+		uuid.New().String(): uuid.New().String(),
 	}
 }

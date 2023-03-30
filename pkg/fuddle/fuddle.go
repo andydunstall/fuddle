@@ -22,15 +22,14 @@ import (
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/registry"
-	registryv2 "github.com/fuddle-io/fuddle/pkg/registryv2"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 // Fuddle runs a Fuddle node.
 type Fuddle struct {
-	registryServer *registry.Server
-	registry       *registryv2.Registry
+	registry *registry.Registry
 
 	grpcServer *grpc.Server
 	grpcLn     net.Listener
@@ -52,13 +51,8 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 
 	logger := options.logger.With(zap.String("service", "server"))
 
-	registryServer := registry.NewServer(
-		registry.NewRegistry(),
-		registry.WithLogger(logger),
-	)
-
 	registryLogger := options.logger.With(zap.String("stream", "registry"))
-	registry := registryv2.NewRegistry(&rpc.Member{
+	r := registry.NewRegistry(&rpc.Member{
 		Id:       conf.ID,
 		ClientId: conf.ID,
 		Service:  "fuddle",
@@ -68,24 +62,28 @@ func New(conf *config.Config, opts ...Option) *Fuddle {
 		Metadata: map[string]string{
 			"registry-addr": conf.AdvRegistryAddr,
 		},
-	}, registryv2.WithLogger(registryLogger))
-	registryV2Server := registryv2.NewServer(
-		registry,
-		registryv2.WithLogger(registryLogger),
+	}, registry.WithLogger(registryLogger))
+	registryServer := registry.NewServer(
+		r,
+		registry.WithLogger(registryLogger),
 	)
 
-	grpcServer := grpc.NewServer()
-	rpc.RegisterRegistryServer(grpcServer, registryServer)
-	rpc.RegisterRegistryV2Server(grpcServer, registryV2Server)
+	enforcementPolicy := keepalive.EnforcementPolicy{
+		MinTime:             5 * time.Second,
+		PermitWithoutStream: true,
+	}
+	grpcServer := grpc.NewServer(
+		grpc.KeepaliveEnforcementPolicy(enforcementPolicy),
+	)
+	rpc.RegisterRegistryV2Server(grpcServer, registryServer)
 
 	return &Fuddle{
-		registryServer: registryServer,
-		registry:       registry,
-		grpcServer:     grpcServer,
-		grpcLn:         options.listener,
-		conf:           conf,
-		logger:         logger,
-		done:           make(chan interface{}),
+		registry:   r,
+		grpcServer: grpcServer,
+		grpcLn:     options.listener,
+		conf:       conf,
+		logger:     logger,
+		done:       make(chan interface{}),
 	}
 }
 
@@ -131,8 +129,6 @@ func (s *Fuddle) handleLivenessChecks() {
 	for {
 		select {
 		case <-ticker.C:
-			s.registryServer.UnregisterDownNodes()
-
 			s.registry.MarkFailedMembers()
 			s.registry.UnregisterFailedMembers()
 		case <-s.done:
