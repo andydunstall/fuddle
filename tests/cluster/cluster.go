@@ -12,7 +12,7 @@ import (
 )
 
 type Cluster struct {
-	nodes map[*fuddle.Fuddle]interface{}
+	nodes []*fuddle.Fuddle
 	seeds []string
 }
 
@@ -22,9 +22,7 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 		o.apply(&options)
 	}
 
-	c := &Cluster{
-		nodes: make(map[*fuddle.Fuddle]interface{}),
-	}
+	c := &Cluster{}
 
 	for i := 0; i != options.nodes; i++ {
 		_, err := c.AddNode()
@@ -86,14 +84,21 @@ func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
 		return nil, fmt.Errorf("cluster: %w", err)
 	}
 
-	c.nodes[node] = struct{}{}
+	c.nodes = append(c.nodes, node)
 	c.seeds = append(c.seeds, fmt.Sprintf("127.0.0.1:%d", gossipPort))
 
 	return node, nil
 }
 
+func (c *Cluster) Node(n int) (*fuddle.Fuddle, bool) {
+	if n < len(c.nodes) {
+		return c.nodes[n], true
+	}
+	return nil, false
+}
+
 func (c *Cluster) WaitForHealthy(ctx context.Context) error {
-	for n := range c.nodes {
+	for _, n := range c.nodes {
 		for {
 			if len(n.Nodes()) == len(c.nodes) {
 				break
@@ -109,8 +114,25 @@ func (c *Cluster) WaitForHealthy(ctx context.Context) error {
 	return nil
 }
 
+func (c *Cluster) WaitForRegistryDiscovery(ctx context.Context) error {
+	for _, n := range c.nodes {
+		for {
+			if len(n.Registry().Members(false)) == len(c.nodes) {
+				break
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(time.Millisecond * 10):
+			}
+		}
+	}
+	return nil
+}
+
 func (c *Cluster) Shutdown() {
-	for n := range c.nodes {
+	for _, n := range c.nodes {
 		n.Shutdown()
 	}
 }
