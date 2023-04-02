@@ -51,13 +51,15 @@ func NewGossip(conf *config.Config, opts ...Option) (*Gossip, error) {
 		return nil, fmt.Errorf("gossip: memberlist: %w", err)
 	}
 
-	if _, err = memberlist.Join(conf.Gossip.Seeds); err != nil {
-		options.logger.Error(
-			"failed to join cluster",
-			zap.Strings("seeds", conf.Gossip.Seeds),
-			zap.Error(err),
-		)
-		return nil, fmt.Errorf("gossip: memberlist: %w", err)
+	if len(conf.Gossip.Seeds) != 0 {
+		if _, err = memberlist.Join(conf.Gossip.Seeds); err != nil {
+			options.logger.Error(
+				"failed to join cluster",
+				zap.Strings("seeds", conf.Gossip.Seeds),
+				zap.Error(err),
+			)
+			return nil, fmt.Errorf("gossip: memberlist: %w", err)
+		}
 	}
 
 	options.logger.Info(
@@ -71,13 +73,10 @@ func NewGossip(conf *config.Config, opts ...Option) (*Gossip, error) {
 	}, nil
 }
 
-func (g *Gossip) Nodes() []Node {
-	var nodes []Node
+func (g *Gossip) Nodes() map[string]interface{} {
+	nodes := make(map[string]interface{})
 	for _, m := range g.memberlist.Members() {
-		nodes = append(nodes, Node{
-			ID:           m.Name,
-			RegistryAddr: string(m.Meta),
-		})
+		nodes[m.Name] = struct{}{}
 	}
 	return nodes
 }

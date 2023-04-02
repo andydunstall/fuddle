@@ -2,24 +2,25 @@ package config
 
 import (
 	"github.com/google/uuid"
+	"go.uber.org/zap/zapcore"
 )
 
 type Config struct {
 	NodeID   string
-	Registry Registry
-	Gossip   Gossip
+	Registry *Registry
+	Gossip   *Gossip
 }
 
 func DefaultConfig() *Config {
 	return &Config{
 		NodeID: "fuddle-" + randomID(),
-		Registry: Registry{
+		Registry: &Registry{
 			BindAddr: "0.0.0.0",
 			BindPort: 8110,
 			AdvAddr:  "",
 			AdvPort:  8110,
 		},
-		Gossip: Gossip{
+		Gossip: &Gossip{
 			BindAddr: "0.0.0.0",
 			BindPort: 8111,
 			AdvAddr:  "",
@@ -28,6 +29,26 @@ func DefaultConfig() *Config {
 	}
 }
 
+func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddString("node-id", c.NodeID)
+	if err := e.AddObject("registry", c.Registry); err != nil {
+		return err
+	}
+	if err := e.AddObject("gossip", c.Gossip); err != nil {
+		return err
+	}
+	return nil
+}
+
 func randomID() string {
 	return uuid.New().String()[:8]
+}
+
+type stringArray []string
+
+func (ss stringArray) MarshalLogArray(arr zapcore.ArrayEncoder) error {
+	for i := range ss {
+		arr.AppendString(ss[i])
+	}
+	return nil
 }

@@ -47,7 +47,7 @@ var _ memberlist.NodeAwareTransport = (*transport)(nil)
 
 // Newtransport returns a net transport with the given configuration. On
 // success all the network listeners will be created and listening.
-func newTransport(conf config.Gossip, options options) (*transport, error) {
+func newTransport(conf *config.Gossip, options options) (*transport, error) {
 	// Build out the new transport.
 	var ok bool
 	t := transport{
