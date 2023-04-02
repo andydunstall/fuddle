@@ -1,5 +1,9 @@
 package config
 
+import (
+	"go.uber.org/zap/zapcore"
+)
+
 type Gossip struct {
 	// Address to bind to and listen on. Used for both UDP and TCP gossip.
 	BindAddr string
@@ -12,4 +16,15 @@ type Gossip struct {
 	// Seeds contains a list of gossip addresses of nodes in the target cluster
 	// to join.
 	Seeds []string
+}
+
+func (c *Gossip) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddString("bind-addr", c.BindAddr)
+	e.AddInt("bind-port", c.BindPort)
+	e.AddString("adv-addr", c.AdvAddr)
+	e.AddInt("adv-port", c.AdvPort)
+	if err := e.AddArray("seeds", stringArray(c.Seeds)); err != nil {
+		return err
+	}
+	return nil
 }

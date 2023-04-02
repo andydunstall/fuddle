@@ -1,5 +1,9 @@
 package config
 
+import (
+	"go.uber.org/zap/zapcore"
+)
+
 type Registry struct {
 	// Address to bind to and listen on. Used for both UDP and TCP gossip.
 	BindAddr string
@@ -8,4 +12,12 @@ type Registry struct {
 	// Address to advertise to other cluster members.
 	AdvAddr string
 	AdvPort int
+}
+
+func (c *Registry) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddString("bind-addr", c.BindAddr)
+	e.AddInt("bind-port", c.BindPort)
+	e.AddString("adv-addr", c.AdvAddr)
+	e.AddInt("adv-port", c.AdvPort)
+	return nil
 }
