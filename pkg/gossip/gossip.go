@@ -9,11 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type Node struct {
-	ID           string
-	RegistryAddr string
-}
-
 type Gossip struct {
 	memberlist *memberlist.Memberlist
 	logger     *zap.Logger

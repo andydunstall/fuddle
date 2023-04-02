@@ -5,11 +5,11 @@ import (
 )
 
 type eventDelegate struct {
-	onJoin  func(node Node)
-	onLeave func(node Node)
+	onJoin  func(id string, addr string)
+	onLeave func(id string)
 }
 
-func newEventDelegate(onJoin func(node Node), onLeave func(node Node)) *eventDelegate {
+func newEventDelegate(onJoin func(id string, addr string), onLeave func(id string)) *eventDelegate {
 	return &eventDelegate{
 		onJoin:  onJoin,
 		onLeave: onLeave,
@@ -18,19 +18,13 @@ func newEventDelegate(onJoin func(node Node), onLeave func(node Node)) *eventDel
 
 func (d *eventDelegate) NotifyJoin(n *memberlist.Node) {
 	if d.onJoin != nil {
-		d.onJoin(Node{
-			ID:           n.Name,
-			RegistryAddr: string(n.Meta),
-		})
+		d.onJoin(n.Name, string(n.Meta))
 	}
 }
 
 func (d *eventDelegate) NotifyLeave(n *memberlist.Node) {
 	if d.onLeave != nil {
-		d.onLeave(Node{
-			ID:           n.Name,
-			RegistryAddr: string(n.Meta),
-		})
+		d.onLeave(n.Name)
 	}
 }
 

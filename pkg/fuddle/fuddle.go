@@ -3,6 +3,7 @@ package fuddle
 import (
 	"fmt"
 
+	"github.com/fuddle-io/fuddle/pkg/cluster"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/gossip"
 	"go.uber.org/zap"
@@ -27,6 +28,8 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 
 	logger.Info("starting fuddle", zap.Object("conf", conf))
 
+	c := cluster.NewCluster(logger.With(zap.String("stream", "cluster")))
+
 	var gossipOpts []gossip.Option
 	if options.gossipTCPListener != nil {
 		gossipOpts = append(gossipOpts, gossip.WithTCPListener(
@@ -38,8 +41,14 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 			options.gossipUDPListener,
 		))
 	}
+	gossipOpts = append(gossipOpts, gossip.WithOnJoin(func(id string, addr string) {
+		c.OnJoin(id, addr)
+	}))
+	gossipOpts = append(gossipOpts, gossip.WithOnLeave(func(id string) {
+		c.OnLeave(id)
+	}))
 	gossipOpts = append(gossipOpts, gossip.WithLogger(
-		options.logger.With(zap.String("stream", "gossip")),
+		logger.With(zap.String("stream", "gossip")),
 	))
 
 	g, err := gossip.NewGossip(conf, gossipOpts...)

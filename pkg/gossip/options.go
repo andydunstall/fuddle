@@ -7,8 +7,8 @@ import (
 )
 
 type options struct {
-	onJoin      func(node Node)
-	onLeave     func(node Node)
+	onJoin      func(id string, addr string)
+	onLeave     func(id string)
 	tcpListener *net.TCPListener
 	udpListener *net.UDPConn
 	logger      *zap.Logger
@@ -25,26 +25,26 @@ type Option interface {
 }
 
 type onJoinOption struct {
-	cb func(node Node)
+	cb func(id string, addr string)
 }
 
 func (o onJoinOption) apply(opts *options) {
 	opts.onJoin = o.cb
 }
 
-func WithOnJoin(cb func(node Node)) Option {
+func WithOnJoin(cb func(id string, addr string)) Option {
 	return onJoinOption{cb: cb}
 }
 
 type onLeaveOption struct {
-	cb func(node Node)
+	cb func(id string)
 }
 
 func (o onLeaveOption) apply(opts *options) {
 	opts.onLeave = o.cb
 }
 
-func WithOnLeave(cb func(node Node)) Option {
+func WithOnLeave(cb func(id string)) Option {
 	return onLeaveOption{cb: cb}
 }
 
