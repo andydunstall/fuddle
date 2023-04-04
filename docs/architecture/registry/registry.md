@@ -57,3 +57,18 @@ the member, such as a Git tag or commit SHA
 The member metadata contains a set of arbitrary key-value pairs containing
 application defined state. This can be used to include information members need
 to know about one another, such as routing information, protocol versions etc.
+
+# Failure Detector
+To detect failed members, each client must send a heartbeat every
+`heartbeat_interval` (default 5s) to Fuddle.
+
+If Fuddle doesn’t receive a heartbeat for the `heartbeat_timeout` (default 20s),
+it will mark all members registered by that client as `down`.
+
+Members stay in the `down` state until either:
+* The client reconnects so members move back to the `up` state
+* The `reconnect_timeout` (default 5m) is reached and the down members are
+unregistered
+
+If a client eventually reconnects after the `reconnect_timeout`, its members
+will be re-registered.
