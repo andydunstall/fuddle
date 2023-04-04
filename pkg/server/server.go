@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -39,6 +40,9 @@ func NewServer(conf *config.Config, opts ...Option) (*Server, error) {
 			return nil, fmt.Errorf("server: start listener: %w", err)
 		}
 	}
+
+	registryServer := newRegistryServer()
+	rpc.RegisterRegistryServer(grpcServer, registryServer)
 
 	logger.Info("starting grpc server", zap.String("addr", ln.Addr().String()))
 
