@@ -9,7 +9,7 @@ import (
 type options struct {
 	gossipTCPListener *net.TCPListener
 	gossipUDPListener *net.UDPConn
-	registryListener  *net.TCPListener
+	rpcListener       *net.TCPListener
 	logger            *zap.Logger
 }
 
@@ -51,16 +51,16 @@ func WithGossipUDPListener(ln *net.UDPConn) Option {
 	}
 }
 
-type registryListenerOption struct {
+type rpcListenerOption struct {
 	ln *net.TCPListener
 }
 
-func (o registryListenerOption) apply(opts *options) {
-	opts.registryListener = o.ln
+func (o rpcListenerOption) apply(opts *options) {
+	opts.rpcListener = o.ln
 }
 
-func WithRegistryListener(ln *net.TCPListener) Option {
-	return &registryListenerOption{
+func WithRPCListener(ln *net.TCPListener) Option {
+	return &rpcListenerOption{
 		ln: ln,
 	}
 }

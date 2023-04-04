@@ -52,22 +52,22 @@ func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
 		return nil, fmt.Errorf("cluster: add node: %w", err)
 	}
 
-	registryLn, err := tcpListen(0)
+	rpcLn, err := tcpListen(0)
 	if err != nil {
 		return nil, fmt.Errorf("cluster: add node: %w", err)
 	}
 
-	registryPort, err := parseAddrPort(registryLn.Addr().String())
+	rpcPort, err := parseAddrPort(rpcLn.Addr().String())
 	if err != nil {
 		return nil, fmt.Errorf("cluster: add node: %w", err)
 	}
 
 	conf := config.DefaultConfig()
 
-	conf.Registry.BindAddr = "127.0.0.1"
-	conf.Registry.AdvAddr = "127.0.0.1"
-	conf.Registry.BindPort = registryPort
-	conf.Registry.AdvPort = registryPort
+	conf.RPC.BindAddr = "127.0.0.1"
+	conf.RPC.AdvAddr = "127.0.0.1"
+	conf.RPC.BindPort = rpcPort
+	conf.RPC.AdvPort = rpcPort
 
 	conf.Gossip.BindAddr = "127.0.0.1"
 	conf.Gossip.AdvAddr = "127.0.0.1"
@@ -77,7 +77,7 @@ func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
 
 	node, err := fuddle.NewFuddle(
 		conf,
-		fuddle.WithRegistryListener(registryLn),
+		fuddle.WithRPCListener(rpcLn),
 		fuddle.WithGossipTCPListener(gossipTCPLn),
 		fuddle.WithGossipUDPListener(gossipUDPLn),
 		fuddle.WithLogger(Logger()),
