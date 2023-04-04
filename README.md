@@ -14,3 +14,4 @@ set of nodes in the cluster and subscribe to changes.
 * Architecture
 	* [Overview](./docs/architecture/overview.md)
 	* [Registry](./docs/architecture/registry/registry.md)
+		* [Replication](./docs/architecture/registry/replication.md)
