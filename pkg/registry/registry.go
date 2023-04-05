@@ -32,7 +32,7 @@ func NewRegistry(opts ...Option) *Registry {
 			Member: options.localMember,
 			Owner: &rpc.Owner{
 				Owner:     options.localMember.Id,
-				Timestamp: time.Now().UnixMilli(),
+				Timestamp: options.now.UnixMilli(),
 			},
 			Version: 1,
 		}

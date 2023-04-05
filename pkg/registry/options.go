@@ -1,16 +1,23 @@
 package registry
 
 import (
+	"time"
+
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"go.uber.org/zap"
 )
 
 type registryOptions struct {
 	localMember *rpc.Member
+	now         time.Time
+	logger      *zap.Logger
 }
 
 func defaultRegistryOptions() *registryOptions {
-	return &registryOptions{}
+	return &registryOptions{
+		now:    time.Now(),
+		logger: zap.NewNop(),
+	}
 }
 
 type Option interface {
@@ -27,6 +34,32 @@ func (o localMemberRegistryOption) apply(opts *registryOptions) {
 
 func WithRegistryLocalMember(m *rpc.Member) Option {
 	return localMemberRegistryOption{member: m}
+}
+
+type registryNowTimeOption struct {
+	now time.Time
+}
+
+func (o registryNowTimeOption) apply(opts *registryOptions) {
+	opts.now = o.now
+}
+
+// WithRegistryNowTime sets the time 'now' to the given timestamp. This can be
+// useful for testing.
+func WithRegistryNowTime(now time.Time) Option {
+	return registryNowTimeOption{now: now}
+}
+
+type loggerRegistryOption struct {
+	Log *zap.Logger
+}
+
+func (o loggerRegistryOption) apply(opts *registryOptions) {
+	opts.logger = o.Log
+}
+
+func WithRegistryLogger(log *zap.Logger) Option {
+	return loggerRegistryOption{Log: log}
 }
 
 type clientOptions struct {
