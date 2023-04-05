@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+
 	"go.uber.org/zap/zapcore"
 )
 
@@ -20,4 +22,12 @@ func (c *RPC) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("adv-addr", c.AdvAddr)
 	e.AddInt("adv-port", c.AdvPort)
 	return nil
+}
+
+func (c *RPC) JoinBindAddr() string {
+	return fmt.Sprintf("%s:%d", c.BindAddr, c.BindPort)
+}
+
+func (c *RPC) JoinAdvAddr() string {
+	return fmt.Sprintf("%s:%d", c.AdvAddr, c.AdvPort)
 }

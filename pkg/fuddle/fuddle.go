@@ -11,6 +11,8 @@ import (
 
 // Fuddle implements a single Fuddle node.
 type Fuddle struct {
+	Config *config.Config
+
 	gossip *gossip.Gossip
 	server *server.Server
 	logger *zap.Logger
@@ -62,6 +64,7 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 	}
 
 	return &Fuddle{
+		Config: conf,
 		gossip: g,
 		server: s,
 		logger: logger,

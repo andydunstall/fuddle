@@ -6,6 +6,7 @@ import (
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/config"
+	"github.com/fuddle-io/fuddle/pkg/server/registry"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -41,7 +42,7 @@ func NewServer(conf *config.Config, opts ...Option) (*Server, error) {
 		}
 	}
 
-	registryServer := newRegistryServer()
+	registryServer := registry.NewServer()
 	rpc.RegisterRegistryServer(grpcServer, registryServer)
 
 	logger.Info("starting grpc server", zap.String("addr", ln.Addr().String()))
