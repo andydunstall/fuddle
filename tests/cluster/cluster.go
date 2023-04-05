@@ -11,8 +11,18 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/fuddle"
 )
 
+type Node struct {
+	Fuddle   *fuddle.Fuddle
+	RPCProxy *Proxy
+}
+
+func (n *Node) Shutdown() {
+	n.RPCProxy.Close()
+	n.Fuddle.Shutdown()
+}
+
 type Cluster struct {
-	nodes map[*fuddle.Fuddle]interface{}
+	nodes map[*Node]interface{}
 	seeds []string
 }
 
@@ -23,7 +33,7 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 	}
 
 	c := &Cluster{
-		nodes: make(map[*fuddle.Fuddle]interface{}),
+		nodes: make(map[*Node]interface{}),
 	}
 
 	for i := 0; i != options.nodes; i++ {
@@ -34,6 +44,14 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 	}
 
 	return c, nil
+}
+
+func (c *Cluster) Nodes() []*Node {
+	var nodes []*Node
+	for n := range c.nodes {
+		nodes = append(nodes, n)
+	}
+	return nodes
 }
 
 func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
@@ -52,22 +70,32 @@ func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
 		return nil, fmt.Errorf("cluster: add node: %w", err)
 	}
 
-	registryLn, err := tcpListen(0)
+	rpcLn, err := tcpListen(0)
 	if err != nil {
 		return nil, fmt.Errorf("cluster: add node: %w", err)
 	}
 
-	registryPort, err := parseAddrPort(registryLn.Addr().String())
+	rpcPort, err := parseAddrPort(rpcLn.Addr().String())
+	if err != nil {
+		return nil, fmt.Errorf("cluster: add node: %w", err)
+	}
+
+	rpcProxy, err := NewProxy(rpcLn.Addr().String())
+	if err != nil {
+		return nil, fmt.Errorf("cluster: add node: %w", err)
+	}
+
+	rpcProxyPort, err := parseAddrPort(rpcProxy.Addr())
 	if err != nil {
 		return nil, fmt.Errorf("cluster: add node: %w", err)
 	}
 
 	conf := config.DefaultConfig()
 
-	conf.Registry.BindAddr = "127.0.0.1"
-	conf.Registry.AdvAddr = "127.0.0.1"
-	conf.Registry.BindPort = registryPort
-	conf.Registry.AdvPort = registryPort
+	conf.RPC.BindAddr = "127.0.0.1"
+	conf.RPC.AdvAddr = "127.0.0.1"
+	conf.RPC.BindPort = rpcPort
+	conf.RPC.AdvPort = rpcProxyPort
 
 	conf.Gossip.BindAddr = "127.0.0.1"
 	conf.Gossip.AdvAddr = "127.0.0.1"
@@ -75,9 +103,9 @@ func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
 	conf.Gossip.AdvPort = gossipPort
 	conf.Gossip.Seeds = c.seeds
 
-	node, err := fuddle.NewFuddle(
+	f, err := fuddle.NewFuddle(
 		conf,
-		fuddle.WithRegistryListener(registryLn),
+		fuddle.WithRPCListener(rpcLn),
 		fuddle.WithGossipTCPListener(gossipTCPLn),
 		fuddle.WithGossipUDPListener(gossipUDPLn),
 		fuddle.WithLogger(Logger()),
@@ -86,16 +114,21 @@ func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
 		return nil, fmt.Errorf("cluster: %w", err)
 	}
 
+	node := &Node{
+		Fuddle:   f,
+		RPCProxy: rpcProxy,
+	}
+
 	c.nodes[node] = struct{}{}
 	c.seeds = append(c.seeds, fmt.Sprintf("127.0.0.1:%d", gossipPort))
 
-	return node, nil
+	return f, nil
 }
 
 func (c *Cluster) WaitForHealthy(ctx context.Context) error {
 	for n := range c.nodes {
 		for {
-			if len(n.Nodes()) == len(c.nodes) {
+			if len(n.Fuddle.Nodes()) == len(c.nodes) {
 				break
 			}
 

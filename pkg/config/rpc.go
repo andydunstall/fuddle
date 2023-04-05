@@ -1,10 +1,12 @@
 package config
 
 import (
+	"fmt"
+
 	"go.uber.org/zap/zapcore"
 )
 
-type Registry struct {
+type RPC struct {
 	// Address to bind to and listen on. Used for both UDP and TCP gossip.
 	BindAddr string
 	BindPort int
@@ -14,10 +16,18 @@ type Registry struct {
 	AdvPort int
 }
 
-func (c *Registry) MarshalLogObject(e zapcore.ObjectEncoder) error {
+func (c *RPC) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("bind-addr", c.BindAddr)
 	e.AddInt("bind-port", c.BindPort)
 	e.AddString("adv-addr", c.AdvAddr)
 	e.AddInt("adv-port", c.AdvPort)
 	return nil
+}
+
+func (c *RPC) JoinBindAddr() string {
+	return fmt.Sprintf("%s:%d", c.BindAddr, c.BindPort)
+}
+
+func (c *RPC) JoinAdvAddr() string {
+	return fmt.Sprintf("%s:%d", c.AdvAddr, c.AdvPort)
 }

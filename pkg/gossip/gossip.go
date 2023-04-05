@@ -10,8 +10,8 @@ import (
 )
 
 type Node struct {
-	ID           string
-	RegistryAddr string
+	ID      string
+	RPCAddr string
 }
 
 type Gossip struct {
@@ -38,7 +38,7 @@ func NewGossip(conf *config.Config, opts ...Option) (*Gossip, error) {
 	}
 	memberlistConf.Transport = transport
 	memberlistConf.Delegate = newDelegate([]byte(
-		fmt.Sprintf("%s:%d", conf.Registry.AdvAddr, conf.Registry.AdvPort),
+		fmt.Sprintf("%s:%d", conf.RPC.AdvAddr, conf.RPC.AdvPort),
 	))
 	memberlistConf.Events = newEventDelegate(
 		options.onJoin,

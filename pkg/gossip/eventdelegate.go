@@ -19,8 +19,8 @@ func newEventDelegate(onJoin func(node Node), onLeave func(node Node)) *eventDel
 func (d *eventDelegate) NotifyJoin(n *memberlist.Node) {
 	if d.onJoin != nil {
 		d.onJoin(Node{
-			ID:           n.Name,
-			RegistryAddr: string(n.Meta),
+			ID:      n.Name,
+			RPCAddr: string(n.Meta),
 		})
 	}
 }
@@ -28,8 +28,8 @@ func (d *eventDelegate) NotifyJoin(n *memberlist.Node) {
 func (d *eventDelegate) NotifyLeave(n *memberlist.Node) {
 	if d.onLeave != nil {
 		d.onLeave(Node{
-			ID:           n.Name,
-			RegistryAddr: string(n.Meta),
+			ID:      n.Name,
+			RPCAddr: string(n.Meta),
 		})
 	}
 }
