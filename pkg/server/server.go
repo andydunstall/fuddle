@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"net"
 
-	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/server/registry"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
 type Server struct {
+	conf       *config.Config
+	ln         net.Listener
 	grpcServer *grpc.Server
 	logger     *zap.Logger
 }
 
-func NewServer(conf *config.Config, opts ...Option) (*Server, error) {
+func NewServer(conf *config.Config, opts ...Option) *Server {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(&options)
@@ -25,38 +25,45 @@ func NewServer(conf *config.Config, opts ...Option) (*Server, error) {
 	logger := options.logger
 
 	grpcServer := grpc.NewServer()
-	ln := options.listener
+
+	return &Server{
+		conf:       conf,
+		ln:         options.listener,
+		grpcServer: grpcServer,
+		logger:     logger,
+	}
+}
+
+func (s *Server) GRPCServer() *grpc.Server {
+	return s.grpcServer
+}
+
+func (s *Server) Serve() error {
+	ln := s.ln
 	if ln == nil {
-		ip := net.ParseIP(conf.RPC.BindAddr)
-		tcpAddr := &net.TCPAddr{IP: ip, Port: conf.RPC.BindPort}
+		ip := net.ParseIP(s.conf.RPC.BindAddr)
+		tcpAddr := &net.TCPAddr{IP: ip, Port: s.conf.RPC.BindPort}
 
 		var err error
 		ln, err = net.ListenTCP("tcp", tcpAddr)
 		if err != nil {
-			logger.Info(
+			s.logger.Info(
 				"failed to start listener",
 				zap.String("addr", ln.Addr().String()),
 				zap.Error(err),
 			)
-			return nil, fmt.Errorf("server: start listener: %w", err)
+			return fmt.Errorf("server: start listener: %w", err)
 		}
 	}
 
-	registryServer := registry.NewServer()
-	rpc.RegisterRegistryServer(grpcServer, registryServer)
-
-	logger.Info("starting grpc server", zap.String("addr", ln.Addr().String()))
+	s.logger.Info("starting grpc server", zap.String("addr", ln.Addr().String()))
 
 	go func() {
-		if err := grpcServer.Serve(ln); err != nil {
-			logger.Error("grpc serve", zap.Error(err))
+		if err := s.grpcServer.Serve(ln); err != nil {
+			s.logger.Error("grpc serve", zap.Error(err))
 		}
 	}()
-
-	return &Server{
-		grpcServer: grpcServer,
-		logger:     logger,
-	}, nil
+	return nil
 }
 
 func (s *Server) Shutdown() {

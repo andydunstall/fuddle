@@ -5,10 +5,12 @@ import (
 )
 
 type Server struct {
+	registry *Registry
+
 	rpc.UnimplementedRegistryServer
 }
 
-func NewServer(opts ...ServerOption) *Server {
+func NewServer(registry *Registry, opts ...ServerOption) *Server {
 	options := defaultServerOptions()
 	for _, o := range opts {
 		o.apply(options)

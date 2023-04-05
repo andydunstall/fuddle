@@ -3,8 +3,10 @@ package fuddle
 import (
 	"fmt"
 
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/gossip"
+	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/fuddle-io/fuddle/pkg/server"
 	"go.uber.org/zap"
 )
@@ -58,8 +60,14 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 	serverOpts = append(serverOpts, server.WithLogger(
 		logger.With(zap.String("stream", "server")),
 	))
-	s, err := server.NewServer(conf, serverOpts...)
-	if err != nil {
+	s := server.NewServer(conf, serverOpts...)
+
+	r := registry.NewRegistry()
+
+	registryServer := registry.NewServer(r)
+	rpc.RegisterRegistryServer(s.GRPCServer(), registryServer)
+
+	if err := s.Serve(); err != nil {
 		return nil, fmt.Errorf("fuddle: %w", err)
 	}
 
