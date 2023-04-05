@@ -14,6 +14,8 @@ import (
 type Client struct {
 	addr string
 
+	registry *Registry
+
 	conn   *grpc.ClientConn
 	client rpc.RegistryClient
 
@@ -29,7 +31,7 @@ type Client struct {
 //
 // If the client cannot connect, or the connection drops, the client will keep
 // trying to reconnect in the background until it is closed.
-func Connect(addr string, opts ...ClientOption) (*Client, error) {
+func Connect(addr string, registry *Registry, opts ...ClientOption) (*Client, error) {
 	options := defaultClientOptions()
 	for _, o := range opts {
 		o.apply(options)
@@ -50,6 +52,7 @@ func Connect(addr string, opts ...ClientOption) (*Client, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &Client{
 		addr:                    addr,
+		registry:                registry,
 		conn:                    conn,
 		cancelCtx:               ctx,
 		cancel:                  cancel,
@@ -137,5 +140,7 @@ func (c *Client) streamUpdates(stream rpc.Registry_SubscribeClient) {
 			zap.String("id", update.Id),
 			zap.String("type", update.UpdateType.String()),
 		)
+
+		c.registry.RemoteUpdate(update)
 	}
 }

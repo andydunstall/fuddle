@@ -1,8 +1,33 @@
 package registry
 
 import (
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"go.uber.org/zap"
 )
+
+type registryOptions struct {
+	localMember *rpc.Member
+}
+
+func defaultRegistryOptions() *registryOptions {
+	return &registryOptions{}
+}
+
+type Option interface {
+	apply(*registryOptions)
+}
+
+type localMemberRegistryOption struct {
+	member *rpc.Member
+}
+
+func (o localMemberRegistryOption) apply(opts *registryOptions) {
+	opts.localMember = o.member
+}
+
+func WithRegistryLocalMember(m *rpc.Member) Option {
+	return localMemberRegistryOption{member: m}
+}
 
 type clientOptions struct {
 	onConnectionStateChange func(state ConnState)
@@ -47,25 +72,25 @@ func WithClientLogger(log *zap.Logger) ClientOption {
 	return loggerClientOption{Log: log}
 }
 
-type serverServerOptions struct {
+type serverOptions struct {
 	logger *zap.Logger
 }
 
-func defaultServerOptions() *serverServerOptions {
-	return &serverServerOptions{
+func defaultServerOptions() *serverOptions {
+	return &serverOptions{
 		logger: zap.NewNop(),
 	}
 }
 
 type ServerOption interface {
-	apply(*serverServerOptions)
+	apply(*serverOptions)
 }
 
 type loggerServerOption struct {
 	Log *zap.Logger
 }
 
-func (o loggerServerOption) apply(opts *serverServerOptions) {
+func (o loggerServerOption) apply(opts *serverOptions) {
 	opts.logger = o.Log
 }
 
