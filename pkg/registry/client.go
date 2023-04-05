@@ -140,5 +140,7 @@ func (c *Client) streamUpdates(stream rpc.Registry_SubscribeClient) {
 			zap.String("id", update.Id),
 			zap.String("type", update.UpdateType.String()),
 		)
+
+		c.registry.RemoteUpdate(update)
 	}
 }

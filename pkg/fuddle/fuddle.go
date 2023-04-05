@@ -62,9 +62,13 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 	))
 	s := server.NewServer(conf, serverOpts...)
 
-	r := registry.NewRegistry()
+	r := registry.NewRegistry(registry.WithRegistryLocalMember(&rpc.Member{
+		Id: conf.NodeID,
+	}))
 
-	registryServer := registry.NewServer(r)
+	registryServer := registry.NewServer(r, registry.WithServerLogger(
+		logger.With(zap.String("stream", "registry")),
+	))
 	rpc.RegisterRegistryServer(s.GRPCServer(), registryServer)
 
 	if err := s.Serve(); err != nil {
