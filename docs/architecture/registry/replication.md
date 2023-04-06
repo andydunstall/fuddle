@@ -30,6 +30,8 @@ changed, and if it has, the node compares the owner timestamps of its known
 owner and the new owner.
 
 ## Failure Detector
+This builds upon the member failure detector described in
+[registry.md](./registry.md).
 
 ### Moving Nodes
 The owner of a member handles heartbeats with the connected client. If the
@@ -74,15 +76,19 @@ The source node will reject any updates whose owner timestamp is less than the
 owner timestamp of the local copy of the member.
 
 ## Versioning
-To detect missed updates, members are assigned a version number which starts at
-1 and is incremented whenever the node's state changes.
+To detect missed updates, members are assigned a version.
 
-The version assigned by the owner and reset whenever the owner changes, since
-the new owner may not know the latest version from the previous owner.
+The version includes:
+* The owner ID
+* The timestamp of the last update
+* A counter to version updates in the same millisecond. The counter is
+incremented for every update in the same millisecond, then reset to 0 in the
+next millisecond
 
-When a node connects or reconnects to another node to stream updates, it
-includes the set of versions and owners for its known nodes, so the target node
-can determine what updates it's missing.
+The version is updated whenever a member changes.
+
+It can be used to detect that an owner has changed, and member updates from the
+same owner.
 
 # Limitations
 
