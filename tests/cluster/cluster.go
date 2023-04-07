@@ -55,7 +55,7 @@ func (c *Cluster) Nodes() []*Node {
 	return nodes
 }
 
-func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
+func (c *Cluster) AddNode() (*Node, error) {
 	gossipTCPLn, err := tcpListen(0)
 	if err != nil {
 		return nil, fmt.Errorf("cluster: add node: %w", err)
@@ -123,7 +123,12 @@ func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
 	c.nodes[node] = struct{}{}
 	c.seeds = append(c.seeds, fmt.Sprintf("127.0.0.1:%d", gossipPort))
 
-	return f, nil
+	return node, nil
+}
+
+func (c *Cluster) RemoveNode(node *Node) {
+	node.Shutdown()
+	delete(c.nodes, node)
 }
 
 func (c *Cluster) WaitForHealthy(ctx context.Context) error {
