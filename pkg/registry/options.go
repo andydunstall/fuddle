@@ -11,14 +11,16 @@ type registryOptions struct {
 	localMember      *rpc.Member
 	heartbeatTimeout int64
 	reconnectTimeout int64
+	tombstoneTimeout int64
 	now              int64
 	logger           *zap.Logger
 }
 
 func defaultRegistryOptions() *registryOptions {
 	return &registryOptions{
-		heartbeatTimeout: 15000,
-		reconnectTimeout: 300000,
+		heartbeatTimeout: 15 * 1000,
+		reconnectTimeout: 5 * 60 * 1000,
+		tombstoneTimeout: 20 * 60 * 1000,
 		now:              time.Now().UnixMilli(),
 		logger:           zap.NewNop(),
 	}
@@ -62,6 +64,18 @@ func (o registryReconnectTimeoutOption) apply(opts *registryOptions) {
 
 func WithReconnectTimeout(timeout int64) Option {
 	return registryReconnectTimeoutOption{timeout: timeout}
+}
+
+type registryTombstoneTimeoutOption struct {
+	timeout int64
+}
+
+func (o registryTombstoneTimeoutOption) apply(opts *registryOptions) {
+	opts.tombstoneTimeout = o.timeout
+}
+
+func WithTombstoneTimeout(timeout int64) Option {
+	return registryTombstoneTimeoutOption{timeout: timeout}
 }
 
 type registryNowTimeOption struct {
