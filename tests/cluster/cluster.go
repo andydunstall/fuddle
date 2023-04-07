@@ -129,7 +129,9 @@ func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
 func (c *Cluster) WaitForHealthy(ctx context.Context) error {
 	for n := range c.nodes {
 		for {
-			if len(n.Fuddle.Nodes()) == len(c.nodes) {
+			serviceDiscoveryHealthy := len(n.Fuddle.Nodes()) == len(c.nodes)
+			registryHealthy := len(n.Fuddle.Registry().Members()) == len(c.nodes)
+			if serviceDiscoveryHealthy && registryHealthy {
 				break
 			}
 
