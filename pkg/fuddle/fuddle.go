@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
+	"github.com/fuddle-io/fuddle/pkg/cluster"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/gossip"
 	"github.com/fuddle-io/fuddle/pkg/registry"
@@ -15,9 +16,10 @@ import (
 type Fuddle struct {
 	Config *config.Config
 
-	gossip *gossip.Gossip
-	server *server.Server
-	logger *zap.Logger
+	gossip   *gossip.Gossip
+	registry *registry.Registry
+	server   *server.Server
+	logger   *zap.Logger
 }
 
 func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
@@ -33,6 +35,18 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 
 	logger.Info("starting fuddle", zap.Object("conf", conf))
 
+	r := registry.NewRegistry(
+		conf.NodeID,
+		registry.WithRegistryLocalMember(&rpc.Member{
+			Id: conf.NodeID,
+		}),
+		registry.WithRegistryLogger(
+			logger.With(zap.String("stream", "registry")),
+		),
+	)
+
+	c := cluster.NewCluster(r, logger.With(zap.String("stream", "cluster")))
+
 	var gossipOpts []gossip.Option
 	if options.gossipTCPListener != nil {
 		gossipOpts = append(gossipOpts, gossip.WithTCPListener(
@@ -44,6 +58,16 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 			options.gossipUDPListener,
 		))
 	}
+	gossipOpts = append(gossipOpts, gossip.WithOnJoin(func(node gossip.Node) {
+		if node.ID != conf.NodeID {
+			c.OnJoin(node.ID, node.RPCAddr)
+		}
+	}))
+	gossipOpts = append(gossipOpts, gossip.WithOnLeave(func(node gossip.Node) {
+		if node.ID != conf.NodeID {
+			c.OnLeave(node.ID)
+		}
+	}))
 	gossipOpts = append(gossipOpts, gossip.WithLogger(
 		options.logger.With(zap.String("stream", "gossip")),
 	))
@@ -62,16 +86,6 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 	))
 	s := server.NewServer(conf, serverOpts...)
 
-	r := registry.NewRegistry(
-		conf.NodeID,
-		registry.WithRegistryLocalMember(&rpc.Member{
-			Id: conf.NodeID,
-		}),
-		registry.WithRegistryLogger(
-			logger.With(zap.String("stream", "registry")),
-		),
-	)
-
 	registryServer := registry.NewServer(r, registry.WithServerLogger(
 		logger.With(zap.String("stream", "registry")),
 	))
@@ -82,11 +96,16 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 	}
 
 	return &Fuddle{
-		Config: conf,
-		gossip: g,
-		server: s,
-		logger: logger,
+		Config:   conf,
+		registry: r,
+		gossip:   g,
+		server:   s,
+		logger:   logger,
 	}, nil
+}
+
+func (f *Fuddle) Registry() *registry.Registry {
+	return f.registry
 }
 
 func (f *Fuddle) Nodes() map[string]interface{} {
