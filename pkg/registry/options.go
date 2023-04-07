@@ -9,13 +9,13 @@ import (
 
 type registryOptions struct {
 	localMember *rpc.Member
-	now         time.Time
+	now         int64
 	logger      *zap.Logger
 }
 
 func defaultRegistryOptions() *registryOptions {
 	return &registryOptions{
-		now:    time.Now(),
+		now:    time.Now().UnixMilli(),
 		logger: zap.NewNop(),
 	}
 }
@@ -37,7 +37,7 @@ func WithRegistryLocalMember(m *rpc.Member) Option {
 }
 
 type registryNowTimeOption struct {
-	now time.Time
+	now int64
 }
 
 func (o registryNowTimeOption) apply(opts *registryOptions) {
@@ -46,7 +46,7 @@ func (o registryNowTimeOption) apply(opts *registryOptions) {
 
 // WithRegistryNowTime sets the time 'now' to the given timestamp. This can be
 // useful for testing.
-func WithRegistryNowTime(now time.Time) Option {
+func WithRegistryNowTime(now int64) Option {
 	return registryNowTimeOption{now: now}
 }
 

@@ -137,7 +137,7 @@ func (c *Client) streamUpdates(stream rpc.Registry_SubscribeClient) {
 
 		c.logger.Debug(
 			"stream update",
-			zap.String("id", update.Id),
+			zap.String("id", update.Member.Id),
 			zap.String("type", update.UpdateType.String()),
 		)
 

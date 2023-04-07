@@ -63,6 +63,7 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 	s := server.NewServer(conf, serverOpts...)
 
 	r := registry.NewRegistry(
+		conf.NodeID,
 		registry.WithRegistryLocalMember(&rpc.Member{
 			Id: conf.NodeID,
 		}),
