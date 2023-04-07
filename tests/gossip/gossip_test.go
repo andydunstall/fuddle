@@ -1,6 +1,6 @@
 //go:build all || integration
 
-package discovery
+package gossip
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 
 // Tests creating a 5 node cluster and waiting for each node to discover one
 // another.
-func TestDiscovery_Discovery(t *testing.T) {
+func TestGossip_Join(t *testing.T) {
 	c, err := cluster.NewCluster(cluster.WithNodes(5))
 	require.Nil(t, err)
 	defer c.Shutdown()
