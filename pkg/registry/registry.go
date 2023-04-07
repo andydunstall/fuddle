@@ -98,6 +98,144 @@ func (r *Registry) Updates(req *rpc.SubscribeRequest, opts ...Option) []*rpc.Rem
 	return r.updatesLocked(req, options.now)
 }
 
+func (r *Registry) LocalRegister(member *rpc.Member, opts ...Option) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	options := defaultRegistryOptions()
+	for _, o := range opts {
+		o.apply(options)
+	}
+
+	if member.Id == r.localID {
+		r.logger.Error(
+			"attempted to update local member",
+			zap.Object("member", newMemberLogger(member)),
+		)
+		return
+	}
+
+	v := r.nextVersionLocked(options.now)
+
+	existing, exists := r.members[member.Id]
+	if exists {
+		if existing.Version.Owner != v.Owner {
+			// Compare timestamps to choose a winner. Note ignore the counter
+			// since the counter only applies locally.
+			//
+			// This should never happen! It likely means there is clock skew
+			// between nodes.
+			//
+			// If it does happen, the member will keep re-registering with every
+			// heartbeat so should eventually have a late enough timestamp.
+			if existing.Version.Timestamp > v.Timestamp {
+				r.logger.Error(
+					"discarding local register; outdated version",
+					zap.Object("member", newMemberLogger(member)),
+					zap.Object("update-version", newVersionLogger(v)),
+					zap.Object("existing-version", newVersionLogger(existing.Version)),
+				)
+				return
+			}
+		}
+	}
+
+	versionedMember := &VersionedMember{
+		Member:  member,
+		Version: v,
+	}
+	r.members[member.Id] = versionedMember
+
+	r.logger.Info(
+		"registered member; owner",
+		zap.Object("member", newMemberLogger(versionedMember.Member)),
+		zap.Object("update-version", newVersionLogger(versionedMember.Version)),
+	)
+
+	r.notifySubscribersLocked(&rpc.RemoteMemberUpdate{
+		UpdateType: rpc.MemberUpdateType_REGISTER,
+		Member:     versionedMember.Member,
+		Version:    versionedMember.Version,
+	}, true)
+}
+
+func (r *Registry) LocalUnregister(id string, opts ...Option) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	options := defaultRegistryOptions()
+	for _, o := range opts {
+		o.apply(options)
+	}
+
+	if id == r.localID {
+		r.logger.Error(
+			"attempted to unregister local member",
+			zap.String("id", id),
+		)
+		return
+	}
+
+	v := r.nextVersionLocked(options.now)
+
+	existing, exists := r.members[id]
+	if exists {
+		if existing.Version.Owner != v.Owner {
+			// Compare timestamps to choose a winner. Note ignore the counter
+			// since the counter only applies locally.
+			//
+			// This should never happen! It likely means there is clock skew
+			// between nodes.
+			if existing.Version.Timestamp > v.Timestamp {
+				r.logger.Error(
+					"discarding local update; outdated version",
+					zap.String("id", id),
+					zap.Object("update-version", newVersionLogger(v)),
+					zap.Object("existing-version", newVersionLogger(existing.Version)),
+				)
+				return
+			}
+		}
+	}
+
+	// If the member isn't registered do nothing.
+	if !exists {
+		r.logger.Warn(
+			"discarding unregister; node doesn't exist",
+			zap.String("id", id),
+		)
+		return
+	}
+
+	// If the member does exist but we arn't the owner, this is an error as
+	// only the owner should receive unregister updates.
+	if existing.Version.Owner != r.localID {
+		r.logger.Error(
+			"discarding unregister; local node is not the owner",
+			zap.String("id", id),
+			zap.Object("update-version", newVersionLogger(v)),
+			zap.Object("existing-version", newVersionLogger(existing.Version)),
+		)
+		return
+	}
+
+	delete(r.members, id)
+
+	r.logger.Info(
+		"unregistered member; owner",
+		zap.Object("member", newMemberLogger(existing.Member)),
+		zap.Object("update-version", newVersionLogger(v)),
+	)
+
+	r.notifySubscribersLocked(&rpc.RemoteMemberUpdate{
+		UpdateType: rpc.MemberUpdateType_UNREGISTER,
+		Member: &rpc.Member{
+			Id: id,
+		},
+		Version: v,
+	}, true)
+}
+
 func (r *Registry) LocalUpdate(update *rpc.LocalMemberUpdate, opts ...Option) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

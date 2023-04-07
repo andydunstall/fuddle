@@ -45,3 +45,52 @@ func (s *Server) Subscribe(req *rpc.SubscribeRequest, stream rpc.Registry_Subscr
 	s.logger.Debug("subscribe stream closed")
 	return nil
 }
+
+func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
+	s.logger.Debug("register stream")
+
+	m, err := stream.Recv()
+	if err != nil {
+		return nil
+	}
+
+	if m.UpdateType != rpc.ClientUpdateType_CLIENT_REGISTER {
+		return nil
+	}
+
+	member := m.Member
+	s.registry.LocalRegister(member)
+
+	if err := stream.Send(&rpc.ClientAck{
+		SeqId: m.SeqId,
+	}); err != nil {
+		return nil
+	}
+
+	for {
+		m, err := stream.Recv()
+		if err != nil {
+			return nil
+		}
+
+		if m.UpdateType == rpc.ClientUpdateType_CLIENT_REGISTER {
+			member = m.Member
+			s.registry.LocalRegister(member)
+		}
+
+		if m.UpdateType == rpc.ClientUpdateType_CLIENT_HEARTBEAT {
+			s.registry.LocalRegister(member)
+		}
+
+		if m.UpdateType == rpc.ClientUpdateType_CLIENT_UNREGISTER {
+			s.registry.LocalUnregister(member.Id)
+			return nil
+		}
+
+		if err := stream.Send(&rpc.ClientAck{
+			SeqId: m.SeqId,
+		}); err != nil {
+			return nil
+		}
+	}
+}
