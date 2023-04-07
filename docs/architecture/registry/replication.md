@@ -90,6 +90,15 @@ The version is updated whenever a member changes.
 It can be used to detect that an owner has changed, and member updates from the
 same owner.
 
+## Tombstones
+To assign a version to unregistered members, the left members are kept in the
+registry with a status of `left` for the configured `tombstone_timeout` (default
+30 minutes).
+
+This must be greater than the `reconnect_timeout`, so that any partitioned node
+that isn't getting unregister updates will unregister the member itself due to
+losing contact with the members owner.
+
 # Limitations
 
 ### Every Node Streams From Every Other Node

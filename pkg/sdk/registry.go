@@ -176,9 +176,13 @@ func (r *registry) ApplyRemoteUpdate(update *rpc.RemoteMemberUpdate) {
 }
 
 func (r *registry) applyRegisterUpdateLocked(update *rpc.RemoteMemberUpdate) {
-	r.members[update.Member.Id] = &versionedMember{
-		Member:  update.Member,
-		Version: update.Version,
+	if update.Member.Status == rpc.MemberStatus_LEFT {
+		delete(r.members, update.Member.Id)
+	} else {
+		r.members[update.Member.Id] = &versionedMember{
+			Member:  update.Member,
+			Version: update.Version,
+		}
 	}
 }
 

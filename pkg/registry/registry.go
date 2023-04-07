@@ -110,7 +110,13 @@ func (r *Registry) LocalUnregister(id string, opts ...Option) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.localUnregisterLocked(id, opts...)
+	m, ok := r.members[id]
+	if !ok {
+		return
+	}
+
+	m.Member.Status = rpc.MemberStatus_LEFT
+	r.localRegisterLocked(m.Member, opts...)
 }
 
 func (r *Registry) LocalUpdate(update *rpc.LocalMemberUpdate, opts ...Option) {
@@ -324,13 +330,25 @@ func (r *Registry) MarkDownNodes(opts ...Option) {
 			continue
 		}
 
+		if m.Member.Status == rpc.MemberStatus_LEFT {
+			if options.now-m.Version.Timestamp > options.tombstoneTimeout {
+				r.logger.Info(
+					"removing left member",
+					zap.Int64("last-contact", options.now-m.Version.Timestamp),
+				)
+				m.Member.Status = rpc.MemberStatus_LEFT
+				r.removeLocked(m.Member.Id, opts...)
+			}
+		}
+
 		if m.Member.Status == rpc.MemberStatus_DOWN {
 			if options.now-m.Version.Timestamp > options.reconnectTimeout {
 				r.logger.Info(
 					"unregistering down member",
-					zap.Int64("last-contact", options.now-m.Version.Timestamp),
+					zap.Int64("down-since", options.now-m.Version.Timestamp),
 				)
-				r.localUnregisterLocked(m.Member.Id, opts...)
+				m.Member.Status = rpc.MemberStatus_LEFT
+				r.localRegisterLocked(m.Member, opts...)
 			}
 		}
 
@@ -405,7 +423,7 @@ func (r *Registry) localRegisterLocked(member *rpc.Member, opts ...Option) {
 	}, true)
 }
 
-func (r *Registry) localUnregisterLocked(id string, opts ...Option) {
+func (r *Registry) removeLocked(id string, opts ...Option) {
 	options := defaultRegistryOptions()
 	for _, o := range opts {
 		o.apply(options)
@@ -413,70 +431,24 @@ func (r *Registry) localUnregisterLocked(id string, opts ...Option) {
 
 	if id == r.localID {
 		r.logger.Error(
-			"attempted to unregister local member",
+			"attempted to remove local member",
 			zap.String("id", id),
 		)
 		return
 	}
-
-	v := r.nextVersionLocked(options.now)
 
 	existing, exists := r.members[id]
-	if exists {
-		if existing.Version.Owner != v.Owner {
-			// Compare timestamps to choose a winner. Note ignore the counter
-			// since the counter only applies locally.
-			//
-			// This should never happen! It likely means there is clock skew
-			// between nodes.
-			if existing.Version.Timestamp > v.Timestamp {
-				r.logger.Error(
-					"discarding local update; outdated version",
-					zap.String("id", id),
-					zap.Object("update-version", newVersionLogger(v)),
-					zap.Object("existing-version", newVersionLogger(existing.Version)),
-				)
-				return
-			}
-		}
-	}
-
 	// If the member isn't registered do nothing.
 	if !exists {
-		r.logger.Warn(
-			"discarding unregister; node doesn't exist",
-			zap.String("id", id),
-		)
-		return
-	}
-
-	// If the member does exist but we arn't the owner, this is an error as
-	// only the owner should receive unregister updates.
-	if existing.Version.Owner != r.localID {
-		r.logger.Error(
-			"discarding unregister; local node is not the owner",
-			zap.String("id", id),
-			zap.Object("update-version", newVersionLogger(v)),
-			zap.Object("existing-version", newVersionLogger(existing.Version)),
-		)
 		return
 	}
 
 	delete(r.members, id)
 
 	r.logger.Info(
-		"unregistered member; owner",
+		"removed member",
 		zap.Object("member", newMemberLogger(existing.Member)),
-		zap.Object("update-version", newVersionLogger(v)),
 	)
-
-	r.notifySubscribersLocked(&rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_UNREGISTER,
-		Member: &rpc.Member{
-			Id: id,
-		},
-		Version: v,
-	}, true)
 }
 
 func (r *Registry) updatesLocked(req *rpc.SubscribeRequest, now int64) []*rpc.RemoteMemberUpdate {
