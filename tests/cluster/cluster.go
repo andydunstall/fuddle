@@ -55,6 +55,14 @@ func (c *Cluster) Nodes() []*Node {
 	return nodes
 }
 
+func (c *Cluster) RPCAddrs() []string {
+	var addrs []string
+	for n := range c.nodes {
+		addrs = append(addrs, fmt.Sprintf("127.0.0.1:%d", n.Fuddle.Config.RPC.AdvPort))
+	}
+	return addrs
+}
+
 func (c *Cluster) AddNode() (*Node, error) {
 	gossipTCPLn, err := tcpListen(0)
 	if err != nil {
