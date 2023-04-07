@@ -9,6 +9,7 @@ import (
 
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/fuddle"
+	"github.com/fuddle-io/fuddle/pkg/testutils"
 )
 
 type Node struct {
@@ -108,7 +109,7 @@ func (c *Cluster) AddNode() (*fuddle.Fuddle, error) {
 		fuddle.WithRPCListener(rpcLn),
 		fuddle.WithGossipTCPListener(gossipTCPLn),
 		fuddle.WithGossipUDPListener(gossipUDPLn),
-		fuddle.WithLogger(Logger()),
+		fuddle.WithLogger(testutils.Logger()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cluster: %w", err)

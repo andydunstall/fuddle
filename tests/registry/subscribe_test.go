@@ -10,6 +10,7 @@ import (
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/fuddle-io/fuddle/tests/cluster"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,7 +27,7 @@ func TestSubscribe_ReceiveNodesLocalMember(t *testing.T) {
 
 	node := c.Nodes()[0]
 
-	r := registry.NewRegistry()
+	r := registry.NewRegistry("local")
 
 	updatesCh := make(chan *rpc.RemoteMemberUpdate)
 	req := &rpc.SubscribeRequest{}
@@ -37,7 +38,7 @@ func TestSubscribe_ReceiveNodesLocalMember(t *testing.T) {
 	client, err := registry.Connect(
 		node.Fuddle.Config.RPC.JoinAdvAddr(),
 		r,
-		registry.WithClientLogger(cluster.Logger()),
+		registry.WithClientLogger(testutils.Logger()),
 	)
 	require.NoError(t, err)
 	defer client.Close()
@@ -45,7 +46,7 @@ func TestSubscribe_ReceiveNodesLocalMember(t *testing.T) {
 	// Wait to receive the servers local node.
 	u, err := waitForUpdate(updatesCh)
 	assert.NoError(t, err)
-	assert.Equal(t, node.Fuddle.Config.NodeID, u.Id)
+	assert.Equal(t, node.Fuddle.Config.NodeID, u.Member.Id)
 	assert.Equal(t, rpc.MemberUpdateType_REGISTER, u.UpdateType)
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/fuddle-io/fuddle/tests/cluster"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,13 +26,13 @@ func TestConnection_Reconnect(t *testing.T) {
 
 	node := c.Nodes()[0]
 
-	r := registry.NewRegistry()
+	r := registry.NewRegistry("local")
 
 	connStateCh := make(chan registry.ConnState)
 	client, err := registry.Connect(
 		node.Fuddle.Config.RPC.JoinAdvAddr(),
 		r,
-		registry.WithClientLogger(cluster.Logger()),
+		registry.WithClientLogger(testutils.Logger()),
 		registry.WithOnClientConnectionStateChange(func(state registry.ConnState) {
 			connStateCh <- state
 		}),
@@ -67,13 +68,13 @@ func TestConnection_Connect(t *testing.T) {
 
 	node := c.Nodes()[0]
 
-	r := registry.NewRegistry()
+	r := registry.NewRegistry("local")
 
 	connStateCh := make(chan registry.ConnState)
 	client, err := registry.Connect(
 		node.Fuddle.Config.RPC.JoinAdvAddr(),
 		r,
-		registry.WithClientLogger(cluster.Logger()),
+		registry.WithClientLogger(testutils.Logger()),
 		registry.WithOnClientConnectionStateChange(func(state registry.ConnState) {
 			connStateCh <- state
 		}),

@@ -30,7 +30,7 @@ func (s *Server) Subscribe(req *rpc.SubscribeRequest, stream rpc.Registry_Subscr
 	unsubscribe := s.registry.Subscribe(req, func(update *rpc.RemoteMemberUpdate) {
 		s.logger.Debug(
 			"send update",
-			zap.String("id", update.Id),
+			zap.String("id", update.Member.Id),
 			zap.String("type", update.UpdateType.String()),
 		)
 
