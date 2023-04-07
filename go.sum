@@ -4,8 +4,8 @@ github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLj
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230407053204-cf27519cc51b h1:9cjKcKcVXwgLabBE4X1kqgVIzfomSTTWe4hqHqcL1tg=
-github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230407053204-cf27519cc51b/go.mod h1:plrExYS7pCDF4Np8fz1W+Rcc+KYY6DlqRAMmu9Qr4sA=
+github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230407103526-800fca6b0c18 h1:N4Lep4ckt9JQqrNJDdttD1MATsgnvfevHG9PDEMdm28=
+github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230407103526-800fca6b0c18/go.mod h1:plrExYS7pCDF4Np8fz1W+Rcc+KYY6DlqRAMmu9Qr4sA=
 github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaSAoJOfIk=
 github.com/golang/protobuf v1.5.2 h1:ROPKBNFfQgOUMifHyP+KYbvpjbdoFNs+aK7DXlji0Tw=
 github.com/golang/protobuf v1.5.2/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=
