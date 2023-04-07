@@ -8,15 +8,19 @@ import (
 )
 
 type registryOptions struct {
-	localMember *rpc.Member
-	now         int64
-	logger      *zap.Logger
+	localMember      *rpc.Member
+	heartbeatTimeout int64
+	reconnectTimeout int64
+	now              int64
+	logger           *zap.Logger
 }
 
 func defaultRegistryOptions() *registryOptions {
 	return &registryOptions{
-		now:    time.Now().UnixMilli(),
-		logger: zap.NewNop(),
+		heartbeatTimeout: 15000,
+		reconnectTimeout: 300000,
+		now:              time.Now().UnixMilli(),
+		logger:           zap.NewNop(),
 	}
 }
 
@@ -34,6 +38,30 @@ func (o localMemberRegistryOption) apply(opts *registryOptions) {
 
 func WithRegistryLocalMember(m *rpc.Member) Option {
 	return localMemberRegistryOption{member: m}
+}
+
+type registryHeartbeatTimeoutOption struct {
+	timeout int64
+}
+
+func (o registryHeartbeatTimeoutOption) apply(opts *registryOptions) {
+	opts.heartbeatTimeout = o.timeout
+}
+
+func WithHeartbeatTimeout(timeout int64) Option {
+	return registryHeartbeatTimeoutOption{timeout: timeout}
+}
+
+type registryReconnectTimeoutOption struct {
+	timeout int64
+}
+
+func (o registryReconnectTimeoutOption) apply(opts *registryOptions) {
+	opts.reconnectTimeout = o.timeout
+}
+
+func WithReconnectTimeout(timeout int64) Option {
+	return registryReconnectTimeoutOption{timeout: timeout}
 }
 
 type registryNowTimeOption struct {
