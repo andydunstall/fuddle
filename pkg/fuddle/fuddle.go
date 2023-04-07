@@ -2,6 +2,7 @@ package fuddle
 
 import (
 	"fmt"
+	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/cluster"
@@ -19,7 +20,10 @@ type Fuddle struct {
 	gossip   *gossip.Gossip
 	registry *registry.Registry
 	server   *server.Server
-	logger   *zap.Logger
+
+	done chan interface{}
+
+	logger *zap.Logger
 }
 
 func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
@@ -95,13 +99,18 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 		return nil, fmt.Errorf("fuddle: %w", err)
 	}
 
-	return &Fuddle{
+	f := &Fuddle{
 		Config:   conf,
 		registry: r,
 		gossip:   g,
 		server:   s,
 		logger:   logger,
-	}, nil
+		done:     make(chan interface{}),
+	}
+
+	go f.failureDetector()
+
+	return f, nil
 }
 
 func (f *Fuddle) Registry() *registry.Registry {
@@ -115,6 +124,22 @@ func (f *Fuddle) Nodes() map[string]interface{} {
 func (f *Fuddle) Shutdown() {
 	f.logger.Info("shutting down fuddle")
 
+	close(f.done)
+
 	f.server.Shutdown()
 	f.gossip.Shutdown()
+}
+
+func (f *Fuddle) failureDetector() {
+	ticker := time.NewTicker(time.Millisecond * 100)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-f.done:
+			return
+		case <-ticker.C:
+			f.registry.MarkDownNodes()
+		}
+	}
 }
