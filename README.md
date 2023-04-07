@@ -15,3 +15,4 @@ set of nodes in the cluster and subscribe to changes.
 	* [Overview](./docs/architecture/overview.md)
 	* [Registry](./docs/architecture/registry/registry.md)
 		* [Replication](./docs/architecture/registry/replication.md)
+		* [Client](./docs/architecture/registry/client.md)
