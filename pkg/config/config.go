@@ -1,8 +1,6 @@
 package config
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
 )
@@ -16,24 +14,10 @@ type Config struct {
 
 func DefaultConfig() *Config {
 	return &Config{
-		NodeID: "fuddle-" + randomID(),
-		RPC: &RPC{
-			BindAddr: "0.0.0.0",
-			BindPort: 8110,
-			AdvAddr:  "",
-			AdvPort:  8110,
-		},
-		Gossip: &Gossip{
-			BindAddr: "0.0.0.0",
-			BindPort: 8111,
-			AdvAddr:  "",
-			AdvPort:  8111,
-		},
-		Registry: &Registry{
-			HeartbeatTimeout: time.Second * 20,
-			ReconnectTimeout: time.Minute * 5,
-			TombstoneTimeout: time.Minute * 30,
-		},
+		NodeID:   "fuddle-" + randomID(),
+		RPC:      DefaultRPCConfig(),
+		Gossip:   DefaultGossipConfig(),
+		Registry: DefaultRegistryConfig(),
 	}
 }
 
@@ -43,6 +27,9 @@ func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 		return err
 	}
 	if err := e.AddObject("gossip", c.Gossip); err != nil {
+		return err
+	}
+	if err := e.AddObject("registry", c.Registry); err != nil {
 		return err
 	}
 	return nil

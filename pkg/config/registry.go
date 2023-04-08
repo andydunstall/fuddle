@@ -2,6 +2,8 @@ package config
 
 import (
 	"time"
+
+	"go.uber.org/zap/zapcore"
 )
 
 type Registry struct {
@@ -17,4 +19,19 @@ type Registry struct {
 	// removed. This must be at least as long has the sum of the heartbeat
 	// and reconnect timeouts.
 	TombstoneTimeout time.Duration
+}
+
+func (c *Registry) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddDuration("heartbeat-timeout", c.HeartbeatTimeout)
+	e.AddDuration("reconnect-timeout", c.ReconnectTimeout)
+	e.AddDuration("tombstone-timeout", c.TombstoneTimeout)
+	return nil
+}
+
+func DefaultRegistryConfig() *Registry {
+	return &Registry{
+		HeartbeatTimeout: time.Second * 20,
+		ReconnectTimeout: time.Minute * 5,
+		TombstoneTimeout: time.Minute * 30,
+	}
 }
