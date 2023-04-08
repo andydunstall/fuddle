@@ -25,6 +25,8 @@ func (n *Node) Shutdown() {
 type Cluster struct {
 	nodes map[*Node]interface{}
 	seeds []string
+
+	options options
 }
 
 func NewCluster(opts ...Option) (*Cluster, error) {
@@ -34,7 +36,8 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 	}
 
 	c := &Cluster{
-		nodes: make(map[*Node]interface{}),
+		nodes:   make(map[*Node]interface{}),
+		options: options,
 	}
 
 	for i := 0; i != options.nodes; i++ {
@@ -111,6 +114,10 @@ func (c *Cluster) AddNode() (*Node, error) {
 	conf.Gossip.BindPort = gossipPort
 	conf.Gossip.AdvPort = gossipPort
 	conf.Gossip.Seeds = c.seeds
+
+	if c.options.registryConfig != nil {
+		conf.Registry = c.options.registryConfig
+	}
 
 	f, err := fuddle.NewFuddle(
 		conf,

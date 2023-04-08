@@ -28,3 +28,13 @@ func (c *Gossip) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	}
 	return nil
 }
+
+func DefaultGossipConfig() *Gossip {
+	return &Gossip{
+		BindAddr: "0.0.0.0",
+		BindPort: 8111,
+		AdvAddr:  "",
+		AdvPort:  8111,
+		Seeds:    nil,
+	}
+}

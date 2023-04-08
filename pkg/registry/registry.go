@@ -52,6 +52,10 @@ type Registry struct {
 	// mu is a mutex protecting the fields above.
 	mu sync.Mutex
 
+	heartbeatTimeout int64
+	reconnectTimeout int64
+	tombstoneTimeout int64
+
 	logger *zap.Logger
 }
 
@@ -62,11 +66,14 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 	}
 
 	reg := &Registry{
-		localID:   localID,
-		members:   make(map[string]*VersionedMember),
-		subs:      make(map[*subHandle]interface{}),
-		leftNodes: make(map[string]int64),
-		logger:    options.logger,
+		localID:          localID,
+		members:          make(map[string]*VersionedMember),
+		subs:             make(map[*subHandle]interface{}),
+		leftNodes:        make(map[string]int64),
+		heartbeatTimeout: options.heartbeatTimeout,
+		reconnectTimeout: options.reconnectTimeout,
+		tombstoneTimeout: options.tombstoneTimeout,
+		logger:           options.logger,
 	}
 
 	if options.localMember != nil {
@@ -368,7 +375,7 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 	m := r.members[id]
 
 	if m.Member.Status == rpc.MemberStatus_LEFT {
-		if options.now-m.Version.Timestamp > options.tombstoneTimeout {
+		if options.now-m.Version.Timestamp > r.tombstoneTimeout {
 			r.logger.Info(
 				"removing left member",
 				zap.Int64("last-update", options.now-m.Version.Timestamp),
@@ -379,7 +386,7 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 	}
 
 	if m.Member.Status == rpc.MemberStatus_DOWN {
-		if options.now-m.Version.Timestamp > options.reconnectTimeout {
+		if options.now-m.Version.Timestamp > r.reconnectTimeout {
 			r.logger.Info(
 				"member removed after missing heartbeats",
 				zap.Int64("last-update", options.now-m.Version.Timestamp),
@@ -392,7 +399,7 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 	// If the last contact from the member exceeds the heartbeat timeout,
 	// mark the member down.
 	if m.Member.Status == rpc.MemberStatus_UP {
-		if options.now-m.Version.Timestamp > options.heartbeatTimeout {
+		if options.now-m.Version.Timestamp > r.heartbeatTimeout {
 			r.logger.Info(
 				"member down after missing heartbeats",
 				zap.Int64("last-update", options.now-m.Version.Timestamp),
@@ -420,7 +427,7 @@ func (r *Registry) checkRemoteMemberLivenessLocked(id string, opts ...Option) {
 	// If the owner has left the cluster for more than the heartbeat timeout,
 	// try to take ownership of the member. This may lead to nodes competing
 	// for ownership, which is ok as one will quickly win.
-	if options.now-ownerLastContact > options.heartbeatTimeout {
+	if options.now-ownerLastContact > r.heartbeatTimeout {
 		// If the member is up, mark it down as it has missed the heartbeat
 		// timeout.
 		if m.Member.Status == rpc.MemberStatus_UP {

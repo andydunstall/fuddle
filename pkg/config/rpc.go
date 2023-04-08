@@ -31,3 +31,12 @@ func (c *RPC) JoinBindAddr() string {
 func (c *RPC) JoinAdvAddr() string {
 	return fmt.Sprintf("%s:%d", c.AdvAddr, c.AdvPort)
 }
+
+func DefaultRPCConfig() *RPC {
+	return &RPC{
+		BindAddr: "0.0.0.0",
+		BindPort: 8110,
+		AdvAddr:  "",
+		AdvPort:  8110,
+	}
+}

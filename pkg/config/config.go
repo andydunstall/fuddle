@@ -6,26 +6,18 @@ import (
 )
 
 type Config struct {
-	NodeID string
-	RPC    *RPC
-	Gossip *Gossip
+	NodeID   string
+	RPC      *RPC
+	Gossip   *Gossip
+	Registry *Registry
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		NodeID: "fuddle-" + randomID(),
-		RPC: &RPC{
-			BindAddr: "0.0.0.0",
-			BindPort: 8110,
-			AdvAddr:  "",
-			AdvPort:  8110,
-		},
-		Gossip: &Gossip{
-			BindAddr: "0.0.0.0",
-			BindPort: 8111,
-			AdvAddr:  "",
-			AdvPort:  8111,
-		},
+		NodeID:   "fuddle-" + randomID(),
+		RPC:      DefaultRPCConfig(),
+		Gossip:   DefaultGossipConfig(),
+		Registry: DefaultRegistryConfig(),
 	}
 }
 
@@ -35,6 +27,9 @@ func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 		return err
 	}
 	if err := e.AddObject("gossip", c.Gossip); err != nil {
+		return err
+	}
+	if err := e.AddObject("registry", c.Registry); err != nil {
 		return err
 	}
 	return nil

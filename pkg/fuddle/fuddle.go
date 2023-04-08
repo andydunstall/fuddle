@@ -47,6 +47,9 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 		registry.WithRegistryLogger(
 			logger.With(zap.String("stream", "registry")),
 		),
+		registry.WithHeartbeatTimeout(conf.Registry.HeartbeatTimeout.Milliseconds()),
+		registry.WithReconnectTimeout(conf.Registry.ReconnectTimeout.Milliseconds()),
+		registry.WithTombstoneTimeout(conf.Registry.TombstoneTimeout.Milliseconds()),
 	)
 
 	c := cluster.NewCluster(r, logger.With(zap.String("stream", "cluster")))
