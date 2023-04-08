@@ -143,7 +143,7 @@ func (c *Cluster) WaitForHealthy(ctx context.Context) error {
 	for n := range c.nodes {
 		for {
 			serviceDiscoveryHealthy := len(n.Fuddle.Nodes()) == len(c.nodes)
-			registryHealthy := len(n.Fuddle.Registry().Members()) == len(c.nodes)
+			registryHealthy := len(n.Fuddle.Registry().UpMembers()) == len(c.nodes)
 			if serviceDiscoveryHealthy && registryHealthy {
 				break
 			}

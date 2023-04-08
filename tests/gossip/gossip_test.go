@@ -48,8 +48,6 @@ func TestGossip_JoinCluster(t *testing.T) {
 // then removes the node and waits for the rest of the cluster to detect it has
 // left.
 func TestGossip_LeaveCluster(t *testing.T) {
-	t.Skip("registry leave not supported")
-
 	c, err := cluster.NewCluster(cluster.WithNodes(5))
 	require.Nil(t, err)
 	defer c.Shutdown()
@@ -68,7 +66,7 @@ func TestGossip_LeaveCluster(t *testing.T) {
 
 	c.RemoveNode(node)
 
-	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 	assert.NoError(t, c.WaitForHealthy(ctx))
 }

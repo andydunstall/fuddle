@@ -31,6 +31,8 @@ type Registry struct {
 
 	lastVersion *rpc.Version
 
+	goneNodes map[string]int64
+
 	// mu is a mutex protecting the above fields.
 	mu sync.Mutex
 
@@ -44,10 +46,11 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 	}
 
 	r := &Registry{
-		members: make(map[string]*VersionedMember),
-		localID: localID,
-		subs:    make(map[*subHandle]interface{}),
-		logger:  options.logger,
+		members:   make(map[string]*VersionedMember),
+		localID:   localID,
+		subs:      make(map[*subHandle]interface{}),
+		goneNodes: make(map[string]int64),
+		logger:    options.logger,
 	}
 
 	if options.localMember != nil {
@@ -67,6 +70,33 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 	return r
 }
 
+func (r *Registry) OnNodeJoin(id string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.logger.Info("on node join", zap.String("id", id))
+
+	delete(r.goneNodes, id)
+}
+
+func (r *Registry) OnNodeLeave(id string, opts ...Option) {
+	options := defaultRegistryOptions()
+	for _, o := range opts {
+		o.apply(options)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.logger.Info(
+		"on node leave",
+		zap.String("id", id),
+		zap.Int64("timestamp", options.now),
+	)
+
+	r.goneNodes[id] = options.now
+}
+
 func (r *Registry) Member(id string) (*VersionedMember, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -82,6 +112,19 @@ func (r *Registry) Members() []*VersionedMember {
 	members := make([]*VersionedMember, 0, len(r.members))
 	for _, m := range r.members {
 		members = append(members, m)
+	}
+	return members
+}
+
+func (r *Registry) UpMembers() []*VersionedMember {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	members := make([]*VersionedMember, 0, len(r.members))
+	for _, m := range r.members {
+		if m.Member.Status == rpc.MemberStatus_UP {
+			members = append(members, m)
+		}
 	}
 	return members
 }
@@ -326,40 +369,58 @@ func (r *Registry) MarkDownNodes(opts ...Option) {
 	defer r.mu.Unlock()
 
 	for _, m := range r.members {
-		if m.Version.Owner != r.localID {
-			continue
-		}
-
-		if m.Member.Status == rpc.MemberStatus_LEFT {
-			if options.now-m.Version.Timestamp > options.tombstoneTimeout {
-				r.logger.Info(
-					"removing left member",
-					zap.Int64("last-contact", options.now-m.Version.Timestamp),
-				)
-				m.Member.Status = rpc.MemberStatus_LEFT
-				r.removeLocked(m.Member.Id, opts...)
+		if m.Version.Owner == r.localID {
+			if m.Member.Status == rpc.MemberStatus_LEFT {
+				if options.now-m.Version.Timestamp > options.tombstoneTimeout {
+					r.logger.Info(
+						"removing left member",
+						zap.Int64("last-contact", options.now-m.Version.Timestamp),
+					)
+					m.Member.Status = rpc.MemberStatus_LEFT
+					r.removeLocked(m.Member.Id, opts...)
+				}
 			}
-		}
 
-		if m.Member.Status == rpc.MemberStatus_DOWN {
-			if options.now-m.Version.Timestamp > options.reconnectTimeout {
-				r.logger.Info(
-					"unregistering down member",
-					zap.Int64("down-since", options.now-m.Version.Timestamp),
-				)
-				m.Member.Status = rpc.MemberStatus_LEFT
-				r.localRegisterLocked(m.Member, opts...)
+			if m.Member.Status == rpc.MemberStatus_DOWN {
+				if options.now-m.Version.Timestamp > options.reconnectTimeout {
+					r.logger.Info(
+						"unregistering down member",
+						zap.Int64("down-since", options.now-m.Version.Timestamp),
+					)
+					m.Member.Status = rpc.MemberStatus_LEFT
+					r.localRegisterLocked(m.Member, opts...)
+				}
 			}
-		}
 
-		if m.Member.Status == rpc.MemberStatus_UP {
-			if options.now-m.Version.Timestamp > options.heartbeatTimeout {
-				r.logger.Info(
-					"marking member down",
-					zap.Int64("last-contact", options.now-m.Version.Timestamp),
-				)
-				m.Member.Status = rpc.MemberStatus_DOWN
-				r.localRegisterLocked(m.Member, opts...)
+			if m.Member.Status == rpc.MemberStatus_UP {
+				if options.now-m.Version.Timestamp > options.heartbeatTimeout {
+					r.logger.Info(
+						"marking member down",
+						zap.Int64("last-contact", options.now-m.Version.Timestamp),
+					)
+					m.Member.Status = rpc.MemberStatus_DOWN
+					r.localRegisterLocked(m.Member, opts...)
+				}
+			}
+		} else {
+			t, ok := r.goneNodes[m.Version.Owner]
+			if !ok {
+				continue
+			}
+
+			// Take ownership of the down nodes member. If we are wrong, the
+			// true owner will take ownership back based on its most recent
+			// heartbeat version.
+
+			if m.Member.Status == rpc.MemberStatus_UP {
+				if options.now-t > options.heartbeatTimeout {
+					r.logger.Info(
+						"marking member down; owner down",
+						zap.Int64("last-contact", options.now-t),
+					)
+					m.Member.Status = rpc.MemberStatus_DOWN
+					r.localRegisterLocked(m.Member, opts...)
+				}
 			}
 		}
 	}

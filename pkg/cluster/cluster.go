@@ -42,19 +42,21 @@ func (c *Cluster) OnJoin(id string, addr string) {
 	}
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	c.clients[id] = client
+	c.mu.Unlock()
+
+	c.registry.OnNodeJoin(id)
 }
 
 func (c *Cluster) OnLeave(id string) {
 	c.logger.Info("cluster on leave", zap.String("id", id))
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if client, ok := c.clients[id]; ok {
 		client.Close()
 		delete(c.clients, id)
 	}
+	c.mu.Unlock()
+
+	c.registry.OnNodeLeave(id)
 }
