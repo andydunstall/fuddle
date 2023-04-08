@@ -49,12 +49,26 @@ which will take ownership of the clients members.
 
 However it's possible that a client goes down at the same time as the connected
 Fuddle node, so its ownership would never be updated, but the owner would never
-mark the member as `down`.
+mark the member as `down` or remove it.
 
-Therefore when nodes detect another node as down (using gossip), they will wait
-for the `heartbeat_timeout` for the member to get a new owner. If a member
-doesn’t get a new owner in this time, it is marked as `down`, and eventually
-unregistered if it doesn’t come back within the `reconnect_timeout`.
+Therefore when nodes detect another node as down or left (using gossip), they
+will track the time that node left.
+
+If the the the node has been gone exceeds the `heartbeat_timeout`, the other
+nodes will try to take ownership of the member and mark it as `down`. Note
+this will have nodes competing for ownership but eventually one will win.
+
+So now that winning node has taken ownership, it will treat it as any other
+down node that it owns and remove it if the member doesn't come back for the
+`reconnect_timeout`.
+
+If the node comes back, it will take back ownership as the member heartbeats
+will give it the most up to date version, which will be replicated to other
+nodes.
+
+If the member reconnects to another node after the `heartbeat_timeout`, that
+node will keep trying to take back ownership with every heartbeat and eventually
+win.
 
 # Streaming Updates
 Each Fuddle node learns about other nodes in the cluster using gossip. Once a

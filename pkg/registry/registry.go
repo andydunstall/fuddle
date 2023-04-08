@@ -23,17 +23,33 @@ func (m *VersionedMember) Equal(o *VersionedMember) bool {
 }
 
 type Registry struct {
-	members map[string]*VersionedMember
-
+	// localID is the node ID of this local node.
 	localID string
 
+	// members contains each member in the registry and the members version.
+	//
+	// This contains three types of member:
+	// * This nodes local member, which cannot be updated, removed, change
+	// ownership or be marked as down
+	// * Owned members, which are members registered by clients connected to
+	// this node, that this node is responsible for propagating updates and
+	// checking member liveness
+	// * Non-owned members, which are members owned by other nodes
+	members map[string]*VersionedMember
+
+	// subs contains a set of subscriptions.
 	subs map[*subHandle]interface{}
 
+	// lastVersion is the last version used by this node. This is used to
+	// increment the version counter when there are multiple versions in the
+	// same millisecond.
 	lastVersion *rpc.Version
 
-	goneNodes map[string]int64
+	// leftNodes contains a map of nodes that still own members in the registry
+	// but are not part of the registry.
+	leftNodes map[string]int64
 
-	// mu is a mutex protecting the above fields.
+	// mu is a mutex protecting the fields above.
 	mu sync.Mutex
 
 	logger *zap.Logger
@@ -45,29 +61,93 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 		o.apply(options)
 	}
 
-	r := &Registry{
-		members:   make(map[string]*VersionedMember),
+	reg := &Registry{
 		localID:   localID,
+		members:   make(map[string]*VersionedMember),
 		subs:      make(map[*subHandle]interface{}),
-		goneNodes: make(map[string]int64),
+		leftNodes: make(map[string]int64),
 		logger:    options.logger,
 	}
 
 	if options.localMember != nil {
-		localMember := &VersionedMember{
-			Member:  options.localMember,
-			Version: r.nextVersionLocked(options.now),
-		}
-		r.members[localID] = localMember
+		member := options.localMember
+		member.Status = rpc.MemberStatus_UP
 
-		r.logger.Info(
-			"registered local member",
-			zap.Object("member", newMemberLogger(localMember.Member)),
-			zap.Object("version", newVersionLogger(localMember.Version)),
+		versionedMember := &VersionedMember{
+			Member:  options.localMember,
+			Version: reg.nextVersionLocked(options.now),
+		}
+		reg.members[localID] = versionedMember
+
+		reg.logger.Info(
+			"added local member",
+			zap.Object("member", newMemberLogger(versionedMember.Member)),
+			zap.Object("version", newVersionLogger(versionedMember.Version)),
 		)
 	}
 
-	return r
+	return reg
+}
+
+// Member returns the member with the given ID, or false if it is not found.
+func (r *Registry) Member(id string) (*rpc.Member, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	m, ok := r.members[id]
+	if !ok {
+		return nil, false
+	}
+	return m.Member, ok
+}
+
+func (r *Registry) UpMembers() []*VersionedMember {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	members := make([]*VersionedMember, 0, len(r.members))
+	for _, m := range r.members {
+		if m.Member.Status == rpc.MemberStatus_UP {
+			members = append(members, m)
+		}
+	}
+	return members
+}
+
+// Subscribe to member updates.
+func (r *Registry) Subscribe(req *rpc.SubscribeRequest, onUpdate func(update *rpc.RemoteMemberUpdate), opts ...Option) func() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if req == nil {
+		req = &rpc.SubscribeRequest{
+			OwnerOnly: false,
+		}
+	}
+
+	handle := &subHandle{
+		onUpdate:  onUpdate,
+		ownerOnly: req.OwnerOnly,
+	}
+	r.subs[handle] = struct{}{}
+
+	for _, update := range r.updatesLocked(req) {
+		onUpdate(update)
+	}
+
+	return func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		delete(r.subs, handle)
+	}
+}
+
+func (r *Registry) Updates(req *rpc.SubscribeRequest) []*rpc.RemoteMemberUpdate {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.updatesLocked(req)
 }
 
 func (r *Registry) OnNodeJoin(id string) {
@@ -76,7 +156,7 @@ func (r *Registry) OnNodeJoin(id string) {
 
 	r.logger.Info("on node join", zap.String("id", id))
 
-	delete(r.goneNodes, id)
+	delete(r.leftNodes, id)
 }
 
 func (r *Registry) OnNodeLeave(id string, opts ...Option) {
@@ -94,180 +174,59 @@ func (r *Registry) OnNodeLeave(id string, opts ...Option) {
 		zap.Int64("timestamp", options.now),
 	)
 
-	r.goneNodes[id] = options.now
-}
+	memberCount := r.membersForOwnerLocked(id)
+	if memberCount > 0 {
+		r.logger.Warn(
+			"node left while owning members",
+			zap.String("id", id),
+			zap.Int("member-count", memberCount),
+			zap.Int64("timestamp", options.now),
+		)
 
-func (r *Registry) Member(id string) (*VersionedMember, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	m, ok := r.members[id]
-	return m, ok
-}
-
-func (r *Registry) Members() []*VersionedMember {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	members := make([]*VersionedMember, 0, len(r.members))
-	for _, m := range r.members {
-		members = append(members, m)
+		r.leftNodes[id] = options.now
 	}
-	return members
 }
 
-func (r *Registry) UpMembers() []*VersionedMember {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	members := make([]*VersionedMember, 0, len(r.members))
-	for _, m := range r.members {
-		if m.Member.Status == rpc.MemberStatus_UP {
-			members = append(members, m)
-		}
-	}
-	return members
-}
-
-func (r *Registry) Updates(req *rpc.SubscribeRequest, opts ...Option) []*rpc.RemoteMemberUpdate {
-	options := defaultRegistryOptions()
-	for _, o := range opts {
-		o.apply(options)
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return r.updatesLocked(req, options.now)
-}
-
-func (r *Registry) LocalRegister(member *rpc.Member, opts ...Option) {
+// AddMember adds a member that is owned by this node.
+//
+// The member is re-added whenever we receive a heartbeat for the member, which
+// will update the members status to UP if it was down.
+func (r *Registry) AddMember(member *rpc.Member, opts ...Option) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	member.Status = rpc.MemberStatus_UP
-	r.localRegisterLocked(member, opts...)
+	r.updateMemberLocked(member, opts...)
 }
 
-func (r *Registry) LocalUnregister(id string, opts ...Option) {
+// RemoveMember removes the member with the given ID.
+//
+// Note this won't actually remove it, but instead mark it as left. This is
+// used as a tombstone to ensure the update is propagated before nodes actually
+// remove the node.
+func (r *Registry) RemoveMember(id string, opts ...Option) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	m, ok := r.members[id]
 	if !ok {
+		r.logger.Warn("remove member; not found", zap.String("id", id))
 		return
 	}
 
-	m.Member.Status = rpc.MemberStatus_LEFT
-	r.localRegisterLocked(m.Member, opts...)
+	member := m.Member
+	member.Status = rpc.MemberStatus_LEFT
+	r.updateMemberLocked(member, opts...)
 }
 
-func (r *Registry) LocalUpdate(update *rpc.LocalMemberUpdate, opts ...Option) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	options := defaultRegistryOptions()
-	for _, o := range opts {
-		o.apply(options)
-	}
-
-	if update.Member.Id == r.localID {
-		r.logger.Error(
-			"attempted to update local member",
-			zap.Object("update", newLocalMemberUpdateLogger(update)),
-		)
-		return
-	}
-
-	v := r.nextVersionLocked(options.now)
-
-	existing, exists := r.members[update.Member.Id]
-	if exists {
-		if existing.Version.Owner != v.Owner {
-			// Compare timestamps to choose a winner. Note ignore the counter
-			// since the counter only applies locally.
-			//
-			// This should never happen! It likely means there is clock skew
-			// between nodes.
-			if existing.Version.Timestamp > v.Timestamp {
-				r.logger.Error(
-					"discarding local update; outdated version",
-					zap.Object("update", newLocalMemberUpdateLogger(update)),
-					zap.Object("update-version", newVersionLogger(v)),
-					zap.Object("existing-version", newVersionLogger(existing.Version)),
-				)
-				return
-			}
-		}
-	}
-
-	switch update.UpdateType {
-	case rpc.MemberUpdateType_REGISTER:
-		versionedMember := &VersionedMember{
-			Member:  update.Member,
-			Version: v,
-		}
-		r.members[update.Member.Id] = versionedMember
-
-		r.logger.Info(
-			"registered member; owner",
-			zap.Object("update", newLocalMemberUpdateLogger(update)),
-			zap.Object("member", newMemberLogger(versionedMember.Member)),
-			zap.Object("update-version", newVersionLogger(versionedMember.Version)),
-		)
-
-		r.notifySubscribersLocked(&rpc.RemoteMemberUpdate{
-			UpdateType: rpc.MemberUpdateType_REGISTER,
-			Member:     versionedMember.Member,
-			Version:    versionedMember.Version,
-		}, true)
-
-	case rpc.MemberUpdateType_UNREGISTER:
-		// If the member isn't registered do nothing.
-		if !exists {
-			r.logger.Warn(
-				"discarding unregister; node doesn't exist",
-				zap.Object("update", newLocalMemberUpdateLogger(update)),
-			)
-			return
-		}
-
-		// If the member does exist but we arn't the owner, this is an error as
-		// only the owner should receive unregister updates.
-		if existing.Version.Owner != r.localID {
-			r.logger.Error(
-				"discarding unregister; local node is not the owner",
-				zap.Object("update", newLocalMemberUpdateLogger(update)),
-				zap.Object("update-version", newVersionLogger(v)),
-				zap.Object("existing-version", newVersionLogger(existing.Version)),
-			)
-			return
-		}
-
-		delete(r.members, update.Member.Id)
-
-		r.logger.Info(
-			"unregistered member; owner",
-			zap.Object("update", newLocalMemberUpdateLogger(update)),
-			zap.Object("member", newMemberLogger(existing.Member)),
-			zap.Object("update-version", newVersionLogger(v)),
-		)
-
-		r.notifySubscribersLocked(&rpc.RemoteMemberUpdate{
-			UpdateType: rpc.MemberUpdateType_UNREGISTER,
-			Member:     update.Member,
-			Version:    v,
-		}, true)
-	}
-}
-
+// RemoteUpdate applies an updates received from another node.
 func (r *Registry) RemoteUpdate(update *rpc.RemoteMemberUpdate) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if update.Member.Id == r.localID {
 		r.logger.Error(
-			"attempted to update local member",
+			"remote update: discarding update; attempted to update local member",
 			zap.Object("update", newRemoteMemberUpdateLogger(update)),
 		)
 		return
@@ -275,163 +234,69 @@ func (r *Registry) RemoteUpdate(update *rpc.RemoteMemberUpdate) {
 
 	if update.Version.Owner == r.localID {
 		r.logger.Error(
-			"remote update has same owner as local node",
+			"remote update: discarding update; same owner as local node",
 			zap.Object("update", newRemoteMemberUpdateLogger(update)),
 		)
 		return
 	}
 
-	lostOwnership := false
+	ownershipChange := false
 
 	existing, ok := r.members[update.Member.Id]
 	if ok {
-		if existing.Version.Owner != update.Version.Owner {
-			// Compare timestamps to choose a winner. Note ignore the counter
-			// since the counter only applies locally.
-			if existing.Version.Timestamp > update.Version.Timestamp {
-				r.logger.Error(
-					"discarding remote update; outdated version",
-					zap.Object("update", newRemoteMemberUpdateLogger(update)),
-					zap.Object("update-version", newVersionLogger(update.Version)),
-					zap.Object("existing-version", newVersionLogger(existing.Version)),
-				)
-				return
-			}
+		if compareVersions(existing.Version, update.Version) <= 0 {
+			r.logger.Error(
+				"discarding remote member update; outdated version",
+				zap.Object("update", newRemoteMemberUpdateLogger(update)),
+				zap.Object("update-version", newVersionLogger(update.Version)),
+				zap.Object("existing-version", newVersionLogger(existing.Version)),
+			)
+			return
 		}
 
 		if existing.Version.Owner == r.localID {
-			lostOwnership = true
+			ownershipChange = true
 		}
 	}
 
-	switch update.UpdateType {
-	case rpc.MemberUpdateType_REGISTER:
-		r.members[update.Member.Id] = &VersionedMember{
-			Member:  update.Member,
-			Version: update.Version,
-		}
-
-		r.logger.Info(
-			"registered member; remote",
-			zap.Object("update", newRemoteMemberUpdateLogger(update)),
-		)
-	case rpc.MemberUpdateType_UNREGISTER:
-		delete(r.members, update.Member.Id)
-
-		r.logger.Info(
-			"unregistered member; remote",
-			zap.Object("update", newRemoteMemberUpdateLogger(update)),
-		)
+	r.members[update.Member.Id] = &VersionedMember{
+		Member:  update.Member,
+		Version: update.Version,
 	}
 
-	// If we lost the ownership we still notify 'owner only' subscribers so they
-	// know the new owner.
-	r.notifySubscribersLocked(update, lostOwnership)
+	r.logger.Info(
+		"updated member; remote",
+		zap.Object("update", newRemoteMemberUpdateLogger(update)),
+	)
+
+	r.notifySubscribersLocked(update, ownershipChange)
 }
 
-// Subscribe subscribes to updates to the registry.
-//
-// onUpdate will be called with the updates. It MUST NOT modify the update.
-func (r *Registry) Subscribe(req *rpc.SubscribeRequest, onUpdate func(update *rpc.RemoteMemberUpdate), opts ...Option) func() {
-	options := defaultRegistryOptions()
-	for _, o := range opts {
-		o.apply(options)
-	}
-
+func (r *Registry) CheckMembersLiveness(opts ...Option) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	handle := &subHandle{
-		onUpdate:  onUpdate,
-		ownerOnly: req.OwnerOnly,
-	}
-	r.subs[handle] = struct{}{}
-
-	for _, u := range r.updatesLocked(req, options.now) {
-		onUpdate(u)
+	for id := range r.members {
+		r.checkMemberLivenessLocked(id, opts...)
 	}
 
-	return func() {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-
-		delete(r.subs, handle)
-	}
-}
-
-func (r *Registry) MarkDownNodes(opts ...Option) {
-	options := defaultRegistryOptions()
-	for _, o := range opts {
-		o.apply(options)
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	for _, m := range r.members {
-		if m.Version.Owner == r.localID {
-			if m.Member.Status == rpc.MemberStatus_LEFT {
-				if options.now-m.Version.Timestamp > options.tombstoneTimeout {
-					r.logger.Info(
-						"removing left member",
-						zap.Int64("last-contact", options.now-m.Version.Timestamp),
-					)
-					m.Member.Status = rpc.MemberStatus_LEFT
-					r.removeLocked(m.Member.Id, opts...)
-				}
-			}
-
-			if m.Member.Status == rpc.MemberStatus_DOWN {
-				if options.now-m.Version.Timestamp > options.reconnectTimeout {
-					r.logger.Info(
-						"unregistering down member",
-						zap.Int64("down-since", options.now-m.Version.Timestamp),
-					)
-					m.Member.Status = rpc.MemberStatus_LEFT
-					r.localRegisterLocked(m.Member, opts...)
-				}
-			}
-
-			if m.Member.Status == rpc.MemberStatus_UP {
-				if options.now-m.Version.Timestamp > options.heartbeatTimeout {
-					r.logger.Info(
-						"marking member down",
-						zap.Int64("last-contact", options.now-m.Version.Timestamp),
-					)
-					m.Member.Status = rpc.MemberStatus_DOWN
-					r.localRegisterLocked(m.Member, opts...)
-				}
-			}
-		} else {
-			t, ok := r.goneNodes[m.Version.Owner]
-			if !ok {
-				continue
-			}
-
-			// Take ownership of the down nodes member. If we are wrong, the
-			// true owner will take ownership back based on its most recent
-			// heartbeat version.
-
-			if m.Member.Status == rpc.MemberStatus_UP {
-				if options.now-t > options.heartbeatTimeout {
-					r.logger.Info(
-						"marking member down; owner down",
-						zap.Int64("last-contact", options.now-t),
-					)
-					m.Member.Status = rpc.MemberStatus_DOWN
-					r.localRegisterLocked(m.Member, opts...)
-				}
-			}
+	for id := range r.leftNodes {
+		// If we've taken away all members for a left node, it can be
+		// discarded.
+		if r.membersForOwnerLocked(id) == 0 {
+			r.logger.Info("removing left node; no remaining members")
+			delete(r.leftNodes, id)
 		}
 	}
 }
 
-func (r *Registry) localRegisterLocked(member *rpc.Member, opts ...Option) {
+func (r *Registry) updateMemberLocked(member *rpc.Member, opts ...Option) {
 	options := defaultRegistryOptions()
 	for _, o := range opts {
 		o.apply(options)
 	}
 
+	// Don't allow updating the local member.
 	if member.Id == r.localID {
 		r.logger.Error(
 			"attempted to update local member",
@@ -440,146 +305,135 @@ func (r *Registry) localRegisterLocked(member *rpc.Member, opts ...Option) {
 		return
 	}
 
-	v := r.nextVersionLocked(options.now)
+	version := r.nextVersionLocked(options.now)
 
+	// If the version is out of date we must ignore the update. This should
+	// never happen as it means there is clock skew between nodes or a non-
+	// monotonic clock.
+	//
+	// If it does happen, the owner will get regular heartbeats where it keeps
+	// re-adding the member, so will eventually win ownership.
 	existing, exists := r.members[member.Id]
 	if exists {
-		if existing.Version.Owner != v.Owner {
-			// Compare timestamps to choose a winner. Note ignore the counter
-			// since the counter only applies locally.
-			//
-			// This should never happen! It likely means there is clock skew
-			// between nodes.
-			//
-			// If it does happen, the member will keep re-registering with every
-			// heartbeat so should eventually have a late enough timestamp.
-			if existing.Version.Timestamp > v.Timestamp {
-				r.logger.Error(
-					"discarding local register; outdated version",
-					zap.Object("member", newMemberLogger(member)),
-					zap.Object("update-version", newVersionLogger(v)),
-					zap.Object("existing-version", newVersionLogger(existing.Version)),
-				)
-				return
-			}
+		if compareVersions(existing.Version, version) <= 0 {
+			r.logger.Error(
+				"discarding local member update; outdated version",
+				zap.Object("member", newMemberLogger(member)),
+				zap.Object("update-version", newVersionLogger(version)),
+				zap.Object("existing-version", newVersionLogger(existing.Version)),
+			)
+			return
 		}
 	}
 
 	versionedMember := &VersionedMember{
 		Member:  member,
-		Version: v,
+		Version: version,
 	}
 	r.members[member.Id] = versionedMember
 
 	r.logger.Info(
-		"registered member; owner",
+		"updated member; owner",
+		zap.Bool("owner", true),
 		zap.Object("member", newMemberLogger(versionedMember.Member)),
-		zap.Object("update-version", newVersionLogger(versionedMember.Version)),
+		zap.Object("version", newVersionLogger(versionedMember.Version)),
 	)
 
 	r.notifySubscribersLocked(&rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member:     versionedMember.Member,
-		Version:    versionedMember.Version,
+		Member:  versionedMember.Member,
+		Version: versionedMember.Version,
 	}, true)
 }
 
-func (r *Registry) removeLocked(id string, opts ...Option) {
+func (r *Registry) checkMemberLivenessLocked(id string, opts ...Option) {
+	// The local member is always up.
+	if id == r.localID {
+		return
+	}
+
+	m := r.members[id]
+	if m.Version.Owner == r.localID {
+		r.checkOwnedMemberLivenessLocked(id, opts...)
+	} else {
+		r.checkRemoteMemberLivenessLocked(id, opts...)
+	}
+}
+
+func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 	options := defaultRegistryOptions()
 	for _, o := range opts {
 		o.apply(options)
 	}
 
-	if id == r.localID {
-		r.logger.Error(
-			"attempted to remove local member",
-			zap.String("id", id),
-		)
-		return
-	}
+	m := r.members[id]
 
-	existing, exists := r.members[id]
-	// If the member isn't registered do nothing.
-	if !exists {
-		return
-	}
-
-	delete(r.members, id)
-
-	r.logger.Info(
-		"removed member",
-		zap.Object("member", newMemberLogger(existing.Member)),
-	)
-}
-
-func (r *Registry) updatesLocked(req *rpc.SubscribeRequest, now int64) []*rpc.RemoteMemberUpdate {
-	if req.KnownMembers == nil {
-		req.KnownMembers = make(map[string]*rpc.Version)
-	}
-
-	var updates []*rpc.RemoteMemberUpdate
-
-	for _, m := range r.members {
-		knownVersion, ok := req.KnownMembers[m.Member.Id]
-		if ok {
-			if compareVersions(knownVersion, m.Version) > 0 {
-				// If the subscriber thinks we own the node, but we don't, send
-				// a REGISTER even if ownerOnly.
-				if m.Version.Owner == r.localID || !req.OwnerOnly || knownVersion.Owner == r.localID {
-					updates = append(updates, &rpc.RemoteMemberUpdate{
-						UpdateType: rpc.MemberUpdateType_REGISTER,
-						Member:     m.Member,
-						Version:    m.Version,
-					})
-				}
-			}
-		} else {
-			if m.Version.Owner == r.localID || !req.OwnerOnly {
-				updates = append(updates, &rpc.RemoteMemberUpdate{
-					UpdateType: rpc.MemberUpdateType_REGISTER,
-					Member:     m.Member,
-					Version:    m.Version,
-				})
-			}
+	if m.Member.Status == rpc.MemberStatus_LEFT {
+		if options.now-m.Version.Timestamp > options.tombstoneTimeout {
+			r.logger.Info(
+				"removing left member",
+				zap.Int64("last-update", options.now-m.Version.Timestamp),
+			)
+			m.Member.Status = rpc.MemberStatus_LEFT
+			delete(r.members, m.Member.Id)
 		}
 	}
 
-	for id, knownVersion := range req.KnownMembers {
-		if _, ok := r.members[id]; !ok {
-			// Only return unregisters for nodes the subscriber thinks we
-			// own.
-			if req.OwnerOnly && knownVersion.Owner == r.localID {
-				// TODO(AD) For now send a version of now, but need to improve
-				// this to avoid unregistering a member that has actually
-				// moved.
-				updates = append(updates, &rpc.RemoteMemberUpdate{
-					UpdateType: rpc.MemberUpdateType_UNREGISTER,
-					Member: &rpc.Member{
-						Id: id,
-					},
-					Version: r.nextVersionLocked(now),
-				})
-			} else if !req.OwnerOnly {
-				updates = append(updates, &rpc.RemoteMemberUpdate{
-					UpdateType: rpc.MemberUpdateType_UNREGISTER,
-					Member: &rpc.Member{
-						Id: id,
-					},
-					Version: r.nextVersionLocked(now),
-				})
-			}
+	if m.Member.Status == rpc.MemberStatus_DOWN {
+		if options.now-m.Version.Timestamp > options.reconnectTimeout {
+			r.logger.Info(
+				"member removed after missing heartbeats",
+				zap.Int64("last-update", options.now-m.Version.Timestamp),
+			)
+			m.Member.Status = rpc.MemberStatus_LEFT
+			r.updateMemberLocked(m.Member, opts...)
 		}
 	}
 
-	return updates
+	// If the last contact from the member exceeds the heartbeat timeout,
+	// mark the member down.
+	if m.Member.Status == rpc.MemberStatus_UP {
+		if options.now-m.Version.Timestamp > options.heartbeatTimeout {
+			r.logger.Info(
+				"member down after missing heartbeats",
+				zap.Int64("last-update", options.now-m.Version.Timestamp),
+			)
+			m.Member.Status = rpc.MemberStatus_DOWN
+			r.updateMemberLocked(m.Member, opts...)
+		}
+	}
 }
 
-// notifySubscribersLocked sends the update to the subscribers. The update will
-// only be sent to 'owner only' subscribers if the local node is the owner
-// of the member being updated.
+func (r *Registry) checkRemoteMemberLivenessLocked(id string, opts ...Option) {
+	options := defaultRegistryOptions()
+	for _, o := range opts {
+		o.apply(options)
+	}
+
+	m := r.members[id]
+
+	// If the owner of the node is still in the cluster, do nothing.
+	ownerLastContact, ok := r.leftNodes[m.Version.Owner]
+	if !ok {
+		return
+	}
+
+	// If the owner has left the cluster for more than the heartbeat timeout,
+	// try to take ownership of the member. This may lead to nodes competing
+	// for ownership, which is ok as one will quickly win.
+	if options.now-ownerLastContact > options.heartbeatTimeout {
+		// If the member is up, mark it down as it has missed the heartbeat
+		// timeout.
+		if m.Member.Status == rpc.MemberStatus_UP {
+			m.Member.Status = rpc.MemberStatus_DOWN
+		}
+
+		r.updateMemberLocked(m.Member, opts...)
+	}
+}
+
 func (r *Registry) notifySubscribersLocked(update *rpc.RemoteMemberUpdate, owner bool) {
 	for s := range r.subs {
-		if owner {
+		if s.ownerOnly && owner {
 			s.onUpdate(update)
 		} else if !s.ownerOnly {
 			s.onUpdate(update)
@@ -602,15 +456,159 @@ func (r *Registry) nextVersionLocked(now int64) *rpc.Version {
 	return v
 }
 
+func (r *Registry) membersForOwnerLocked(id string) int {
+	count := 0
+	for _, m := range r.members {
+		if m.Version.Owner == id {
+			count++
+		}
+	}
+	return count
+}
+
+func (r *Registry) updatesLocked(req *rpc.SubscribeRequest) []*rpc.RemoteMemberUpdate {
+	if req.KnownMembers == nil {
+		req.KnownMembers = make(map[string]*rpc.Version)
+	}
+
+	if req.OwnerOnly {
+		return r.ownerOnlyUpdatesLocked(req.KnownMembers)
+	}
+	return r.allUpdatesLocked(req.KnownMembers)
+}
+
+func (r *Registry) ownerOnlyUpdatesLocked(knownMembers map[string]*rpc.Version) []*rpc.RemoteMemberUpdate {
+	var updates []*rpc.RemoteMemberUpdate
+	for id, m := range r.members {
+		knownVersion, ok := knownMembers[id]
+		if ok {
+			// If either we own the member, or the subscriber thinks we do,
+			// and we have a more recent version, send an update.
+			if m.Version.Owner == r.localID || knownVersion.Owner == r.localID {
+				if compareVersions(knownVersion, m.Version) > 0 {
+					updates = append(updates, &rpc.RemoteMemberUpdate{
+						Member:  m.Member,
+						Version: m.Version,
+					})
+				}
+			}
+		} else {
+			// If the subscriber doesn't know abou tthe member, send an update.
+			if m.Version.Owner == r.localID {
+				updates = append(updates, &rpc.RemoteMemberUpdate{
+					Member:  m.Member,
+					Version: m.Version,
+				})
+			}
+		}
+	}
+
+	for id, knownVersion := range knownMembers {
+		if _, ok := r.members[id]; ok {
+			continue
+		}
+		if knownVersion.Owner != r.localID {
+			continue
+		}
+
+		// This should never happen, where the subscriber thinks we own a member
+		// that we don't. It should be prevented by tombstones.
+
+		r.logger.Error(
+			"subscriber knows about a member that is not in the cluster",
+			zap.Object("known-version", newVersionLogger(knownVersion)),
+		)
+
+		// So the subscriber knows the member has left, send the smallest
+		// version that will remove the member, but won't conflict with
+		// a more recent version from another owner, by keeping the same
+		// timestamp but incrementing the counter.
+		updates = append(updates, &rpc.RemoteMemberUpdate{
+			Member: &rpc.Member{
+				Id:     id,
+				Status: rpc.MemberStatus_LEFT,
+			},
+			Version: &rpc.Version{
+				Owner:     knownVersion.Owner,
+				Timestamp: knownVersion.Timestamp,
+				Counter:   knownVersion.Counter + 1,
+			},
+		})
+	}
+
+	return updates
+}
+
+func (r *Registry) allUpdatesLocked(knownMembers map[string]*rpc.Version) []*rpc.RemoteMemberUpdate {
+	var updates []*rpc.RemoteMemberUpdate
+	for id, m := range r.members {
+		knownVersion, ok := knownMembers[id]
+		if ok {
+			// If either we own the member, or the subscriber thinks we do,
+			// and we have a more recent version, send an update.
+			if compareVersions(knownVersion, m.Version) > 0 {
+				updates = append(updates, &rpc.RemoteMemberUpdate{
+					Member:  m.Member,
+					Version: m.Version,
+				})
+			}
+		} else {
+			// If the subscriber doesn't know abou tthe member, send an update.
+			updates = append(updates, &rpc.RemoteMemberUpdate{
+				Member:  m.Member,
+				Version: m.Version,
+			})
+		}
+	}
+
+	for id, knownVersion := range knownMembers {
+		if _, ok := r.members[id]; ok {
+			continue
+		}
+
+		// This should never happen, where the subscriber thinks we own a member
+		// that we don't. It should be prevented by tombstones.
+
+		r.logger.Error(
+			"subscriber knows about a member that is not in the cluster",
+			zap.Object("known-version", newVersionLogger(knownVersion)),
+		)
+
+		// So the subscriber knows the member has left, send the smallest
+		// version that will remove the member, but won't conflict with
+		// a more recent version from another owner, by keeping the same
+		// timestamp but incrementing the counter.
+		updates = append(updates, &rpc.RemoteMemberUpdate{
+			Member: &rpc.Member{
+				Id:     id,
+				Status: rpc.MemberStatus_LEFT,
+			},
+			Version: &rpc.Version{
+				Owner:     knownVersion.Owner,
+				Timestamp: knownVersion.Timestamp,
+				Counter:   knownVersion.Counter + 1,
+			},
+		})
+	}
+
+	return updates
+}
+
+// compareVersions compares lhs and rhs.
+//
+// If the owners don't match but the timestamps do, lhs is considered greater.
 func compareVersions(lhs *rpc.Version, rhs *rpc.Version) int {
 	if lhs.Owner != rhs.Owner {
+		// Ignore the counter when owners don't match, as the counter only
+		// applies locally.
 		if lhs.Timestamp < rhs.Timestamp {
 			return 1
 		}
 		if lhs.Timestamp > rhs.Timestamp {
 			return -1
 		}
-		return 0
+		// If the owners don't match, but the timestamps do, favor lhs.
+		return -1
 	}
 
 	if lhs.Timestamp < rhs.Timestamp {
@@ -626,4 +624,20 @@ func compareVersions(lhs *rpc.Version, rhs *rpc.Version) int {
 		return -1
 	}
 	return 0
+}
+
+func copyMember(m *rpc.Member) *rpc.Member {
+	metadata := make(map[string]string)
+	for k, v := range m.Metadata {
+		metadata[k] = v
+	}
+	return &rpc.Member{
+		Id:       m.Id,
+		Status:   m.Status,
+		Service:  m.Service,
+		Locality: m.Locality,
+		Created:  m.Created,
+		Revision: m.Revision,
+		Metadata: metadata,
+	}
 }

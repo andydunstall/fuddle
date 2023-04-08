@@ -1,403 +1,771 @@
 package registry
 
 import (
+	"math/rand"
 	"testing"
+	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
-func TestRegistry_GetLocalMember(t *testing.T) {
-	r := NewRegistry("local-member", WithRegistryLocalMember(&rpc.Member{
-		Id: "local-member",
-	}), WithRegistryNowTime(100), WithRegistryLogger(testutils.Logger()))
-
-	expectedLocalMember := &VersionedMember{
-		Member: &rpc.Member{
-			Id: "local-member",
-		},
-		Version: &rpc.Version{
-			Owner:     "local-member",
-			Timestamp: 100,
-			Counter:   0,
-		},
-	}
-	member, ok := r.Member("local-member")
+func TestRegistry_AddLocalMember(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+	)
+	m, ok := reg.Member("local")
 	assert.True(t, ok)
-	assert.True(t, expectedLocalMember.Equal(member))
+	assert.True(t, proto.Equal(localMember, m))
 }
 
-func TestRegistry_RegisterOwnedMember(t *testing.T) {
-	r := NewRegistry("local", WithRegistryLogger(testutils.Logger()))
+func TestRegistry_LocalMemberUpdateIgnored(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+	)
 
-	var recvUpdate *rpc.RemoteMemberUpdate
-	r.Subscribe(&rpc.SubscribeRequest{
-		OwnerOnly: true,
-	}, func(update *rpc.RemoteMemberUpdate) {
-		recvUpdate = update
+	updatedMember := randomMember("local")
+	reg.AddMember(updatedMember)
+	reg.RemoveMember("local")
+
+	// The member should still equal the original member.
+	m, ok := reg.Member("local")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(localMember, m))
+}
+
+func TestRegistry_AddMember(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember)
+
+	m, ok := reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(addedMember, m))
+}
+
+func TestRegistry_AddMemberDiscardOutdated(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember, WithRegistryNowTime(100))
+
+	reg.AddMember(randomMember("my-member"), WithRegistryNowTime(50))
+
+	m, ok := reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(addedMember, m))
+}
+
+func TestRegistry_SubscribeToAddMember(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	var update *rpc.RemoteMemberUpdate
+	reg.Subscribe(nil, func(u *rpc.RemoteMemberUpdate) {
+		update = u
 	})
 
-	r.LocalUpdate(&rpc.LocalMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-	}, WithRegistryNowTime(100))
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember, WithRegistryNowTime(100))
 
-	expectedVersionedMember := &VersionedMember{
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
+	assert.True(t, proto.Equal(&rpc.RemoteMemberUpdate{
+		Member: addedMember,
 		Version: &rpc.Version{
 			Owner:     "local",
 			Timestamp: 100,
 			Counter:   0,
 		},
-	}
-	member, ok := r.Member("member-1")
-	assert.True(t, ok)
-	assert.True(t, expectedVersionedMember.Equal(member))
-
-	expectedUpdate := &rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member:     expectedVersionedMember.Member,
-		Version:    expectedVersionedMember.Version,
-	}
-	assert.True(t, proto.Equal(expectedUpdate, recvUpdate))
+	}, update))
 }
 
-func TestRegistry_UnregisterOwnedMember(t *testing.T) {
-	r := NewRegistry("local", WithRegistryLogger(testutils.Logger()))
+func TestRegistry_RemoveMember(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
 
-	r.LocalUpdate(&rpc.LocalMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-	}, WithRegistryNowTime(100))
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember)
+	reg.RemoveMember("my-member")
 
-	var recvUpdate *rpc.RemoteMemberUpdate
-	r.Subscribe(&rpc.SubscribeRequest{
-		OwnerOnly: true,
-	}, func(update *rpc.RemoteMemberUpdate) {
-		recvUpdate = update
+	expectedMember := copyMember(addedMember)
+	expectedMember.Status = rpc.MemberStatus_LEFT
+
+	m, ok := reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(expectedMember, m))
+}
+
+func TestRegistry_RemoveMemberDiscardOutdated(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember, WithRegistryNowTime(100))
+
+	reg.RemoveMember("my-member", WithRegistryNowTime(50))
+
+	m, ok := reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(addedMember, m))
+}
+
+func TestRegistry_SubscribeToRemoveMember(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember, WithRegistryNowTime(100))
+
+	var update *rpc.RemoteMemberUpdate
+	reg.Subscribe(nil, func(u *rpc.RemoteMemberUpdate) {
+		update = u
 	})
 
-	r.LocalUpdate(&rpc.LocalMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_UNREGISTER,
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-	}, WithRegistryNowTime(200))
+	reg.RemoveMember("my-member", WithRegistryNowTime(200))
 
-	_, ok := r.Member("member-1")
+	expectedMember := copyMember(addedMember)
+	expectedMember.Status = rpc.MemberStatus_LEFT
+
+	assert.True(t, proto.Equal(&rpc.RemoteMemberUpdate{
+		Member: expectedMember,
+		Version: &rpc.Version{
+			Owner:     "local",
+			Timestamp: 200,
+			Counter:   0,
+		},
+	}, update))
+}
+
+func TestRegistry_RemoteUpdateTakeOwnership(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember, WithRegistryNowTime(100))
+
+	updatedMember := randomMember("my-member")
+	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
+		Member: updatedMember,
+		Version: &rpc.Version{
+			Owner: "remote",
+			// Outdated time.
+			Timestamp: 200,
+		},
+	})
+
+	// The member should equal the remote update.
+	m, ok := reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(updatedMember, m))
+}
+
+func TestRegistry_RemoteUpdateWithOutdatedVersionIgnored(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember, WithRegistryNowTime(200))
+
+	updatedMember := randomMember("my-member")
+	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
+		Member: updatedMember,
+		Version: &rpc.Version{
+			Owner: "remote",
+			// Outdated time.
+			Timestamp: 100,
+		},
+	})
+
+	// The member should still equal the original member.
+	m, ok := reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(addedMember, m))
+}
+
+func TestRegistry_LocalMemberRemoteUpdateIgnored(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	updatedMember := randomMember("local")
+	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
+		Member: updatedMember,
+		Version: &rpc.Version{
+			Owner:     "remote",
+			Timestamp: time.Now().UnixMilli() + 1000,
+		},
+	})
+
+	// The member should still equal the original member.
+	m, ok := reg.Member("local")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(localMember, m))
+}
+
+func TestRegistry_RemoteUpdateWithLocalOwnerIgnored(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember)
+
+	updatedMember := randomMember("my-member")
+	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
+		Member: updatedMember,
+		Version: &rpc.Version{
+			// Using the same owner as the local node should be ignored.
+			Owner:     "local",
+			Timestamp: time.Now().UnixMilli() + 1000,
+		},
+	})
+
+	// The member should still equal the original member.
+	m, ok := reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(addedMember, m))
+}
+
+func TestRegistry_SubscribeToRemoteUpdate(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	var update *rpc.RemoteMemberUpdate
+	reg.Subscribe(nil, func(u *rpc.RemoteMemberUpdate) {
+		update = u
+	})
+
+	addedMember := randomMember("my-member")
+	remoteUpdate := &rpc.RemoteMemberUpdate{
+		Member: addedMember,
+		Version: &rpc.Version{
+			Owner:     "remote",
+			Timestamp: 100,
+		},
+	}
+	reg.RemoteUpdate(remoteUpdate)
+
+	assert.True(t, proto.Equal(remoteUpdate, update))
+}
+
+func TestRegistry_SubscribeOwnerOnlyIgnoresRemoteUpdate(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	var update *rpc.RemoteMemberUpdate
+	reg.Subscribe(
+		&rpc.SubscribeRequest{OwnerOnly: true},
+		func(u *rpc.RemoteMemberUpdate) {
+			update = u
+		},
+	)
+
+	addedMember := randomMember("my-member")
+	remoteUpdate := &rpc.RemoteMemberUpdate{
+		Member: addedMember,
+		Version: &rpc.Version{
+			Owner:     "remote",
+			Timestamp: 100,
+		},
+	}
+	reg.RemoteUpdate(remoteUpdate)
+
+	assert.Nil(t, update)
+}
+
+// Tests when the local node loses ownership of a member, it notifies owner-only
+// subscribers about the update.
+func TestRegistry_SubscribeOwnerOnlyReceivesOwnershipChangesUpdates(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	reg.AddMember(randomMember("my-member"), WithRegistryNowTime(50))
+
+	var update *rpc.RemoteMemberUpdate
+	reg.Subscribe(
+		&rpc.SubscribeRequest{OwnerOnly: true},
+		func(u *rpc.RemoteMemberUpdate) {
+			update = u
+		},
+	)
+
+	addedMember := randomMember("my-member")
+	remoteUpdate := &rpc.RemoteMemberUpdate{
+		Member: addedMember,
+		Version: &rpc.Version{
+			Owner:     "remote",
+			Timestamp: 100,
+		},
+	}
+	reg.RemoteUpdate(remoteUpdate)
+
+	assert.True(t, proto.Equal(remoteUpdate, update))
+}
+
+func TestRegistry_MemberNotFound(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
+	_, ok := reg.Member("foo")
 	assert.False(t, ok)
-
-	expectedUpdate := &rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_UNREGISTER,
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-		Version: &rpc.Version{
-			Owner:     "local",
-			Timestamp: 200,
-			Counter:   0,
-		},
-	}
-	assert.True(t, proto.Equal(expectedUpdate, recvUpdate))
 }
 
-func TestRegistry_UpdateOwnedMember(t *testing.T) {
-	r := NewRegistry("local", WithRegistryLogger(testutils.Logger()))
+func TestRegistry_MarkMemberDownIgnoresLocal(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+		WithRegistryNowTime(100),
+	)
 
-	r.LocalUpdate(&rpc.LocalMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-	}, WithRegistryNowTime(100))
+	expectedMember := copyMember(localMember)
 
-	var recvUpdate *rpc.RemoteMemberUpdate
-	r.Subscribe(&rpc.SubscribeRequest{
-		OwnerOnly: true,
-	}, func(update *rpc.RemoteMemberUpdate) {
-		recvUpdate = update
-	})
+	reg.CheckMembersLiveness(
+		WithRegistryNowTime(1000),
+		WithHeartbeatTimeout(500),
+	)
 
-	// Update the member by adding metadata.
-	r.LocalUpdate(&rpc.LocalMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member: &rpc.Member{
-			Id: "member-1",
-			Metadata: map[string]string{
-				"foo": "bar",
-			},
-		},
-	}, WithRegistryNowTime(100))
-
-	expectedVersionedMember := &VersionedMember{
-		Member: &rpc.Member{
-			Id: "member-1",
-			Metadata: map[string]string{
-				"foo": "bar",
-			},
-		},
-		Version: &rpc.Version{
-			Owner:     "local",
-			Timestamp: 100,
-			// Since the update had the same timestamp, the counter should be
-			// incremented.
-			Counter: 1,
-		},
-	}
-	member, ok := r.Member("member-1")
+	m, ok := reg.Member("local")
 	assert.True(t, ok)
-	assert.True(t, expectedVersionedMember.Equal(member))
-
-	expectedUpdate := &rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member:     expectedVersionedMember.Member,
-		Version:    expectedVersionedMember.Version,
-	}
-	assert.True(t, proto.Equal(expectedUpdate, recvUpdate))
+	assert.True(t, proto.Equal(expectedMember, m))
 }
 
-func TestRegistry_RegisterRemoteMember(t *testing.T) {
-	r := NewRegistry("local", WithRegistryLogger(testutils.Logger()))
+func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
 
-	var recvUpdate *rpc.RemoteMemberUpdate
-	r.Subscribe(&rpc.SubscribeRequest{
-		OwnerOnly: false,
-	}, func(update *rpc.RemoteMemberUpdate) {
-		recvUpdate = update
-	})
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember, WithRegistryNowTime(100))
 
-	versionedMember := &VersionedMember{
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: 100,
-			Counter:   0,
-		},
-	}
-	r.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member:     versionedMember.Member,
-		Version:    versionedMember.Version,
-	})
+	reg.CheckMembersLiveness(
+		WithRegistryNowTime(500),
+		WithHeartbeatTimeout(300),
+	)
 
-	member, ok := r.Member("member-1")
+	expectedMember := copyMember(addedMember)
+	expectedMember.Status = rpc.MemberStatus_DOWN
+
+	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
-	assert.True(t, versionedMember.Equal(member))
+	assert.True(t, proto.Equal(expectedMember, m))
 
-	expectedUpdate := &rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: 100,
-			Counter:   0,
-		},
-	}
-	assert.True(t, proto.Equal(expectedUpdate, recvUpdate))
+	// Adding the member again should revive it.
+	reg.AddMember(addedMember, WithRegistryNowTime(600))
+
+	m, ok = reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(addedMember, m))
 }
 
-func TestRegistry_UnregisterRemoteMember(t *testing.T) {
-	r := NewRegistry("local", WithRegistryLogger(testutils.Logger()))
+func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
 
-	versionedMember := &VersionedMember{
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: 100,
-			Counter:   0,
-		},
-	}
-	r.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member:     versionedMember.Member,
-		Version:    versionedMember.Version,
-	})
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember, WithRegistryNowTime(100))
 
-	var recvUpdate *rpc.RemoteMemberUpdate
-	r.Subscribe(&rpc.SubscribeRequest{
-		OwnerOnly: false,
-	}, func(update *rpc.RemoteMemberUpdate) {
-		recvUpdate = update
-	})
+	reg.CheckMembersLiveness(
+		WithRegistryNowTime(500),
+		WithHeartbeatTimeout(300),
+	)
 
-	r.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_UNREGISTER,
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: 200,
-			Counter:   0,
-		},
-	})
+	expectedMember := copyMember(addedMember)
+	expectedMember.Status = rpc.MemberStatus_DOWN
 
-	_, ok := r.Member("member-1")
+	m, ok := reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(expectedMember, m))
+
+	reg.CheckMembersLiveness(
+		WithRegistryNowTime(1500),
+		WithReconnectTimeout(800),
+	)
+
+	expectedMember = copyMember(addedMember)
+	expectedMember.Status = rpc.MemberStatus_LEFT
+
+	m, ok = reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(expectedMember, m))
+
+	// Adding the member again should revive it.
+	reg.AddMember(addedMember, WithRegistryNowTime(1200))
+
+	m, ok = reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(addedMember, m))
+}
+
+func TestRegistry_MarkMemberLeftMemberRemovedAfterTombstoneTimeout(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
+
+	addedMember := randomMember("my-member")
+	reg.AddMember(addedMember, WithRegistryNowTime(100))
+	reg.RemoveMember("my-member", WithRegistryNowTime(200))
+
+	reg.CheckMembersLiveness(
+		WithRegistryNowTime(1500),
+		WithTombstoneTimeout(1000),
+	)
+
+	_, ok := reg.Member("my-member")
 	assert.False(t, ok)
-
-	expectedUpdate := &rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_UNREGISTER,
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: 200,
-			Counter:   0,
-		},
-	}
-	assert.True(t, proto.Equal(expectedUpdate, recvUpdate))
 }
 
-func TestRegistry_DiscardOutOfDateRemoteRegister(t *testing.T) {
-	r := NewRegistry("local", WithRegistryLogger(testutils.Logger()))
+func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+	)
 
-	// Add an update with owner remote-1 and timestamp 200.
-	versionedMember1 := &VersionedMember{
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
+	addedMember := randomMember("my-member")
+	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
+		Member: addedMember,
 		Version: &rpc.Version{
-			Owner:     "remote-1",
-			Timestamp: 200,
-			Counter:   0,
+			Owner:     "remote",
+			Timestamp: 100,
 		},
-	}
-	r.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member:     versionedMember1.Member,
-		Version:    versionedMember1.Version,
 	})
 
-	// Add another update with owner remote-2 and timestamp 100, which should
-	// be discarded.
-	versionedMember2 := &VersionedMember{
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
+	reg.OnNodeLeave("remote", WithRegistryNowTime(200))
+
+	reg.CheckMembersLiveness(
+		WithRegistryNowTime(1000),
+		WithHeartbeatTimeout(500),
+	)
+
+	expectedMember := copyMember(addedMember)
+	expectedMember.Status = rpc.MemberStatus_DOWN
+
+	member, ok := reg.Member("my-member")
+	assert.True(t, ok)
+	assert.True(t, proto.Equal(expectedMember, member))
+}
+
+func TestRegistry_UpdatesUnknownMembers(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+		WithRegistryNowTime(100),
+	)
+
+	updates := reg.Updates(&rpc.SubscribeRequest{
+		KnownMembers: make(map[string]*rpc.Version),
+	})
+	assert.Equal(t, 1, len(updates))
+	assert.True(t, proto.Equal(updates[0], &rpc.RemoteMemberUpdate{
+		Member: localMember,
 		Version: &rpc.Version{
-			Owner:     "remote-2",
+			Owner:     "local",
 			Timestamp: 100,
 			Counter:   0,
 		},
-	}
-	r.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member:     versionedMember2.Member,
-		Version:    versionedMember2.Version,
-	})
+	}))
 
-	member, ok := r.Member("member-1")
-	assert.True(t, ok)
-	// The original versioned member should be retained.
-	assert.True(t, versionedMember1.Equal(member))
+	ownerOnlyUpdates := reg.Updates(&rpc.SubscribeRequest{
+		KnownMembers: make(map[string]*rpc.Version),
+		OwnerOnly:    true,
+	})
+	assert.Equal(t, 1, len(ownerOnlyUpdates))
+	assert.True(t, proto.Equal(ownerOnlyUpdates[0], &rpc.RemoteMemberUpdate{
+		Member: localMember,
+		Version: &rpc.Version{
+			Owner:     "local",
+			Timestamp: 100,
+			Counter:   0,
+		},
+	}))
 }
 
-func TestRegistry_DiscardLocalUpdateToLocalMember(t *testing.T) {
-	r := NewRegistry("local-member", WithRegistryLocalMember(&rpc.Member{
-		Id: "local-member",
-	}), WithRegistryNowTime(100), WithRegistryLogger(testutils.Logger()))
+func TestRegistry_KnownMemberNotFound(t *testing.T) {
+	reg := NewRegistry(
+		"local",
+		WithRegistryLogger(testutils.Logger()),
+		WithRegistryNowTime(100),
+	)
 
-	r.LocalUpdate(&rpc.LocalMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member: &rpc.Member{
-			Id: "local-member",
-			Metadata: map[string]string{
-				"foo": "bar",
+	updates := reg.Updates(&rpc.SubscribeRequest{
+		KnownMembers: map[string]*rpc.Version{
+			"unknown-member": &rpc.Version{
+				Owner:     "local",
+				Timestamp: 50,
 			},
 		},
-	}, WithRegistryNowTime(200))
-
-	expectedLocalMember := &VersionedMember{
-		Member: &rpc.Member{
-			Id: "local-member",
-		},
-		Version: &rpc.Version{
-			Owner:     "local-member",
-			Timestamp: 100,
-			Counter:   0,
-		},
-	}
-	member, ok := r.Member("local-member")
-	assert.True(t, ok)
-	assert.True(t, expectedLocalMember.Equal(member))
-}
-
-func TestRegistry_DiscardOutOfDateLocalUpdate(t *testing.T) {
-	r := NewRegistry("local", WithRegistryLogger(testutils.Logger()))
-
-	versionedMember := &VersionedMember{
-		Member: &rpc.Member{
-			Id: "member-1",
-		},
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: 200,
-			Counter:   0,
-		},
-	}
-	r.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member:     versionedMember.Member,
-		Version:    versionedMember.Version,
 	})
-
-	r.LocalUpdate(&rpc.LocalMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
+	assert.Equal(t, 1, len(updates))
+	assert.True(t, proto.Equal(updates[0], &rpc.RemoteMemberUpdate{
 		Member: &rpc.Member{
-			Id: "member-1",
-			Metadata: map[string]string{
-				"foo": "bar",
+			Id:     "unknown-member",
+			Status: rpc.MemberStatus_LEFT,
+		},
+		Version: &rpc.Version{
+			Owner:     "local",
+			Timestamp: 50,
+			Counter:   1,
+		},
+	}))
+
+	ownerOnlyUpdates := reg.Updates(&rpc.SubscribeRequest{
+		KnownMembers: map[string]*rpc.Version{
+			"unknown-member": &rpc.Version{
+				Owner:     "local",
+				Timestamp: 50,
 			},
 		},
-	}, WithRegistryNowTime(100))
-
-	member, ok := r.Member("member-1")
-	assert.True(t, ok)
-	assert.True(t, versionedMember.Equal(member))
-}
-
-func TestRegistry_DiscardLocalUnregisterIfNotOwner(t *testing.T) {
-	r := NewRegistry("local", WithRegistryLogger(testutils.Logger()))
-
-	versionedMember := &VersionedMember{
+		OwnerOnly: true,
+	})
+	assert.Equal(t, 1, len(ownerOnlyUpdates))
+	assert.True(t, proto.Equal(ownerOnlyUpdates[0], &rpc.RemoteMemberUpdate{
 		Member: &rpc.Member{
-			Id: "member-1",
+			Id:     "unknown-member",
+			Status: rpc.MemberStatus_LEFT,
 		},
 		Version: &rpc.Version{
-			Owner:     "remote",
+			Owner:     "local",
+			Timestamp: 50,
+			Counter:   1,
+		},
+	}))
+}
+
+func TestRegistry_UpdatesKnownMemberOutOfDate(t *testing.T) {
+	localMember := randomMember("local")
+	reg := NewRegistry(
+		"local",
+		WithRegistryLocalMember(localMember),
+		WithRegistryLogger(testutils.Logger()),
+		WithRegistryNowTime(100),
+	)
+
+	updates := reg.Updates(&rpc.SubscribeRequest{
+		KnownMembers: map[string]*rpc.Version{
+			"local": &rpc.Version{
+				Owner:     "local",
+				Timestamp: 50,
+			},
+		},
+	})
+	assert.Equal(t, 1, len(updates))
+	assert.True(t, proto.Equal(updates[0], &rpc.RemoteMemberUpdate{
+		Member: localMember,
+		Version: &rpc.Version{
+			Owner:     "local",
 			Timestamp: 100,
 			Counter:   0,
 		},
-	}
-	r.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_REGISTER,
-		Member:     versionedMember.Member,
-		Version:    versionedMember.Version,
-	})
+	}))
 
-	r.LocalUpdate(&rpc.LocalMemberUpdate{
-		UpdateType: rpc.MemberUpdateType_UNREGISTER,
-		Member: &rpc.Member{
-			Id: "member-1",
+	ownerOnlyUpdates := reg.Updates(&rpc.SubscribeRequest{
+		KnownMembers: map[string]*rpc.Version{
+			"local": &rpc.Version{
+				Owner:     "local",
+				Timestamp: 50,
+			},
 		},
-	}, WithRegistryNowTime(200))
+		OwnerOnly: true,
+	})
+	assert.Equal(t, 1, len(ownerOnlyUpdates))
+	assert.True(t, proto.Equal(ownerOnlyUpdates[0], &rpc.RemoteMemberUpdate{
+		Member: localMember,
+		Version: &rpc.Version{
+			Owner:     "local",
+			Timestamp: 100,
+			Counter:   0,
+		},
+	}))
+}
 
-	member, ok := r.Member("member-1")
-	assert.True(t, ok)
-	assert.True(t, versionedMember.Equal(member))
+func TestCompareVersions(t *testing.T) {
+	tests := []struct {
+		Name     string
+		LHS      *rpc.Version
+		RHS      *rpc.Version
+		Expected int
+	}{
+		{
+			Name: "owners not equal but timestamps equal",
+			LHS: &rpc.Version{
+				Owner: "foo",
+			},
+			RHS: &rpc.Version{
+				Owner: "bar",
+			},
+			// LHS greater even though timestamps equal.
+			Expected: -1,
+		},
+		{
+			Name: "owners not equal lhs timestamp greater",
+			LHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 10,
+			},
+			RHS: &rpc.Version{
+				Owner:     "bar",
+				Timestamp: 5,
+			},
+			Expected: -1,
+		},
+		{
+			Name: "owners not equal rhs timestamp greater",
+			LHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 5,
+			},
+			RHS: &rpc.Version{
+				Owner:     "bar",
+				Timestamp: 10,
+			},
+			Expected: 1,
+		},
+		{
+			Name: "owners equal lhs timestamp greater",
+			LHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 10,
+			},
+			RHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 5,
+			},
+			Expected: -1,
+		},
+		{
+			Name: "owners equal rhs timestamp greater",
+			LHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 5,
+			},
+			RHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 10,
+			},
+			Expected: 1,
+		},
+		{
+			Name: "owners equal lhs counter greater",
+			LHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 10,
+				Counter:   10,
+			},
+			RHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 10,
+				Counter:   5,
+			},
+			Expected: -1,
+		},
+		{
+			Name: "owners equal rhs counter greater",
+			LHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 10,
+				Counter:   5,
+			},
+			RHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 10,
+				Counter:   10,
+			},
+			Expected: 1,
+		},
+		{
+			Name: "equal",
+			LHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 10,
+				Counter:   10,
+			},
+			RHS: &rpc.Version{
+				Owner:     "foo",
+				Timestamp: 10,
+				Counter:   10,
+			},
+			Expected: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			assert.Equal(t, tt.Expected, compareVersions(tt.LHS, tt.RHS))
+		})
+	}
+}
+
+func randomMember(id string) *rpc.Member {
+	if id == "" {
+		id = uuid.New().String()
+	}
+	return &rpc.Member{
+		Id:       id,
+		Service:  uuid.New().String(),
+		Locality: uuid.New().String(),
+		Created:  rand.Int63(),
+		Revision: uuid.New().String(),
+		Metadata: map[string]string{
+			uuid.New().String(): uuid.New().String(),
+			uuid.New().String(): uuid.New().String(),
+			uuid.New().String(): uuid.New().String(),
+			uuid.New().String(): uuid.New().String(),
+			uuid.New().String(): uuid.New().String(),
+		},
+	}
 }

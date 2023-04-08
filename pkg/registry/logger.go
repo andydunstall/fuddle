@@ -57,26 +57,6 @@ func (l memberLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	return nil
 }
 
-type localMemberUpdateLogger struct {
-	UpdateType rpc.MemberUpdateType
-	Member     *memberLogger
-}
-
-func newLocalMemberUpdateLogger(u *rpc.LocalMemberUpdate) *localMemberUpdateLogger {
-	return &localMemberUpdateLogger{
-		UpdateType: u.UpdateType,
-		Member:     newMemberLogger(u.Member),
-	}
-}
-
-func (l localMemberUpdateLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
-	e.AddString("update-type", l.UpdateType.String())
-	if err := e.AddObject("member", l.Member); err != nil {
-		return err
-	}
-	return nil
-}
-
 type remoteMemberUpdateLogger struct {
 	UpdateType rpc.MemberUpdateType
 	Member     *memberLogger

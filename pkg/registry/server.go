@@ -59,7 +59,7 @@ func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
 	}
 
 	member := m.Member
-	s.registry.LocalRegister(member)
+	s.registry.AddMember(member)
 
 	if err := stream.Send(&rpc.ClientAck{
 		SeqId: m.SeqId,
@@ -75,15 +75,15 @@ func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
 
 		if m.UpdateType == rpc.ClientUpdateType_CLIENT_REGISTER {
 			member = m.Member
-			s.registry.LocalRegister(member)
+			s.registry.AddMember(member)
 		}
 
 		if m.UpdateType == rpc.ClientUpdateType_CLIENT_HEARTBEAT {
-			s.registry.LocalRegister(member)
+			s.registry.AddMember(member)
 		}
 
 		if m.UpdateType == rpc.ClientUpdateType_CLIENT_UNREGISTER {
-			s.registry.LocalUnregister(member.Id)
+			s.registry.RemoveMember(member.Id)
 			return nil
 		}
 
