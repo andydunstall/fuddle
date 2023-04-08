@@ -141,6 +141,18 @@ func (c *Cluster) AddNode() (*Node, error) {
 	return node, nil
 }
 
+func (c *Cluster) DropActiveConns() {
+	for n := range c.nodes {
+		n.RPCProxy.Drop()
+	}
+}
+
+func (c *Cluster) BlockActiveConns() {
+	for n := range c.nodes {
+		n.RPCProxy.BlockActiveConns()
+	}
+}
+
 func (c *Cluster) RemoveNode(node *Node) {
 	node.Shutdown()
 	delete(c.nodes, node)

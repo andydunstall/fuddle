@@ -9,15 +9,18 @@ import (
 type options struct {
 	connectAttemptTimeout time.Duration
 
+	onConnectionStateChange func(state ConnState)
+
 	logger              *zap.Logger
 	grpcLoggerVerbosity int
 }
 
 func defaultOptions() *options {
 	return &options{
-		connectAttemptTimeout: time.Second * 4,
-		logger:                zap.NewNop(),
-		grpcLoggerVerbosity:   0,
+		connectAttemptTimeout:   time.Second * 4,
+		onConnectionStateChange: nil,
+		logger:                  zap.NewNop(),
+		grpcLoggerVerbosity:     0,
 	}
 }
 
@@ -40,6 +43,22 @@ func (o connectAttemptTimeoutOption) apply(opts *options) {
 // Defaults to 4 seconds.
 func WithConnectAttemptTimeout(timeout time.Duration) Option {
 	return connectAttemptTimeoutOption{timeout: timeout}
+}
+
+type onConnectionStateChangeOption struct {
+	cb func(state ConnState)
+}
+
+func (o onConnectionStateChangeOption) apply(opts *options) {
+	opts.onConnectionStateChange = o.cb
+}
+
+// WithOnConnectionStateChange adds an optional callback to receive updates when
+// the clients connection state changes.
+func WithOnConnectionStateChange(cb func(state ConnState)) Option {
+	return &onConnectionStateChangeOption{
+		cb: cb,
+	}
 }
 
 type loggerOption struct {

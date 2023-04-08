@@ -44,6 +44,25 @@ func (p *Proxy) Drop() {
 	p.mu.Unlock()
 }
 
+func (p *Proxy) CloseIfActive() {
+	p.mu.Lock()
+	isActive := len(p.conns) > 0
+	p.mu.Unlock()
+
+	if isActive {
+		p.Close()
+	}
+}
+
+func (p *Proxy) BlockActiveConns() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for c := range p.conns {
+		c.SetBlock(true)
+	}
+}
+
 func (p *Proxy) Addr() string {
 	return p.ln.Addr().String()
 }

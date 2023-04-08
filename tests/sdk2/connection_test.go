@@ -37,6 +37,74 @@ func TestConnection_Connect(t *testing.T) {
 	defer client.Close()
 }
 
+// Tests a client will reconnect after the connection is dropped.
+func TestConnection_ReconnectAfterDrop(t *testing.T) {
+	t.Parallel()
+
+	c, err := cluster.NewCluster(cluster.WithNodes(5))
+	require.NoError(t, err)
+	defer c.Shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+	defer cancel()
+
+	connStateCh := make(chan fuddle.ConnState, 10)
+	client, err := fuddle.Connect(
+		ctx,
+		c.RPCAddrs(),
+		fuddle.WithLogger(testutils.Logger()),
+		fuddle.WithOnConnectionStateChange(func(state fuddle.ConnState) {
+			connStateCh <- state
+		}),
+	)
+	require.NoError(t, err)
+	defer client.Close()
+
+	assert.Equal(t, fuddle.StateConnected, <-connStateCh)
+
+	// Close the node the client is connected to.
+	c.DropActiveConns()
+
+	assert.Equal(t, fuddle.StateDisconnected, <-connStateCh)
+	assert.Equal(t, fuddle.StateConnected, <-connStateCh)
+}
+
+// Tests a client will reconnect after its connection is blocked by the proxy
+// dropping all traffic (even though the connection remains open).
+func TestConnection_ReconnectAfterBlocked(t *testing.T) {
+	t.Skip("not supported without keep alives")
+
+	t.Parallel()
+
+	c, err := cluster.NewCluster(cluster.WithNodes(5))
+	require.NoError(t, err)
+	defer c.Shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+	defer cancel()
+
+	connStateCh := make(chan fuddle.ConnState, 10)
+	client, err := fuddle.Connect(
+		ctx,
+		c.RPCAddrs(),
+		fuddle.WithLogger(testutils.Logger()),
+		fuddle.WithOnConnectionStateChange(func(state fuddle.ConnState) {
+			connStateCh <- state
+		}),
+	)
+	require.NoError(t, err)
+	defer client.Close()
+
+	assert.Equal(t, fuddle.StateConnected, <-connStateCh)
+
+	// Block all traffic on active connections. This won't close the connection
+	// but simulates dropping all packets.
+	c.BlockActiveConns()
+
+	assert.Equal(t, fuddle.StateDisconnected, <-connStateCh)
+	assert.Equal(t, fuddle.StateConnected, <-connStateCh)
+}
+
 // Tests the client connection will succeed even if some of the seed addresses
 // are wrong.
 func TestConnection_ConnectIgnoreBadAddrs(t *testing.T) {
