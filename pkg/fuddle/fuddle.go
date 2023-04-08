@@ -139,7 +139,7 @@ func (f *Fuddle) failureDetector() {
 		case <-f.done:
 			return
 		case <-ticker.C:
-			f.registry.MarkDownNodes()
+			f.registry.CheckMembersLiveness()
 		}
 	}
 }

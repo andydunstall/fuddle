@@ -105,7 +105,8 @@ func (c *Client) onConnected() {
 	stream, err := c.client.Subscribe(
 		context.Background(),
 		&rpc.SubscribeRequest{
-			OwnerOnly: true,
+			OwnerOnly:    true,
+			KnownMembers: make(map[string]*rpc.Version),
 		},
 	)
 	if err != nil {
