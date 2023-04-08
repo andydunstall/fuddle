@@ -3,10 +3,12 @@ package server
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 type Server struct {
@@ -24,7 +26,13 @@ func NewServer(conf *config.Config, opts ...Option) *Server {
 
 	logger := options.logger
 
-	grpcServer := grpc.NewServer()
+	enforcementPolicy := keepalive.EnforcementPolicy{
+		MinTime:             10 * time.Second,
+		PermitWithoutStream: true,
+	}
+	grpcServer := grpc.NewServer(
+		grpc.KeepaliveEnforcementPolicy(enforcementPolicy),
+	)
 
 	return &Server{
 		conf:       conf,

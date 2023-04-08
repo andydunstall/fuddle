@@ -8,6 +8,8 @@ import (
 
 type options struct {
 	connectAttemptTimeout time.Duration
+	keepAlivePingInterval time.Duration
+	keepAlivePingTimeout  time.Duration
 
 	onConnectionStateChange func(state ConnState)
 
@@ -18,6 +20,8 @@ type options struct {
 func defaultOptions() *options {
 	return &options{
 		connectAttemptTimeout:   time.Second * 4,
+		keepAlivePingInterval:   time.Second * 10,
+		keepAlivePingTimeout:    time.Second * 5,
 		onConnectionStateChange: nil,
 		logger:                  zap.NewNop(),
 		grpcLoggerVerbosity:     0,
@@ -43,6 +47,39 @@ func (o connectAttemptTimeoutOption) apply(opts *options) {
 // Defaults to 4 seconds.
 func WithConnectAttemptTimeout(timeout time.Duration) Option {
 	return connectAttemptTimeoutOption{timeout: timeout}
+}
+
+type keepAlivePingIntervalOption struct {
+	interval time.Duration
+}
+
+func (o keepAlivePingIntervalOption) apply(opts *options) {
+	opts.keepAlivePingInterval = o.interval
+}
+
+// WithKeepAlivePingInterval is the interval to send keepAlive pings to the
+// connected Fuddle node, which is used to detect an unresponsive connection
+// and trigger a reconnection attempt.
+//
+// Defaults to 10 seconds.
+func WithKeepAlivePingInterval(interval time.Duration) Option {
+	return keepAlivePingIntervalOption{interval: interval}
+}
+
+type keepAlivePingTimeoutOption struct {
+	timeout time.Duration
+}
+
+func (o keepAlivePingTimeoutOption) apply(opts *options) {
+	opts.keepAlivePingTimeout = o.timeout
+}
+
+// WithKeepAlivePingTimeout is the time to wait for a keepalive ping response
+// before timing out and considering the connection as failed.
+//
+// Defaults to 4 seconds.
+func WithKeepAlivePingTimeout(timeout time.Duration) Option {
+	return keepAlivePingTimeoutOption{timeout: timeout}
 }
 
 type onConnectionStateChangeOption struct {

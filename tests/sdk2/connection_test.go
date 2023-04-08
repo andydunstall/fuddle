@@ -72,8 +72,6 @@ func TestConnection_ReconnectAfterDrop(t *testing.T) {
 // Tests a client will reconnect after its connection is blocked by the proxy
 // dropping all traffic (even though the connection remains open).
 func TestConnection_ReconnectAfterBlocked(t *testing.T) {
-	t.Skip("not supported without keep alives")
-
 	t.Parallel()
 
 	c, err := cluster.NewCluster(cluster.WithNodes(5))

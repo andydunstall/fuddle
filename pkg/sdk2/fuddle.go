@@ -15,10 +15,13 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/keepalive"
 )
 
 type Fuddle struct {
 	connectAttemptTimeout time.Duration
+	keepAlivePingInterval time.Duration
+	keepAlivePingTimeout  time.Duration
 
 	onConnectionStateChange func(state ConnState)
 
@@ -41,6 +44,8 @@ func Connect(ctx context.Context, addrs []string, opts ...Option) (*Fuddle, erro
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	f := &Fuddle{
 		connectAttemptTimeout: options.connectAttemptTimeout,
+		keepAlivePingInterval: options.keepAlivePingInterval,
+		keepAlivePingTimeout:  options.keepAlivePingTimeout,
 
 		onConnectionStateChange: options.onConnectionStateChange,
 
@@ -80,6 +85,13 @@ func (f *Fuddle) connect(ctx context.Context, addrs []string) error {
 
 	f.logger.Info("connecting", zap.Strings("addrs", addrs))
 
+	// Send keep alive pings to detect unresponsive connections and trigger
+	// a reconnect.
+	keepAliveParams := keepalive.ClientParameters{
+		Time:                f.keepAlivePingInterval,
+		Timeout:             f.keepAlivePingTimeout,
+		PermitWithoutStream: true,
+	}
 	conn, err := grpc.DialContext(
 		ctx,
 		// Use the static resolver which uses the configured seed addresses.
@@ -91,6 +103,7 @@ func (f *Fuddle) connect(ctx context.Context, addrs []string) error {
 		// Block until the connection succeeds so we can fail the initial
 		// connection.
 		grpc.WithBlock(),
+		grpc.WithKeepaliveParams(keepAliveParams),
 	)
 	if err != nil {
 		f.logger.Error(
