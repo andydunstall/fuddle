@@ -19,7 +19,7 @@ A members status is either `up` or `down`.
 
 The status is decided by Fuddle based on client heartbeats. If Fuddle does not
 receive a heartbeat from a client with registered members for the configured
-`heartbeat_timeout` (default 30s), all members registered by that client are
+`heartbeat_timeout` (default 20s), all members registered by that client are
 considered `down`.
 
 If `down` members don't become healthy again for the configured

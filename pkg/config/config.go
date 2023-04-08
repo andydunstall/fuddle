@@ -1,14 +1,17 @@
 package config
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
 )
 
 type Config struct {
-	NodeID string
-	RPC    *RPC
-	Gossip *Gossip
+	NodeID   string
+	RPC      *RPC
+	Gossip   *Gossip
+	Registry *Registry
 }
 
 func DefaultConfig() *Config {
@@ -25,6 +28,11 @@ func DefaultConfig() *Config {
 			BindPort: 8111,
 			AdvAddr:  "",
 			AdvPort:  8111,
+		},
+		Registry: &Registry{
+			HeartbeatTimeout: time.Second * 20,
+			ReconnectTimeout: time.Minute * 5,
+			TombstoneTimeout: time.Minute * 30,
 		},
 	}
 }

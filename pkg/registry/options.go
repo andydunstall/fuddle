@@ -18,9 +18,9 @@ type registryOptions struct {
 
 func defaultRegistryOptions() *registryOptions {
 	return &registryOptions{
-		heartbeatTimeout: 15 * 1000,
+		heartbeatTimeout: 20 * 1000,
 		reconnectTimeout: 5 * 60 * 1000,
-		tombstoneTimeout: 20 * 60 * 1000,
+		tombstoneTimeout: 30 * 60 * 1000,
 		now:              time.Now().UnixMilli(),
 		logger:           zap.NewNop(),
 	}

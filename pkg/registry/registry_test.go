@@ -365,13 +365,13 @@ func TestRegistry_MarkMemberDownIgnoresLocal(t *testing.T) {
 		WithRegistryLocalMember(localMember),
 		WithRegistryLogger(testutils.Logger()),
 		WithRegistryNowTime(100),
+		WithHeartbeatTimeout(500),
 	)
 
 	expectedMember := copyMember(localMember)
 
 	reg.CheckMembersLiveness(
 		WithRegistryNowTime(1000),
-		WithHeartbeatTimeout(500),
 	)
 
 	m, ok := reg.Member("local")
@@ -383,6 +383,7 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 	reg := NewRegistry(
 		"local",
 		WithRegistryLogger(testutils.Logger()),
+		WithHeartbeatTimeout(300),
 	)
 
 	addedMember := randomMember("my-member")
@@ -390,7 +391,6 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 
 	reg.CheckMembersLiveness(
 		WithRegistryNowTime(500),
-		WithHeartbeatTimeout(300),
 	)
 
 	expectedMember := copyMember(addedMember)
@@ -412,6 +412,8 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 	reg := NewRegistry(
 		"local",
 		WithRegistryLogger(testutils.Logger()),
+		WithHeartbeatTimeout(300),
+		WithReconnectTimeout(800),
 	)
 
 	addedMember := randomMember("my-member")
@@ -419,7 +421,6 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 
 	reg.CheckMembersLiveness(
 		WithRegistryNowTime(500),
-		WithHeartbeatTimeout(300),
 	)
 
 	expectedMember := copyMember(addedMember)
@@ -431,7 +432,6 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 
 	reg.CheckMembersLiveness(
 		WithRegistryNowTime(1500),
-		WithReconnectTimeout(800),
 	)
 
 	expectedMember = copyMember(addedMember)
@@ -453,6 +453,7 @@ func TestRegistry_MarkMemberLeftMemberRemovedAfterTombstoneTimeout(t *testing.T)
 	reg := NewRegistry(
 		"local",
 		WithRegistryLogger(testutils.Logger()),
+		WithTombstoneTimeout(1000),
 	)
 
 	addedMember := randomMember("my-member")
@@ -461,7 +462,6 @@ func TestRegistry_MarkMemberLeftMemberRemovedAfterTombstoneTimeout(t *testing.T)
 
 	reg.CheckMembersLiveness(
 		WithRegistryNowTime(1500),
-		WithTombstoneTimeout(1000),
 	)
 
 	_, ok := reg.Member("my-member")
@@ -472,6 +472,7 @@ func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
 	reg := NewRegistry(
 		"local",
 		WithRegistryLogger(testutils.Logger()),
+		WithHeartbeatTimeout(500),
 	)
 
 	addedMember := randomMember("my-member")
@@ -487,7 +488,6 @@ func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
 
 	reg.CheckMembersLiveness(
 		WithRegistryNowTime(1000),
-		WithHeartbeatTimeout(500),
 	)
 
 	expectedMember := copyMember(addedMember)
