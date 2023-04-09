@@ -11,7 +11,8 @@ import (
 )
 
 func TestRegistry_RemoteUpdateAddMember(t *testing.T) {
-	reg := newRegistry(zap.NewNop())
+	localMember := randomMember("local")
+	reg := newRegistry(fromRPC(localMember), zap.NewNop())
 
 	addedMember := randomMember("member-1")
 	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
@@ -22,11 +23,28 @@ func TestRegistry_RemoteUpdateAddMember(t *testing.T) {
 		},
 	})
 
-	assert.Equal(t, []Member{fromRPC(addedMember)}, reg.Members())
+	assert.Equal(t, []Member{fromRPC(localMember), fromRPC(addedMember)}, reg.Members())
+}
+
+func TestRegistry_RemoteIgnoreLocalMember(t *testing.T) {
+	localMember := randomMember("local")
+	reg := newRegistry(fromRPC(localMember), zap.NewNop())
+
+	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
+		Member: randomMember("local"),
+		Version: &rpc.Version{
+			Owner:     "remote-1",
+			Timestamp: 123,
+		},
+	})
+
+	// Local member should be unchanged.
+	assert.Equal(t, []Member{fromRPC(localMember)}, reg.Members())
 }
 
 func TestRegistry_RemoteUpdateRemoveMember(t *testing.T) {
-	reg := newRegistry(zap.NewNop())
+	localMember := randomMember("local")
+	reg := newRegistry(fromRPC(localMember), zap.NewNop())
 
 	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
 		Member: randomMember("member-1"),
@@ -46,11 +64,12 @@ func TestRegistry_RemoteUpdateRemoveMember(t *testing.T) {
 		},
 	})
 
-	assert.Nil(t, reg.Members())
+	assert.Equal(t, []Member{fromRPC(localMember)}, reg.Members())
 }
 
 func TestRegistry_KnownVersions(t *testing.T) {
-	reg := newRegistry(zap.NewNop())
+	localMember := randomMember("local")
+	reg := newRegistry(fromRPC(localMember), zap.NewNop())
 
 	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
 		Member: randomMember("member-1"),
@@ -80,7 +99,8 @@ func TestRegistry_KnownVersions(t *testing.T) {
 }
 
 func TestRegistry_Subscribe(t *testing.T) {
-	reg := newRegistry(zap.NewNop())
+	localMember := randomMember("local")
+	reg := newRegistry(fromRPC(localMember), zap.NewNop())
 
 	count := 0
 	reg.Subscribe(func() {

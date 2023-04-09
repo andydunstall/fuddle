@@ -20,6 +20,7 @@ type versionedMember struct {
 type registry struct {
 	// members contains the members in the registry known by the client.
 	members map[string]*versionedMember
+	localID string
 
 	subscribers map[*subscriber]interface{}
 
@@ -29,12 +30,25 @@ type registry struct {
 	logger *zap.Logger
 }
 
-func newRegistry(logger *zap.Logger) *registry {
+func newRegistry(member Member, logger *zap.Logger) *registry {
+	members := make(map[string]*versionedMember)
+	members[member.ID] = &versionedMember{
+		Member: member.toRPC(),
+	}
+
 	return &registry{
-		members:     make(map[string]*versionedMember),
+		members:     members,
+		localID:     member.ID,
 		subscribers: make(map[*subscriber]interface{}),
 		logger:      logger,
 	}
+}
+
+func (r *registry) LocalRPCMember() *rpc.Member {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.members[r.localID].Member
 }
 
 func (r *registry) Members() []Member {
@@ -54,6 +68,10 @@ func (r *registry) KnownVersions() map[string]*rpc.Version {
 
 	versions := make(map[string]*rpc.Version)
 	for id, m := range r.members {
+		// Exclude the local member.
+		if id == r.localID {
+			continue
+		}
 		versions[id] = m.Version
 	}
 	return versions
@@ -85,6 +103,10 @@ func (r *registry) RemoteUpdate(update *rpc.RemoteMemberUpdate) {
 		"remote update",
 		zap.Object("update", newRemoteMemberUpdateLogger(update)),
 	)
+
+	if update.Member.Id == r.localID {
+		return
+	}
 
 	if update.Member.Status == rpc.MemberStatus_UP {
 		r.updateMember(&versionedMember{
@@ -160,18 +182,33 @@ func (m metadataLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
 
 type memberLogger struct {
 	ID       string
+	Status   string
+	Service  string
+	Locality string
+	Created  int64
+	Revision string
 	Metadata metadataLogger
 }
 
 func newMemberLogger(m *rpc.Member) *memberLogger {
 	return &memberLogger{
 		ID:       m.Id,
+		Status:   m.Status.String(),
+		Service:  m.Service,
+		Locality: m.Locality,
+		Created:  m.Created,
+		Revision: m.Revision,
 		Metadata: m.Metadata,
 	}
 }
 
 func (l memberLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("id", l.ID)
+	e.AddString("status", l.Status)
+	e.AddString("service", l.Service)
+	e.AddString("locality", l.Locality)
+	e.AddInt64("created", l.Created)
+	e.AddString("revision", l.Revision)
 	if err := e.AddObject("metadata", metadataLogger(l.Metadata)); err != nil {
 		return err
 	}

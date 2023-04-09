@@ -28,9 +28,10 @@ func TestConnection_Connect(t *testing.T) {
 	ctx, cancel = context.WithTimeout(context.Background(), time.Millisecond*100)
 	defer cancel()
 
-	client, err := fuddle.Connect(
+	client, err := fuddle.Register(
 		ctx,
 		c.RPCAddrs(),
+		randomMember(""),
 		fuddle.WithLogger(testutils.Logger()),
 	)
 	require.NoError(t, err)
@@ -49,9 +50,10 @@ func TestConnection_ReconnectAfterDrop(t *testing.T) {
 	defer cancel()
 
 	connStateCh := make(chan fuddle.ConnState, 10)
-	client, err := fuddle.Connect(
+	client, err := fuddle.Register(
 		ctx,
 		c.RPCAddrs(),
+		randomMember(""),
 		fuddle.WithLogger(testutils.Logger()),
 		fuddle.WithOnConnectionStateChange(func(state fuddle.ConnState) {
 			connStateCh <- state
@@ -82,9 +84,10 @@ func TestConnection_ReconnectAfterBlocked(t *testing.T) {
 	defer cancel()
 
 	connStateCh := make(chan fuddle.ConnState, 10)
-	client, err := fuddle.Connect(
+	client, err := fuddle.Register(
 		ctx,
 		c.RPCAddrs(),
+		randomMember(""),
 		fuddle.WithLogger(testutils.Logger()),
 		fuddle.WithOnConnectionStateChange(func(state fuddle.ConnState) {
 			connStateCh <- state
@@ -125,9 +128,10 @@ func TestConnection_ConnectIgnoreBadAddrs(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	client, err := fuddle.Connect(
+	client, err := fuddle.Register(
 		ctx,
 		addrs,
+		randomMember(""),
 		fuddle.WithLogger(testutils.Logger()),
 		fuddle.WithConnectAttemptTimeout(time.Millisecond*100),
 	)
@@ -143,9 +147,10 @@ func TestConnection_ConnectUnreachable(t *testing.T) {
 	defer cancel()
 
 	// Attempt to connect to a blocked port.
-	_, err := fuddle.Connect(
+	_, err := fuddle.Register(
 		ctx,
 		[]string{"fuddle.io:12345"},
+		randomMember(""),
 		fuddle.WithLogger(testutils.Logger()),
 	)
 	assert.Error(t, err)
@@ -158,9 +163,10 @@ func TestConnection_ConnectNoSeeds(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
 	defer cancel()
 
-	_, err := fuddle.Connect(
+	_, err := fuddle.Register(
 		ctx,
 		[]string{},
+		randomMember(""),
 		fuddle.WithLogger(testutils.Logger()),
 	)
 	assert.Error(t, err)

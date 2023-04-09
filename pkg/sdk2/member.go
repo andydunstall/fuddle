@@ -13,6 +13,17 @@ type Member struct {
 	Metadata map[string]string
 }
 
+func (m *Member) toRPC() *rpc.Member {
+	return &rpc.Member{
+		Id:       m.ID,
+		Service:  m.Service,
+		Locality: m.Locality,
+		Created:  m.Created,
+		Revision: m.Revision,
+		Metadata: m.Metadata,
+	}
+}
+
 func fromRPC(m *rpc.Member) Member {
 	return Member{
 		ID:       m.Id,

@@ -24,6 +24,7 @@ type Fuddle struct {
 	connectAttemptTimeout time.Duration
 	keepAlivePingInterval time.Duration
 	keepAlivePingTimeout  time.Duration
+	heartbeatInterval     time.Duration
 
 	onConnectionStateChange func(state ConnState)
 
@@ -41,7 +42,7 @@ type Fuddle struct {
 	grpcLoggerVerbosity int
 }
 
-func Connect(ctx context.Context, addrs []string, opts ...Option) (*Fuddle, error) {
+func Register(ctx context.Context, addrs []string, member Member, opts ...Option) (*Fuddle, error) {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
@@ -52,10 +53,11 @@ func Connect(ctx context.Context, addrs []string, opts ...Option) (*Fuddle, erro
 		connectAttemptTimeout: options.connectAttemptTimeout,
 		keepAlivePingInterval: options.keepAlivePingInterval,
 		keepAlivePingTimeout:  options.keepAlivePingTimeout,
+		heartbeatInterval:     options.heartbeatInterval,
 
 		onConnectionStateChange: options.onConnectionStateChange,
 
-		registry: newRegistry(options.logger),
+		registry: newRegistry(member, options.logger),
 
 		ctx:    cancelCtx,
 		cancel: cancel,
@@ -82,6 +84,9 @@ func (f *Fuddle) Subscribe(cb func()) func() {
 func (f *Fuddle) Close() {
 	f.closed.Store(true)
 	f.cancel()
+	// Note must wait for all goroutines to stop before closing the connection
+	// since we unregister before exiting.
+	f.wg.Wait()
 	f.conn.Close()
 }
 
@@ -174,8 +179,21 @@ func (f *Fuddle) onConnected() {
 		f.onConnectionStateChange(StateConnected)
 	}
 
+	f.setupStreamUpdates()
+	f.setupStreamRegister()
+}
+
+func (f *Fuddle) onDisconnect() {
+	f.logger.Info("disconnected")
+
+	if f.onConnectionStateChange != nil {
+		f.onConnectionStateChange(StateDisconnected)
+	}
+}
+
+func (f *Fuddle) setupStreamUpdates() {
 	subscription, err := f.client.Subscribe(
-		context.Background(),
+		f.ctx,
 		&rpc.SubscribeRequest{
 			KnownMembers: f.registry.KnownVersions(),
 			// Receive all updates from the connected node..
@@ -191,16 +209,37 @@ func (f *Fuddle) onConnected() {
 
 	f.wg.Add(1)
 	go func() {
-		go f.streamUpdates(subscription)
+		defer f.wg.Done()
+		f.streamUpdates(subscription)
 	}()
 }
 
-func (f *Fuddle) onDisconnect() {
-	f.logger.Info("disconnected")
-
-	if f.onConnectionStateChange != nil {
-		f.onConnectionStateChange(StateDisconnected)
+func (f *Fuddle) setupStreamRegister() {
+	stream, err := f.client.Register(
+		// Use background since f.ctx will be cancelled before we've sent
+		// unregister.
+		context.Background(),
+	)
+	if err != nil {
+		// If we can't subscribe, this will typically mean we've disconnected
+		// so will retry once reconnected.
+		f.logger.Warn("failed to stream register", zap.Error(err))
+		return
 	}
+
+	if err := stream.Send(&rpc.ClientUpdate{
+		UpdateType: rpc.ClientUpdateType_CLIENT_REGISTER,
+		Member:     f.registry.LocalRPCMember(),
+	}); err != nil {
+		f.logger.Warn("failed to send register", zap.Error(err))
+		return
+	}
+
+	f.wg.Add(1)
+	go func() {
+		defer f.wg.Done()
+		f.streamHeartbeats(stream)
+	}()
 }
 
 func (f *Fuddle) streamUpdates(stream rpc.Registry_SubscribeClient) {
@@ -217,6 +256,31 @@ func (f *Fuddle) streamUpdates(stream rpc.Registry_SubscribeClient) {
 
 		f.registry.RemoteUpdate(update)
 	}
+}
+
+func (f *Fuddle) streamHeartbeats(stream rpc.Registry_RegisterClient) {
+	ticker := time.NewTicker(f.heartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-f.ctx.Done():
+			if err := stream.Send(&rpc.ClientUpdate{
+				UpdateType: rpc.ClientUpdateType_CLIENT_UNREGISTER,
+				Member:     f.registry.LocalRPCMember(),
+			}); err != nil {
+				f.logger.Warn("unregister error", zap.Error(err))
+			}
+			return
+		case <-ticker.C:
+			if err := stream.Send(&rpc.ClientUpdate{
+				UpdateType: rpc.ClientUpdateType_CLIENT_HEARTBEAT,
+			}); err != nil {
+				return
+			}
+		}
+	}
+
 }
 
 func (f *Fuddle) dialerWithTimeout(ctx context.Context, addr string) (net.Conn, error) {

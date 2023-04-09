@@ -28,9 +28,10 @@ func TestUpdates_ReceiveMembers(t *testing.T) {
 	ctx, cancel = context.WithTimeout(context.Background(), time.Millisecond*100)
 	defer cancel()
 
-	client, err := fuddle.Connect(
+	client, err := fuddle.Register(
 		ctx,
 		c.RPCAddrs(),
+		randomMember(""),
 		fuddle.WithLogger(testutils.Logger()),
 	)
 	require.NoError(t, err)
@@ -39,7 +40,7 @@ func TestUpdates_ReceiveMembers(t *testing.T) {
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
 
-	assert.NoError(t, waitForMembers(ctx, client, 5))
+	assert.NoError(t, waitForMembers(ctx, client, 6))
 }
 
 func TestUpdates_ReceiveMissedMembersAfterReconnect(t *testing.T) {

@@ -10,6 +10,7 @@ type options struct {
 	connectAttemptTimeout time.Duration
 	keepAlivePingInterval time.Duration
 	keepAlivePingTimeout  time.Duration
+	heartbeatInterval     time.Duration
 
 	onConnectionStateChange func(state ConnState)
 
@@ -22,6 +23,7 @@ func defaultOptions() *options {
 		connectAttemptTimeout:   time.Second * 4,
 		keepAlivePingInterval:   time.Second * 10,
 		keepAlivePingTimeout:    time.Second * 5,
+		heartbeatInterval:       time.Second * 5,
 		onConnectionStateChange: nil,
 		logger:                  zap.NewNop(),
 		grpcLoggerVerbosity:     0,
@@ -80,6 +82,18 @@ func (o keepAlivePingTimeoutOption) apply(opts *options) {
 // Defaults to 4 seconds.
 func WithKeepAlivePingTimeout(timeout time.Duration) Option {
 	return keepAlivePingTimeoutOption{timeout: timeout}
+}
+
+type heartbeatIntervalOption struct {
+	interval time.Duration
+}
+
+func (o heartbeatIntervalOption) apply(opts *options) {
+	opts.heartbeatInterval = o.interval
+}
+
+func WithHeartbeatInterval(interval time.Duration) Option {
+	return heartbeatIntervalOption{interval: interval}
 }
 
 type onConnectionStateChangeOption struct {
