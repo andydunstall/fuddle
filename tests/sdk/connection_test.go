@@ -1,13 +1,13 @@
 //go:build all || integration
 
-package sdk2
+package sdk
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	fuddle "github.com/fuddle-io/fuddle/pkg/sdk2"
+	fuddle "github.com/fuddle-io/fuddle/pkg/sdk"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/fuddle-io/fuddle/tests/cluster"
 	"github.com/stretchr/testify/assert"

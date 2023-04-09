@@ -17,12 +17,14 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/keepalive"
 )
 
 type Fuddle struct {
 	connectAttemptTimeout time.Duration
 	keepAlivePingInterval time.Duration
 	keepAlivePingTimeout  time.Duration
+	heartbeatInterval     time.Duration
 
 	onConnectionStateChange func(state ConnState)
 
@@ -31,18 +33,16 @@ type Fuddle struct {
 	conn   *grpc.ClientConn
 	client rpc.RegistryClient
 
-	// cancel is a function called when the client is shutdown to stop any
-	// waiting contexts.
-	cancelCtx context.Context
-	cancel    func()
-	wg        sync.WaitGroup
-	closed    *atomic.Bool
+	ctx    context.Context
+	cancel func()
+	wg     sync.WaitGroup
+	closed *atomic.Bool
 
 	logger              *zap.Logger
 	grpcLoggerVerbosity int
 }
 
-func Connect(ctx context.Context, addrs []string, opts ...Option) (*Fuddle, error) {
+func Register(ctx context.Context, addrs []string, member Member, opts ...Option) (*Fuddle, error) {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
@@ -53,28 +53,22 @@ func Connect(ctx context.Context, addrs []string, opts ...Option) (*Fuddle, erro
 		connectAttemptTimeout: options.connectAttemptTimeout,
 		keepAlivePingInterval: options.keepAlivePingInterval,
 		keepAlivePingTimeout:  options.keepAlivePingTimeout,
+		heartbeatInterval:     options.heartbeatInterval,
 
 		onConnectionStateChange: options.onConnectionStateChange,
 
-		registry: newRegistry(),
+		registry: newRegistry(member, options.logger),
 
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
-		closed:    atomic.NewBool(false),
+		ctx:    cancelCtx,
+		cancel: cancel,
+		closed: atomic.NewBool(false),
 
 		logger:              options.logger,
 		grpcLoggerVerbosity: options.grpcLoggerVerbosity,
 	}
-
 	if err := f.connect(ctx, addrs); err != nil {
 		return nil, fmt.Errorf("fuddle: %w", err)
 	}
-
-	f.wg.Add(1)
-	go func() {
-		defer f.wg.Done()
-		f.monitorConnection()
-	}()
 
 	return f, nil
 }
@@ -87,69 +81,57 @@ func (f *Fuddle) Subscribe(cb func()) func() {
 	return f.registry.Subscribe(cb)
 }
 
-func (f *Fuddle) Register(ctx context.Context, member Member) error {
-	if member.Metadata == nil {
-		member.Metadata = make(map[string]string)
-	}
-
-	stream, err := f.client.Register(context.Background())
-	if err != nil {
-		return err
-	}
-
-	rpcMember := member.toRPC()
-	if err = stream.Send(&rpc.ClientUpdate{
-		UpdateType: rpc.ClientUpdateType_CLIENT_REGISTER,
-		Member:     rpcMember,
-	}); err != nil {
-		return err
-	}
-
-	f.registry.RegisterLocal(rpcMember)
-
-	f.logger.Debug("member registered", zap.String("id", member.ID))
-
-	// TODO start goroutine to send heartbeats
-
-	return nil
+func (f *Fuddle) Close() {
+	f.closed.Store(true)
+	f.cancel()
+	// Note must wait for all goroutines to stop before closing the connection
+	// since we unregister before exiting.
+	f.wg.Wait()
+	f.conn.Close()
 }
 
-func (f *Fuddle) connect(ctx context.Context, seeds []string) error {
+func (f *Fuddle) connect(ctx context.Context, addrs []string) error {
 	if f.grpcLoggerVerbosity > 0 {
 		grpclog.SetLoggerV2(grpclog.NewLoggerV2WithVerbosity(
 			os.Stderr, os.Stderr, os.Stderr, f.grpcLoggerVerbosity,
 		))
 	}
 
-	if len(seeds) == 0 {
+	if len(addrs) == 0 {
 		f.logger.Error("failed to connect: no seed addresses")
 		return fmt.Errorf("connect: no seeds addresses")
 	}
 
-	// Since we use a 'first pick' load balancer, shuffle the seeds so multiple
-	// clients with the same seeds don't all try the same node.
-	for i := range seeds {
-		j := rand.Intn(i + 1)
-		seeds[i], seeds[j] = seeds[j], seeds[i]
+	// Since we use a 'first pick' load balancer, shuffle the addrs so multiple
+	// clients with the same addrs don't all try the same node.
+	shuffleStrings(addrs)
+
+	f.logger.Info("connecting", zap.Strings("addrs", addrs))
+
+	// Send keep alive pings to detect unresponsive connections and trigger
+	// a reconnect.
+	keepAliveParams := keepalive.ClientParameters{
+		Time:                f.keepAlivePingInterval,
+		Timeout:             f.keepAlivePingTimeout,
+		PermitWithoutStream: true,
 	}
-
-	f.logger.Info("connecting", zap.Strings("seeds", seeds))
-
 	conn, err := grpc.DialContext(
 		ctx,
-		// Use the status resolver which uses the configured seed addresses.
+		// Use the static resolver which uses the configured seed addresses.
 		"static:///fuddle",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithResolvers(resolvers.NewStaticResolverBuilder(seeds)),
+		grpc.WithResolvers(resolvers.NewStaticResolverBuilder(addrs)),
 		// Add a custom dialer so we can set a per connection attempt timeout.
 		grpc.WithContextDialer(f.dialerWithTimeout),
-		// Block until the connection succeeds.
+		// Block until the connection succeeds so we can fail the initial
+		// connection.
 		grpc.WithBlock(),
+		grpc.WithKeepaliveParams(keepAliveParams),
 	)
 	if err != nil {
 		f.logger.Error(
 			"failed to connect",
-			zap.Strings("seeds", seeds),
+			zap.Strings("seeds", addrs),
 			zap.Error(err),
 		)
 		return fmt.Errorf("connect: %w", err)
@@ -157,6 +139,12 @@ func (f *Fuddle) connect(ctx context.Context, seeds []string) error {
 
 	f.conn = conn
 	f.client = rpc.NewRegistryClient(conn)
+
+	f.wg.Add(1)
+	go func() {
+		defer f.wg.Done()
+		f.monitorConnection()
+	}()
 
 	return nil
 }
@@ -171,7 +159,7 @@ func (f *Fuddle) monitorConnection() {
 			f.conn.Connect()
 		}
 
-		if !f.conn.WaitForStateChange(f.cancelCtx, s) {
+		if !f.conn.WaitForStateChange(f.ctx, s) {
 			// Only returns if the client is closed.
 			return
 		}
@@ -191,21 +179,8 @@ func (f *Fuddle) onConnected() {
 		f.onConnectionStateChange(StateConnected)
 	}
 
-	f.reenterLocalMembers(context.Background())
-
-	subscribeStream, err := f.client.Subscribe(
-		context.Background(), &rpc.SubscribeRequest{
-			KnownMembers: f.registry.KnownVersions(),
-			OwnerOnly:    false,
-		},
-	)
-	if err != nil {
-		f.logger.Warn("create stream subscribe error", zap.Error(err))
-	} else {
-		// Start streaming updates. If the connection closes streamUpdates will
-		// exit.
-		go f.streamUpdates(subscribeStream)
-	}
+	f.setupStreamUpdates()
+	f.setupStreamRegister()
 }
 
 func (f *Fuddle) onDisconnect() {
@@ -216,48 +191,55 @@ func (f *Fuddle) onDisconnect() {
 	}
 }
 
-func (f *Fuddle) dialerWithTimeout(ctx context.Context, addr string) (net.Conn, error) {
-	dialer := &net.Dialer{
-		Timeout: f.connectAttemptTimeout,
+func (f *Fuddle) setupStreamUpdates() {
+	subscription, err := f.client.Subscribe(
+		f.ctx,
+		&rpc.SubscribeRequest{
+			KnownMembers: f.registry.KnownVersions(),
+			// Receive all updates from the connected node..
+			OwnerOnly: false,
+		},
+	)
+	if err != nil {
+		// If we can't subscribe, this will typically mean we've disconnected
+		// so will retry once reconnected.
+		f.logger.Warn("failed to subscribe", zap.Error(err))
+		return
 	}
-	return dialer.DialContext(ctx, "tcp", addr)
+
+	f.wg.Add(1)
+	go func() {
+		defer f.wg.Done()
+		f.streamUpdates(subscription)
+	}()
 }
 
-func (f *Fuddle) reenterLocalMembers(ctx context.Context) {
-	f.logger.Debug(
-		"reregistering members",
-		zap.Strings("members", f.registry.LocalMemberIDs()),
+func (f *Fuddle) setupStreamRegister() {
+	stream, err := f.client.Register(
+		// Use background since f.ctx will be cancelled before we've sent
+		// unregister.
+		context.Background(),
 	)
-
-	for _, member := range f.registry.LocalMembers() {
-		rpcMember := member.toRPC()
-
-		stream, err := f.client.Register(context.Background())
-		if err != nil {
-			f.logger.Error(
-				"failed to reregister member",
-				zap.String("id", member.ID),
-				zap.Error(err),
-			)
-			continue
-		}
-
-		if err = stream.Send(&rpc.ClientUpdate{
-			UpdateType: rpc.ClientUpdateType_CLIENT_REGISTER,
-			Member:     rpcMember,
-		}); err != nil {
-			f.logger.Error(
-				"failed to reregister member",
-				zap.String("id", member.ID),
-				zap.Error(err),
-			)
-			continue
-		}
-
-		// TODO heartbeats
-
-		f.logger.Debug("member re-registered", zap.String("id", member.ID))
+	if err != nil {
+		// If we can't subscribe, this will typically mean we've disconnected
+		// so will retry once reconnected.
+		f.logger.Warn("failed to stream register", zap.Error(err))
+		return
 	}
+
+	if err := stream.Send(&rpc.ClientUpdate{
+		UpdateType: rpc.ClientUpdateType_CLIENT_REGISTER,
+		Member:     f.registry.LocalRPCMember(),
+	}); err != nil {
+		f.logger.Warn("failed to send register", zap.Error(err))
+		return
+	}
+
+	f.wg.Add(1)
+	go func() {
+		defer f.wg.Done()
+		f.streamHeartbeats(stream)
+	}()
 }
 
 func (f *Fuddle) streamUpdates(stream rpc.Registry_SubscribeClient) {
@@ -272,12 +254,45 @@ func (f *Fuddle) streamUpdates(stream rpc.Registry_SubscribeClient) {
 			return
 		}
 
-		f.logger.Debug(
-			"received update",
-			zap.String("id", update.Member.Id),
-			zap.String("update-type", update.UpdateType.String()),
-		)
+		f.registry.RemoteUpdate(update)
+	}
+}
 
-		f.registry.ApplyRemoteUpdate(update)
+func (f *Fuddle) streamHeartbeats(stream rpc.Registry_RegisterClient) {
+	ticker := time.NewTicker(f.heartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-f.ctx.Done():
+			if err := stream.Send(&rpc.ClientUpdate{
+				UpdateType: rpc.ClientUpdateType_CLIENT_UNREGISTER,
+				Member:     f.registry.LocalRPCMember(),
+			}); err != nil {
+				f.logger.Warn("unregister error", zap.Error(err))
+			}
+			return
+		case <-ticker.C:
+			if err := stream.Send(&rpc.ClientUpdate{
+				UpdateType: rpc.ClientUpdateType_CLIENT_HEARTBEAT,
+			}); err != nil {
+				return
+			}
+		}
+	}
+
+}
+
+func (f *Fuddle) dialerWithTimeout(ctx context.Context, addr string) (net.Conn, error) {
+	dialer := &net.Dialer{
+		Timeout: f.connectAttemptTimeout,
+	}
+	return dialer.DialContext(ctx, "tcp", addr)
+}
+
+func shuffleStrings(s []string) {
+	for i := range s {
+		j := rand.Intn(i + 1)
+		s[i], s[j] = s[j], s[i]
 	}
 }
