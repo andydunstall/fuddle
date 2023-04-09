@@ -9,7 +9,9 @@ import (
 	"sync"
 	"time"
 
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/sdk2/resolvers"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -25,11 +27,15 @@ type Fuddle struct {
 
 	onConnectionStateChange func(state ConnState)
 
-	conn *grpc.ClientConn
+	registry *registry
+
+	conn   *grpc.ClientConn
+	client rpc.RegistryClient
 
 	ctx    context.Context
 	cancel func()
 	wg     sync.WaitGroup
+	closed *atomic.Bool
 
 	logger              *zap.Logger
 	grpcLoggerVerbosity int
@@ -49,8 +55,11 @@ func Connect(ctx context.Context, addrs []string, opts ...Option) (*Fuddle, erro
 
 		onConnectionStateChange: options.onConnectionStateChange,
 
+		registry: newRegistry(options.logger),
+
 		ctx:    cancelCtx,
 		cancel: cancel,
+		closed: atomic.NewBool(false),
 
 		logger:              options.logger,
 		grpcLoggerVerbosity: options.grpcLoggerVerbosity,
@@ -62,7 +71,16 @@ func Connect(ctx context.Context, addrs []string, opts ...Option) (*Fuddle, erro
 	return f, nil
 }
 
+func (f *Fuddle) Members() []Member {
+	return f.registry.Members()
+}
+
+func (f *Fuddle) Subscribe(cb func()) func() {
+	return f.registry.Subscribe(cb)
+}
+
 func (f *Fuddle) Close() {
+	f.closed.Store(true)
 	f.cancel()
 	f.conn.Close()
 }
@@ -115,6 +133,7 @@ func (f *Fuddle) connect(ctx context.Context, addrs []string) error {
 	}
 
 	f.conn = conn
+	f.client = rpc.NewRegistryClient(conn)
 
 	f.wg.Add(1)
 	go func() {
@@ -154,6 +173,26 @@ func (f *Fuddle) onConnected() {
 	if f.onConnectionStateChange != nil {
 		f.onConnectionStateChange(StateConnected)
 	}
+
+	subscription, err := f.client.Subscribe(
+		context.Background(),
+		&rpc.SubscribeRequest{
+			KnownMembers: f.registry.KnownVersions(),
+			// Receive all updates from the connected node..
+			OwnerOnly: false,
+		},
+	)
+	if err != nil {
+		// If we can't subscribe, this will typically mean we've disconnected
+		// so will retry once reconnected.
+		f.logger.Warn("failed to subscribe", zap.Error(err))
+		return
+	}
+
+	f.wg.Add(1)
+	go func() {
+		go f.streamUpdates(subscription)
+	}()
 }
 
 func (f *Fuddle) onDisconnect() {
@@ -161,6 +200,22 @@ func (f *Fuddle) onDisconnect() {
 
 	if f.onConnectionStateChange != nil {
 		f.onConnectionStateChange(StateDisconnected)
+	}
+}
+
+func (f *Fuddle) streamUpdates(stream rpc.Registry_SubscribeClient) {
+	for {
+		update, err := stream.Recv()
+		if err != nil {
+			// Avoid redundent logs if we've closed.
+			if f.closed.Load() {
+				return
+			}
+			f.logger.Warn("subscribe error", zap.Error(err))
+			return
+		}
+
+		f.registry.RemoteUpdate(update)
 	}
 }
 

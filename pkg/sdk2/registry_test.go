@@ -7,10 +7,11 @@ import (
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestRegistry_RemoteUpdateAddMember(t *testing.T) {
-	reg := newRegistry()
+	reg := newRegistry(zap.NewNop())
 
 	addedMember := randomMember("member-1")
 	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
@@ -25,7 +26,7 @@ func TestRegistry_RemoteUpdateAddMember(t *testing.T) {
 }
 
 func TestRegistry_RemoteUpdateRemoveMember(t *testing.T) {
-	reg := newRegistry()
+	reg := newRegistry(zap.NewNop())
 
 	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
 		Member: randomMember("member-1"),
@@ -48,8 +49,38 @@ func TestRegistry_RemoteUpdateRemoveMember(t *testing.T) {
 	assert.Nil(t, reg.Members())
 }
 
+func TestRegistry_KnownVersions(t *testing.T) {
+	reg := newRegistry(zap.NewNop())
+
+	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
+		Member: randomMember("member-1"),
+		Version: &rpc.Version{
+			Owner:     "remote-1",
+			Timestamp: 123,
+		},
+	})
+	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
+		Member: randomMember("member-2"),
+		Version: &rpc.Version{
+			Owner:     "remote-2",
+			Timestamp: 456,
+		},
+	})
+
+	assert.Equal(t, map[string]*rpc.Version{
+		"member-1": &rpc.Version{
+			Owner:     "remote-1",
+			Timestamp: 123,
+		},
+		"member-2": &rpc.Version{
+			Owner:     "remote-2",
+			Timestamp: 456,
+		},
+	}, reg.KnownVersions())
+}
+
 func TestRegistry_Subscribe(t *testing.T) {
-	reg := newRegistry()
+	reg := newRegistry(zap.NewNop())
 
 	count := 0
 	reg.Subscribe(func() {
