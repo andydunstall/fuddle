@@ -39,18 +39,33 @@ func (m metadataLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
 
 type memberLogger struct {
 	ID       string
+	Status   string
+	Service  string
+	Locality string
+	Created  int64
+	Revision string
 	Metadata metadataLogger
 }
 
 func newMemberLogger(m *rpc.Member) *memberLogger {
 	return &memberLogger{
 		ID:       m.Id,
+		Status:   m.Status.String(),
+		Service:  m.Service,
+		Locality: m.Locality,
+		Created:  m.Created,
+		Revision: m.Revision,
 		Metadata: m.Metadata,
 	}
 }
 
 func (l memberLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("id", l.ID)
+	e.AddString("status", l.Status)
+	e.AddString("service", l.Service)
+	e.AddString("locality", l.Locality)
+	e.AddInt64("created", l.Created)
+	e.AddString("revision", l.Revision)
 	if err := e.AddObject("metadata", metadataLogger(l.Metadata)); err != nil {
 		return err
 	}
