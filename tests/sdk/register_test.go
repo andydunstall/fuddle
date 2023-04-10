@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	fuddle "github.com/fuddle-io/fuddle/pkg/sdk"
+	fuddle "github.com/fuddle-io/fuddle-go"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/fuddle-io/fuddle/tests/cluster"
 	"github.com/google/uuid"
