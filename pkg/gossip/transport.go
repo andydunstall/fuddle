@@ -83,7 +83,7 @@ func newTransport(conf *config.Gossip, options options) (*transport, error) {
 		udpAddr := &net.UDPAddr{IP: ip, Port: conf.BindPort}
 
 		var err error
-		udpLn, err := net.ListenUDP("udp", udpAddr)
+		udpLn, err = net.ListenUDP("udp", udpAddr)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to start UDP listener on %q port %d: %v", conf.BindAddr, conf.BindPort, err)
 		}
