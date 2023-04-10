@@ -13,7 +13,7 @@ import (
 
 type Server struct {
 	conf       *config.Config
-	ln         net.Listener
+	ln         *net.TCPListener
 	grpcServer *grpc.Server
 	logger     *zap.Logger
 }
