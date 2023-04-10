@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"context"
+
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"go.uber.org/zap"
 )
@@ -93,4 +95,17 @@ func (s *Server) Register(stream rpc.Registry_RegisterServer) error {
 			return nil
 		}
 	}
+}
+
+func (s *Server) Member(ctx context.Context, req *rpc.MemberRequest) (*rpc.MemberResponse, error) {
+	m, _ := s.registry.Member(req.Id)
+	return &rpc.MemberResponse{
+		Member: m,
+	}, nil
+}
+
+func (s *Server) Members(ctx context.Context, req *rpc.MembersRequest) (*rpc.MembersResponse, error) {
+	return &rpc.MembersResponse{
+		Members: s.registry.Members(),
+	}, nil
 }

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/fuddle-io/fuddle/pkg/cli/info"
 	"github.com/fuddle-io/fuddle/pkg/cli/start"
 	"github.com/spf13/cobra"
 )
@@ -21,6 +22,7 @@ func init() {
 
 	fuddleCmd.AddCommand(
 		start.Command,
+		info.Command,
 	)
 }
 
