@@ -3,12 +3,15 @@ package cluster
 import (
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 
 	"github.com/fuddle-io/fuddle/demos/clock/pkg/services/clock"
 	"github.com/fuddle-io/fuddle/demos/clock/pkg/services/frontend"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/fuddle"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type Cluster struct {
@@ -16,6 +19,7 @@ type Cluster struct {
 	clockNodes    map[*clock.Service]interface{}
 	frontendNodes map[*frontend.Service]interface{}
 	seeds         []string
+	logDir        string
 }
 
 func NewCluster(opts ...Option) (*Cluster, error) {
@@ -24,10 +28,16 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 		o.apply(&options)
 	}
 
+	logDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		return nil, fmt.Errorf("cluster: create log dir: %w", err)
+	}
+
 	c := &Cluster{
 		fuddleNodes:   make(map[*fuddle.Fuddle]interface{}),
 		clockNodes:    make(map[*clock.Service]interface{}),
 		frontendNodes: make(map[*frontend.Service]interface{}),
+		logDir:        logDir,
 	}
 	for i := 0; i != options.fuddleNodes; i++ {
 		if err := c.addFuddleNode(); err != nil {
@@ -70,6 +80,10 @@ func (c *Cluster) FrontendNodes() []*frontend.Service {
 		nodes = append(nodes, n)
 	}
 	return nodes
+}
+
+func (c *Cluster) LogPath(id string) string {
+	return c.logDir + "/" + id + ".log"
 }
 
 func (c *Cluster) Shutdown() {
@@ -128,6 +142,7 @@ func (c *Cluster) addFuddleNode() error {
 		fuddle.WithRPCListener(rpcLn),
 		fuddle.WithGossipTCPListener(gossipTCPLn),
 		fuddle.WithGossipUDPListener(gossipUDPLn),
+		fuddle.WithLogger(c.logger(conf.NodeID)),
 	)
 	if err != nil {
 		return fmt.Errorf("add fuddle node: %w", err)
@@ -175,6 +190,14 @@ func (c *Cluster) addFrontendNode() error {
 	}
 	c.frontendNodes[node] = struct{}{}
 	return nil
+}
+
+func (c *Cluster) logger(id string) *zap.Logger {
+	path := c.LogPath(id)
+	loggerConf := zap.NewProductionConfig()
+	loggerConf.Level.SetLevel(zapcore.DebugLevel)
+	loggerConf.OutputPaths = []string{path}
+	return zap.Must(loggerConf.Build())
 }
 
 func tcpListen(port int) (*net.TCPListener, error) {
