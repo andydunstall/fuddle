@@ -1,51 +1,89 @@
 # Fuddle
 > :warning: **Fuddle is still in development**
 
-# What is Fuddle?
-Fuddle is a service registry that can be used for client side service discovery
-and cluster observability.
+# What Is Fuddle?
+Fuddle is a service registry, used for client side service discovery and cluster
+observability.
 
-Unlike server side service discovery, where requests are simply load balanced
-across a set of nodes in a service, client side service discovery gives
-developers control. Using a Fuddle SDK nodes can register themselves, query the
-set of registered members in the cluster and subscribe to changes.
+Application nodes register themselves into the registry, then use the registry
+to discover other nodes in the cluster, and information needed to interact with
+those nodes.
 
-Each registered member includes a set of attributes, including ID, service,
-locality, etc, and application defined metadata.
+Each member in the registry contains a set of attributes, including service,
+locality and revision, plus metadata containing application-defined key-value
+pairs. Clients can use the attributes and metadata to lookup members and
+subscribe to changes.
 
-## Features
-* Service registry: Members register with the service registry to make
-themselves known to the rest of the cluster
-* Service discovery: Clients can lookup other members in the cluster, filter
-based on service, locality and metadata, and subscribe to updates when the set
-of matching members changes
-* Cluster observability: The cluster and individual members can be inspected
-using the Fuddle CLI
+# Design Goals
 
-## Use Cases
-Fuddle may be preferred to server side service discovery when you require
-application specific routing, instead of load balancing among a set of stateless
-service nodes.
+## Simplicity
+Fuddle is built to be very simple to integrate into existing infrastructure.
 
-Such as if you are using consistent hashing to partition work across multiple
-nodes, you can use Fuddle to lookup nodes based on service, locality or
-application defined metadata, and subscribe to updates to the matching set of
-nodes to trigger a rebalance.
+Unlike many other service discovery systems, which require proxying requests and
+running sidecars for every instance as part of a service mesh, Fuddle is a
+standalone service that clients query via an SDK. 
 
-Or you may want a custom load balancing policy and retry strategy based on the
-state of the nodes in the cluster. Such as routing based on node metadata, like
-routing to the node with the lowest CPU.
+## Flexibility
+Fuddle supports client side service discovery instead of server side.
 
-# Getting Started
-Start by installing the Fuddle server using
-`go install github.com/fuddle-io/fuddle`.
+Server side discovery requires proxying requests via some load balancer, which
+routes requests among a set of nodes registered for that service. This limits
+how much control developers have over how they route requests and what
+transports they can use.
 
-## Server
-Start the server using `fuddle start`.
+Instead when using Fuddle, developers can query the registry using a Fuddle SDK
+to lookup the target node(s).
 
-# Docs
-* Architecture
-	* [Overview](./docs/architecture/overview.md)
-	* [Registry](./docs/architecture/registry/registry.md)
-		* [Replication](./docs/architecture/registry/replication.md)
-		* [Client](./docs/architecture/registry/client.md)
+This gives you more flexibility in how you route requests, such as:
+* Consistent hashing: Using Fuddle to lookup a set of nodes that build a hash
+ring, and subscribe to changes in the set of nodes to trigger a rebalance
+* Custom load balancing: Instead of a simple round robin strategy, you can add
+custom policies like weighted load balancing based on the target nodes metadata
+* Transports: Since Fuddle is used just to look up the target nodes instead of
+proxying requests, there's no constraints on what transports or protocols can be
+used
+
+Each node can also register custom metadata, so there's no limit to what
+information can be shared with other nodes.
+
+## Availability and Fault Tolerance
+The registry is replicated over multiple Fuddle nodes, so if a node goes down,
+clients automatically reconnect to another node without any disruption.
+
+The registry is eventually consistent and favours availability over consistency.
+It will also detect when members registered by users' applications go down and
+removes them from the registry.
+
+# Usage
+Fuddle can be installed using `go install github.com/fuddle-io/fuddle`. This
+includes a CLI to start a server node and interact with the cluster.
+
+A Fuddle SDK can be used to register members and subscribe to the registry. So
+far only a Go SDK ([fuddle-go](...)) is supported.
+
+## Start A Node
+Start a Fuddle node with `fuddle start`. The node can be configured to join a
+cluster using `--join`.
+
+See `fuddle start –help` for details.
+
+## Inspect A Cluster
+`fuddle info` can be used to inspect all nodes in a cluster (including both
+Fuddle nodes and members registered by the application).
+
+`fuddle info cluster` lists all members of the cluster and their attributes.
+
+`fuddle info member <id>` describes the member with the given ID, including
+attributes and metadata.
+
+# Documentation
+
+## Architecture
+* [Overview](./docs/architecture/overview.md)
+* [Registry](./docs/architecture/registry/registry.md)
+	* [Replication](./docs/architecture/registry/replication.md)
+	* [Client](./docs/architecture/registry/client.md)
+
+# :warning: Limitations
+Fuddle is still early in development so is missing features needed to run in
+production.
