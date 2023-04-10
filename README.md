@@ -61,6 +61,13 @@ includes a CLI to start a server node and interact with the cluster.
 A Fuddle SDK can be used to register members and subscribe to the registry. So
 far only a Go SDK ([fuddle-go](https://github.com/fuddle-io/fuddle-go)) is supported.
 
+## Demo
+The quickest way to get started with Fuddle is to run a demo cluster locally
+using `fuddle demo`.
+
+Such as `fuddle demo clock` will run a clock service cluster as described
+[here](demos/clock/README.md).
+
 ## Start A Node
 Start a Fuddle node with `fuddle start`. The node can be configured to join a
 cluster using `--join`.

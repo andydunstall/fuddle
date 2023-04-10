@@ -7,6 +7,7 @@ import (
 	"time"
 
 	fuddle "github.com/fuddle-io/fuddle-go"
+	"github.com/fuddle-io/fuddle/demos/clock/pkg/services/clock"
 	"github.com/google/uuid"
 )
 
@@ -15,6 +16,7 @@ type Service struct {
 	Addr string
 
 	fuddleClient *fuddle.Fuddle
+	clockClient  *clock.Client
 	server       *server
 }
 
@@ -41,16 +43,23 @@ func NewService(ln *net.TCPListener, fuddleAddrs []string) (*Service, error) {
 		return nil, fmt.Errorf("frontend service: %w", err)
 	}
 
-	server := newServer(ln)
+	clockClient, err := clock.NewClient(fuddleClient)
+	if err != nil {
+		return nil, fmt.Errorf("frontend service: %w", err)
+	}
+
+	server := newServer(ln, clockClient)
 	return &Service{
 		ID:           member.ID,
 		Addr:         ln.Addr().String(),
 		fuddleClient: fuddleClient,
+		clockClient:  clockClient,
 		server:       server,
 	}, nil
 }
 
 func (s *Service) Shutdown() {
+	s.clockClient.Close()
 	s.fuddleClient.Close()
 	s.server.Shutdown()
 }

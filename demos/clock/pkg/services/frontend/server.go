@@ -2,21 +2,28 @@ package frontend
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
+
+	"github.com/fuddle-io/fuddle/demos/clock/pkg/services/clock"
 )
 
 type server struct {
-	httpServer *http.Server
+	httpServer  *http.Server
+	clockClient *clock.Client
 }
 
-func newServer(ln *net.TCPListener) *server {
-	s := &server{}
+func newServer(ln *net.TCPListener, clockClient *clock.Client) *server {
+	s := &server{
+		clockClient: clockClient,
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/time", s.timeRoute)
-	httpServer := &http.Server{
+	s.httpServer = &http.Server{
 		Handler:           mux,
 		Addr:              ln.Addr().String(),
 		ReadTimeout:       1 * time.Second,
@@ -27,15 +34,25 @@ func newServer(ln *net.TCPListener) *server {
 
 	go func() {
 		// nolint
-		httpServer.Serve(ln)
+		s.httpServer.Serve(ln)
 	}()
 
-	return &server{
-		httpServer: httpServer,
-	}
+	return s
 }
 
 func (s *server) timeRoute(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	t, err := s.clockClient.Time(ctx)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if _, err = w.Write([]byte(strconv.FormatInt(t, 10))); err != nil {
+		// TODO log
+		fmt.Println(err)
+	}
 }
 
 func (s *server) Shutdown() {
