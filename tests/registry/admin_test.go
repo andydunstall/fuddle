@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	fuddle "github.com/fuddle-io/fuddle-go"
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/admin"
-	fuddle "github.com/fuddle-io/fuddle/pkg/sdk"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/fuddle-io/fuddle/tests/cluster"
 	"github.com/google/uuid"

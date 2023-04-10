@@ -11,7 +11,7 @@ require (
 	github.com/rodaine/table v1.1.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.0
-	go.uber.org/atomic v1.7.0
+	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.24.0
 	google.golang.org/grpc v1.54.0
 	google.golang.org/protobuf v1.28.1
@@ -19,6 +19,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/fuddle-io/fuddle-go v0.0.0-20230410103143-ace811b8b921 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
