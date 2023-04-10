@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-sockaddr v1.0.0
 	github.com/hashicorp/memberlist v0.5.0
+	github.com/rodaine/table v1.1.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/atomic v1.7.0
