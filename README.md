@@ -59,7 +59,7 @@ Fuddle can be installed using `go install github.com/fuddle-io/fuddle`. This
 includes a CLI to start a server node and interact with the cluster.
 
 A Fuddle SDK can be used to register members and subscribe to the registry. So
-far only a Go SDK ([fuddle-go](...)) is supported.
+far only a Go SDK ([fuddle-go](https://github.com/fuddle-io/fuddle-go)) is supported.
 
 ## Start A Node
 Start a Fuddle node with `fuddle start`. The node can be configured to join a
