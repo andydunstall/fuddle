@@ -42,7 +42,10 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 	r := registry.NewRegistry(
 		conf.NodeID,
 		registry.WithRegistryLocalMember(&rpc.Member{
-			Id: conf.NodeID,
+			Id:       conf.NodeID,
+			Service:  "fuddle",
+			Created:  time.Now().UnixMilli(),
+			Revision: "unknown",
 		}),
 		registry.WithRegistryLogger(
 			logger.With(zap.String("stream", "registry")),
