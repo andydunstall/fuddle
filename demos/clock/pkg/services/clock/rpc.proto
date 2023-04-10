@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+option go_package = "github.com/fuddle-io/fuddle/demos/clock/pkg/services/clock";
+
+package clock;
+
+service Clock {
+	rpc Time(TimeRequest) returns (TimeResponse);
+}
+
+message TimeRequest {};
+
+message TimeResponse {
+	// time contains the current time in UNIX millis.
+	int64 time = 1;
+};
