@@ -11,7 +11,8 @@ type Metrics struct {
 func NewMetrics() *Metrics {
 	metrics := &Metrics{
 		NodesCount: metrics.NewGauge(
-			"cluster.nodes.count",
+			"cluster",
+			"nodes.count",
 			[]string{},
 			"Number of Fuddle nodes in the cluster",
 		),
