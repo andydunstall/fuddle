@@ -26,13 +26,15 @@ type Gauge struct {
 	promGauge *prometheus.GaugeVec
 }
 
-func NewGauge(name string, labels []string, help string) *Gauge {
+func NewGauge(subsystem string, name string, labels []string, help string) *Gauge {
 	return &Gauge{
 		values: make(map[string]float64),
 		promGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: strings.ReplaceAll(name, ".", "_"),
-				Help: help,
+				Name:      strings.ReplaceAll(name, ".", "_"),
+				Subsystem: subsystem,
+				Namespace: "fuddle",
+				Help:      help,
 			},
 			labels,
 		),

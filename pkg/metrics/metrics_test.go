@@ -7,7 +7,7 @@ import (
 )
 
 func TestGauge(t *testing.T) {
-	gauge := NewGauge("foo", []string{"a", "b", "c"}, "")
+	gauge := NewGauge("foo", "bar", []string{"a", "b", "c"}, "")
 
 	gauge.Set(5.0, map[string]string{
 		"a": "1",
