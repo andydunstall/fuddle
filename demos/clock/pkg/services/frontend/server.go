@@ -2,23 +2,25 @@ package frontend
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/fuddle-io/fuddle/demos/clock/pkg/services/clock"
+	"go.uber.org/zap"
 )
 
 type server struct {
 	httpServer  *http.Server
 	clockClient *clock.Client
+	logger      *zap.Logger
 }
 
-func newServer(ln *net.TCPListener, clockClient *clock.Client) *server {
+func newServer(ln *net.TCPListener, clockClient *clock.Client, logger *zap.Logger) *server {
 	s := &server{
 		clockClient: clockClient,
+		logger:      logger,
 	}
 
 	mux := http.NewServeMux()
@@ -44,15 +46,17 @@ func (s *server) timeRoute(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	t, err := s.clockClient.Time(ctx)
+	ts, err := s.clockClient.Time(ctx)
 	if err != nil {
+		s.logger.Error("error resolving time", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	if _, err = w.Write([]byte(strconv.FormatInt(t, 10))); err != nil {
-		// TODO log
-		fmt.Println(err)
+	if _, err = w.Write([]byte(strconv.FormatInt(ts, 10))); err != nil {
+		s.logger.Warn("error sending response", zap.Error(err))
 	}
+
+	s.logger.Debug("time request", zap.Int64("timestamp", ts))
 }
 
 func (s *server) Shutdown() {

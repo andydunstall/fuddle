@@ -7,7 +7,7 @@ import (
 	"time"
 
 	fuddle "github.com/fuddle-io/fuddle-go"
-	"github.com/google/uuid"
+	"go.uber.org/zap"
 	grpc "google.golang.org/grpc"
 )
 
@@ -20,9 +20,9 @@ type Service struct {
 	grpcServer *grpc.Server
 }
 
-func NewService(ln *net.TCPListener, fuddleAddrs []string) (*Service, error) {
+func NewService(id string, ln *net.TCPListener, fuddleAddrs []string, logger *zap.Logger) (*Service, error) {
 	member := fuddle.Member{
-		ID:       "clock-" + uuid.New().String()[:8],
+		ID:       id,
 		Service:  "clock",
 		Created:  time.Now().UnixMilli(),
 		Revision: "v0.1.0",
@@ -38,17 +38,18 @@ func NewService(ln *net.TCPListener, fuddleAddrs []string) (*Service, error) {
 		ctx,
 		fuddleAddrs,
 		member,
+		fuddle.WithLogger(logger.With(zap.String("stream", "fuddle"))),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("clock service: %w", err)
 	}
 
 	grpcServer := grpc.NewServer()
-	RegisterClockServer(grpcServer, &server{})
+	RegisterClockServer(grpcServer, newServer(logger))
 
 	go func() {
 		if err := grpcServer.Serve(ln); err != nil {
-			fmt.Println("grpc server", err)
+			logger.Error("grpc server error", zap.Error(err))
 		}
 	}()
 

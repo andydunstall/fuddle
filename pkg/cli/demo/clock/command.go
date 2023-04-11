@@ -50,12 +50,14 @@ func run(cmd *cobra.Command, args []string) {
 	for _, n := range c.ClockNodes() {
 		fmt.Println("Started clock node:")
 		fmt.Println("    ID:", n.ID)
+		fmt.Println("    Log path:", c.LogPath(n.ID))
 		fmt.Println("")
 	}
 	for _, n := range c.FrontendNodes() {
 		fmt.Println("Started frontend node:")
 		fmt.Println("    ID:", n.ID)
 		fmt.Println("    Addr:", n.Addr)
+		fmt.Println("    Log path:", c.LogPath(n.ID))
 		fmt.Printf("    Request: curl http://%s/time\n", n.Addr)
 		fmt.Println("")
 	}
