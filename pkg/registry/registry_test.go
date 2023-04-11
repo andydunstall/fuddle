@@ -22,6 +22,11 @@ func TestRegistry_AddLocalMember(t *testing.T) {
 	m, ok := reg.Member("local")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(localMember, m))
+
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
 }
 
 func TestRegistry_LocalMemberUpdateIgnored(t *testing.T) {
@@ -54,6 +59,11 @@ func TestRegistry_AddMember(t *testing.T) {
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(addedMember, m))
+
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
 }
 
 func TestRegistry_AddMemberDiscardOutdated(t *testing.T) {
@@ -106,12 +116,16 @@ func TestRegistry_RemoveMember(t *testing.T) {
 	reg.AddMember(addedMember)
 	reg.RemoveMember("my-member")
 
-	expectedMember := copyMember(addedMember)
-	expectedMember.Status = rpc.MemberStatus_LEFT
+	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_LEFT)
 
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(expectedMember, m))
+
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "left",
+		"owner":  "local",
+	}))
 }
 
 func TestRegistry_RemoveMemberDiscardOutdated(t *testing.T) {
@@ -146,8 +160,7 @@ func TestRegistry_SubscribeToRemoveMember(t *testing.T) {
 
 	reg.RemoveMember("my-member", WithRegistryNowTime(200))
 
-	expectedMember := copyMember(addedMember)
-	expectedMember.Status = rpc.MemberStatus_LEFT
+	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_LEFT)
 
 	assert.True(t, proto.Equal(&rpc.RemoteMemberUpdate{
 		Member: expectedMember,
@@ -170,6 +183,11 @@ func TestRegistry_RemoteUpdateTakeOwnership(t *testing.T) {
 	addedMember := randomMember("my-member")
 	reg.AddMember(addedMember, WithRegistryNowTime(100))
 
+	assert.Equal(t, 2.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
+
 	updatedMember := randomMember("my-member")
 	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
 		Member: updatedMember,
@@ -184,6 +202,15 @@ func TestRegistry_RemoteUpdateTakeOwnership(t *testing.T) {
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(updatedMember, m))
+
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "remote",
+	}))
 }
 
 func TestRegistry_RemoteUpdateWithOutdatedVersionIgnored(t *testing.T) {
@@ -393,12 +420,20 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 		WithRegistryNowTime(500),
 	)
 
-	expectedMember := copyMember(addedMember)
-	expectedMember.Status = rpc.MemberStatus_DOWN
+	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_DOWN)
 
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(expectedMember, m))
+
+	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "down",
+		"owner":  "local",
+	}))
 
 	// Adding the member again should revive it.
 	reg.AddMember(addedMember, WithRegistryNowTime(600))
@@ -406,6 +441,15 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 	m, ok = reg.Member("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(addedMember, m))
+
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
+	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "down",
+		"owner":  "local",
+	}))
 }
 
 func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
@@ -423,8 +467,7 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 		WithRegistryNowTime(500),
 	)
 
-	expectedMember := copyMember(addedMember)
-	expectedMember.Status = rpc.MemberStatus_DOWN
+	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_DOWN)
 
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
@@ -434,19 +477,36 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 		WithRegistryNowTime(1500),
 	)
 
-	expectedMember = copyMember(addedMember)
-	expectedMember.Status = rpc.MemberStatus_LEFT
+	expectedMember = memberWithStatus(addedMember, rpc.MemberStatus_LEFT)
+
+	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "left",
+		"owner":  "local",
+	}))
 
 	m, ok = reg.Member("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(expectedMember, m))
 
 	// Adding the member again should revive it.
-	reg.AddMember(addedMember, WithRegistryNowTime(1200))
+	reg.AddMember(addedMember, WithRegistryNowTime(2000))
 
 	m, ok = reg.Member("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(addedMember, m))
+
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
+	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "left",
+		"owner":  "local",
+	}))
 }
 
 func TestRegistry_MarkMemberLeftMemberRemovedAfterTombstoneTimeout(t *testing.T) {
@@ -466,6 +526,19 @@ func TestRegistry_MarkMemberLeftMemberRemovedAfterTombstoneTimeout(t *testing.T)
 
 	_, ok := reg.Member("my-member")
 	assert.False(t, ok)
+
+	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
+	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "down",
+		"owner":  "local",
+	}))
+	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "left",
+		"owner":  "local",
+	}))
 }
 
 func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
@@ -490,8 +563,7 @@ func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
 		WithRegistryNowTime(1000),
 	)
 
-	expectedMember := copyMember(addedMember)
-	expectedMember.Status = rpc.MemberStatus_DOWN
+	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_DOWN)
 
 	member, ok := reg.Member("my-member")
 	assert.True(t, ok)

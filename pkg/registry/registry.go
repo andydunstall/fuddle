@@ -56,13 +56,19 @@ type Registry struct {
 	reconnectTimeout int64
 	tombstoneTimeout int64
 
-	logger *zap.Logger
+	logger  *zap.Logger
+	metrics *Metrics
 }
 
 func NewRegistry(localID string, opts ...Option) *Registry {
 	options := defaultRegistryOptions()
 	for _, o := range opts {
 		o.apply(options)
+	}
+
+	metrics := NewMetrics()
+	if options.collector != nil {
+		metrics.Register(options.collector)
 	}
 
 	reg := &Registry{
@@ -73,18 +79,17 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 		heartbeatTimeout: options.heartbeatTimeout,
 		reconnectTimeout: options.reconnectTimeout,
 		tombstoneTimeout: options.tombstoneTimeout,
+		metrics:          metrics,
 		logger:           options.logger,
 	}
 
 	if options.localMember != nil {
-		member := options.localMember
-		member.Status = rpc.MemberStatus_UP
-
+		member := memberWithStatus(options.localMember, rpc.MemberStatus_UP)
 		versionedMember := &VersionedMember{
-			Member:  options.localMember,
+			Member:  member,
 			Version: reg.nextVersionLocked(options.now),
 		}
-		reg.members[localID] = versionedMember
+		reg.setMemberLocked(versionedMember)
 
 		reg.logger.Info(
 			"added local member",
@@ -130,6 +135,10 @@ func (r *Registry) UpMembers() []*VersionedMember {
 		}
 	}
 	return members
+}
+
+func (r *Registry) Metrics() *Metrics {
+	return r.metrics
 }
 
 // Subscribe to member updates.
@@ -213,8 +222,7 @@ func (r *Registry) AddMember(member *rpc.Member, opts ...Option) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	member.Status = rpc.MemberStatus_UP
-	r.updateMemberLocked(member, opts...)
+	r.updateMemberLocked(memberWithStatus(member, rpc.MemberStatus_UP), opts...)
 }
 
 // RemoveMember removes the member with the given ID.
@@ -233,8 +241,7 @@ func (r *Registry) RemoveMember(id string, opts ...Option) {
 	}
 
 	member := m.Member
-	member.Status = rpc.MemberStatus_LEFT
-	r.updateMemberLocked(member, opts...)
+	r.updateMemberLocked(memberWithStatus(member, rpc.MemberStatus_LEFT), opts...)
 }
 
 // RemoteUpdate applies an updates received from another node.
@@ -277,10 +284,10 @@ func (r *Registry) RemoteUpdate(update *rpc.RemoteMemberUpdate) {
 		}
 	}
 
-	r.members[update.Member.Id] = &VersionedMember{
+	r.setMemberLocked(&VersionedMember{
 		Member:  update.Member,
 		Version: update.Version,
-	}
+	})
 
 	r.logger.Info(
 		"updated member; remote",
@@ -348,7 +355,7 @@ func (r *Registry) updateMemberLocked(member *rpc.Member, opts ...Option) {
 		Member:  member,
 		Version: version,
 	}
-	r.members[member.Id] = versionedMember
+	r.setMemberLocked(versionedMember)
 
 	r.logger.Info(
 		"updated member; owner",
@@ -391,8 +398,7 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 				"removing left member",
 				zap.Int64("last-update", options.now-m.Version.Timestamp),
 			)
-			m.Member.Status = rpc.MemberStatus_LEFT
-			delete(r.members, m.Member.Id)
+			r.deleteMemberLocked(m.Member.Id)
 		}
 	}
 
@@ -402,8 +408,9 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 				"member removed after missing heartbeats",
 				zap.Int64("last-update", options.now-m.Version.Timestamp),
 			)
-			m.Member.Status = rpc.MemberStatus_LEFT
-			r.updateMemberLocked(m.Member, opts...)
+			r.updateMemberLocked(
+				memberWithStatus(m.Member, rpc.MemberStatus_LEFT), opts...,
+			)
 		}
 	}
 
@@ -415,8 +422,9 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 				"member down after missing heartbeats",
 				zap.Int64("last-update", options.now-m.Version.Timestamp),
 			)
-			m.Member.Status = rpc.MemberStatus_DOWN
-			r.updateMemberLocked(m.Member, opts...)
+			r.updateMemberLocked(
+				memberWithStatus(m.Member, rpc.MemberStatus_DOWN), opts...,
+			)
 		}
 	}
 }
@@ -442,10 +450,13 @@ func (r *Registry) checkRemoteMemberLivenessLocked(id string, opts ...Option) {
 		// If the member is up, mark it down as it has missed the heartbeat
 		// timeout.
 		if m.Member.Status == rpc.MemberStatus_UP {
-			m.Member.Status = rpc.MemberStatus_DOWN
+			r.updateMemberLocked(
+				memberWithStatus(m.Member, rpc.MemberStatus_DOWN),
+				opts...,
+			)
+		} else {
+			r.updateMemberLocked(m.Member, opts...)
 		}
-
-		r.updateMemberLocked(m.Member, opts...)
 	}
 }
 
@@ -612,6 +623,33 @@ func (r *Registry) allUpdatesLocked(knownMembers map[string]*rpc.Version) []*rpc
 	return updates
 }
 
+func (r *Registry) setMemberLocked(m *VersionedMember) {
+	if existing, ok := r.members[m.Member.Id]; ok {
+		r.metrics.MembersCount.Dec(map[string]string{
+			"status": existing.Member.Status.String(),
+			"owner":  existing.Version.Owner,
+		})
+	}
+
+	r.members[m.Member.Id] = m
+
+	r.metrics.MembersCount.Inc(map[string]string{
+		"status": m.Member.Status.String(),
+		"owner":  m.Version.Owner,
+	})
+}
+
+func (r *Registry) deleteMemberLocked(id string) {
+	if existing, ok := r.members[id]; ok {
+		r.metrics.MembersCount.Dec(map[string]string{
+			"status": existing.Member.Status.String(),
+			"owner":  existing.Version.Owner,
+		})
+	}
+
+	delete(r.members, id)
+}
+
 // compareVersions compares lhs and rhs.
 //
 // If the owners don't match but the timestamps do, lhs is considered greater.
@@ -642,6 +680,12 @@ func compareVersions(lhs *rpc.Version, rhs *rpc.Version) int {
 		return -1
 	}
 	return 0
+}
+
+func memberWithStatus(m *rpc.Member, status rpc.MemberStatus) *rpc.Member {
+	cp := copyMember(m)
+	cp.Status = status
+	return cp
 }
 
 func copyMember(m *rpc.Member) *rpc.Member {
