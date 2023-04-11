@@ -31,7 +31,7 @@ func NewGauge(name string, labels []string, help string) *Gauge {
 		values: make(map[string]float64),
 		promGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: name,
+				Name: strings.ReplaceAll(name, ".", "_"),
 				Help: help,
 			},
 			labels,
