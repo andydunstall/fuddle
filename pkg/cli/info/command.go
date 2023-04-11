@@ -6,7 +6,7 @@ import (
 	"sort"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
-	"github.com/fuddle-io/fuddle/pkg/admin"
+	admin "github.com/fuddle-io/fuddle/pkg/admin/client"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 )
