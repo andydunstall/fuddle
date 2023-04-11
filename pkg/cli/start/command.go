@@ -69,6 +69,19 @@ func run(cmd *cobra.Command, args []string) {
 		conf.RPC.AdvPort = rpcBindPort
 	}
 
+	conf.Admin.BindAddr = adminBindAddr
+	conf.Admin.BindPort = adminBindPort
+	if adminAdvAddr != "" {
+		conf.Admin.AdvAddr = adminAdvAddr
+	} else {
+		conf.Admin.AdvAddr = adminBindAddr
+	}
+	if adminAdvPort != 0 {
+		conf.Admin.AdvPort = adminAdvPort
+	} else {
+		conf.Admin.AdvPort = adminBindPort
+	}
+
 	// Catch signals so to gracefully shutdown the server.
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, os.Interrupt)

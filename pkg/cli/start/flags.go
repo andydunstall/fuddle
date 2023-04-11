@@ -13,6 +13,11 @@ var (
 	rpcAdvAddr  string
 	rpcAdvPort  int
 
+	adminBindAddr string
+	adminBindPort int
+	adminAdvAddr  string
+	adminAdvPort  int
+
 	logLevel string
 )
 
@@ -74,6 +79,32 @@ func init() {
 		"rpc-adv-port", "",
 		0,
 		"the advertised port for rpc traffic (defaults to the bind addr)",
+	)
+
+	Command.Flags().StringVarP(
+		&adminBindAddr,
+		"admin-bind-addr", "",
+		"0.0.0.0",
+		"the bind address to listen for admin traffic",
+	)
+	Command.Flags().IntVarP(
+		&adminBindPort,
+		"admin-bind-port", "",
+		8112,
+		"the bind port to listen for admin traffic",
+	)
+
+	Command.Flags().StringVarP(
+		&adminAdvAddr,
+		"admin-adv-addr", "",
+		"",
+		"the advertised address for admin traffic (defaults to the bind addr)",
+	)
+	Command.Flags().IntVarP(
+		&adminAdvPort,
+		"admin-adv-port", "",
+		0,
+		"the advertised port for admin traffic (defaults to the bind addr)",
 	)
 
 	Command.Flags().StringVarP(

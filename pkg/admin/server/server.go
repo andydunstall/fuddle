@@ -26,7 +26,8 @@ func NewServer(conf *config.Config, opts ...Option) (*Server, error) {
 
 	mux := http.NewServeMux()
 	if options.collector != nil {
-		http.Handle(
+		options.logger.Info("registering metrics")
+		mux.Handle(
 			"/metrics",
 			promhttp.HandlerFor(
 				options.collector.Registry(),

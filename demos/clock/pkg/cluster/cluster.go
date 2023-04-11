@@ -125,12 +125,27 @@ func (c *Cluster) addFuddleNode() error {
 		return fmt.Errorf("add fuddle node: %w", err)
 	}
 
+	adminLn, err := tcpListen(0)
+	if err != nil {
+		return fmt.Errorf("add fuddle node: %w", err)
+	}
+
+	adminPort, err := parseAddrPort(adminLn.Addr().String())
+	if err != nil {
+		return fmt.Errorf("add fuddle node: %w", err)
+	}
+
 	conf := config.DefaultConfig()
 
 	conf.RPC.BindAddr = "127.0.0.1"
 	conf.RPC.AdvAddr = "127.0.0.1"
 	conf.RPC.BindPort = rpcPort
 	conf.RPC.AdvPort = rpcPort
+
+	conf.Admin.BindAddr = "127.0.0.1"
+	conf.Admin.BindPort = adminPort
+	conf.Admin.AdvAddr = "127.0.0.1"
+	conf.Admin.AdvPort = adminPort
 
 	conf.Gossip.BindAddr = "127.0.0.1"
 	conf.Gossip.AdvAddr = "127.0.0.1"
@@ -141,6 +156,7 @@ func (c *Cluster) addFuddleNode() error {
 	node, err := fuddle.NewFuddle(
 		conf,
 		fuddle.WithRPCListener(rpcLn),
+		fuddle.WithAdminListener(adminLn),
 		fuddle.WithGossipTCPListener(gossipTCPLn),
 		fuddle.WithGossipUDPListener(gossipUDPLn),
 		fuddle.WithLogger(c.logger(conf.NodeID)),

@@ -32,6 +32,7 @@ func NewCluster(reg *registry.Registry, opts ...Option) *Cluster {
 	}
 
 	return &Cluster{
+		nodes:    make(map[string]interface{}),
 		clients:  make(map[string]*registry.Client),
 		registry: reg,
 		logger:   options.logger,
@@ -61,7 +62,8 @@ func (c *Cluster) OnJoin(id string, addr string) {
 	nodesCount := len(c.nodes)
 	c.mu.Unlock()
 
-	c.metrics.NodesCount.Set(float64(nodesCount), make(map[string]string))
+	// Add 1 to include this node.
+	c.metrics.NodesCount.Set(float64(nodesCount+1), make(map[string]string))
 
 	c.registry.OnNodeJoin(id)
 }
@@ -79,7 +81,8 @@ func (c *Cluster) OnLeave(id string) {
 	nodesCount := len(c.nodes)
 	c.mu.Unlock()
 
-	c.metrics.NodesCount.Set(float64(nodesCount), make(map[string]string))
+	// Add 1 to include this node.
+	c.metrics.NodesCount.Set(float64(nodesCount+1), make(map[string]string))
 
 	c.registry.OnNodeLeave(id)
 }
