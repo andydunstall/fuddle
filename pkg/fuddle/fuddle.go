@@ -5,9 +5,11 @@ import (
 	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
+	adminServer "github.com/fuddle-io/fuddle/pkg/admin/server"
 	"github.com/fuddle-io/fuddle/pkg/cluster"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/gossip"
+	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/fuddle-io/fuddle/pkg/server"
 	"go.uber.org/zap"
@@ -17,9 +19,10 @@ import (
 type Fuddle struct {
 	Config *config.Config
 
-	gossip   *gossip.Gossip
-	registry *registry.Registry
-	server   *server.Server
+	gossip      *gossip.Gossip
+	registry    *registry.Registry
+	server      *server.Server
+	adminServer *adminServer.Server
 
 	done chan interface{}
 
@@ -55,7 +58,26 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 		registry.WithTombstoneTimeout(conf.Registry.TombstoneTimeout.Milliseconds()),
 	)
 
-	c := cluster.NewCluster(r, logger.With(zap.String("stream", "cluster")))
+	collector := metrics.NewPromCollector()
+
+	c := cluster.NewCluster(
+		r,
+		cluster.WithLogger(logger.With(zap.String("stream", "cluster"))),
+		cluster.WithCollector(collector),
+	)
+
+	var adminServerOpts []adminServer.Option
+	if options.adminListener != nil {
+		adminServerOpts = append(adminServerOpts, adminServer.WithListener(options.adminListener))
+	}
+	adminServerOpts = append(adminServerOpts, adminServer.WithCollector(collector))
+	adminServerOpts = append(adminServerOpts, adminServer.WithLogger(
+		logger.With(zap.String("stream", "admin")),
+	))
+	adminServer, err := adminServer.NewServer(conf, adminServerOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("fuddle: %w", err)
+	}
 
 	var gossipOpts []gossip.Option
 	if options.gossipTCPListener != nil {
@@ -106,12 +128,13 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 	}
 
 	f := &Fuddle{
-		Config:   conf,
-		registry: r,
-		gossip:   g,
-		server:   s,
-		logger:   logger,
-		done:     make(chan interface{}),
+		Config:      conf,
+		registry:    r,
+		gossip:      g,
+		server:      s,
+		adminServer: adminServer,
+		logger:      logger,
+		done:        make(chan interface{}),
 	}
 
 	go f.failureDetector()
@@ -134,6 +157,7 @@ func (f *Fuddle) Shutdown() {
 
 	f.server.Shutdown()
 	f.gossip.Shutdown()
+	f.adminServer.Shutdown()
 }
 
 func (f *Fuddle) failureDetector() {

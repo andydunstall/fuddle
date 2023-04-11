@@ -10,6 +10,7 @@ type options struct {
 	gossipTCPListener *net.TCPListener
 	gossipUDPListener *net.UDPConn
 	rpcListener       *net.TCPListener
+	adminListener     *net.TCPListener
 	logger            *zap.Logger
 }
 
@@ -61,6 +62,20 @@ func (o rpcListenerOption) apply(opts *options) {
 
 func WithRPCListener(ln *net.TCPListener) Option {
 	return &rpcListenerOption{
+		ln: ln,
+	}
+}
+
+type adminListenerOption struct {
+	ln *net.TCPListener
+}
+
+func (o adminListenerOption) apply(opts *options) {
+	opts.adminListener = o.ln
+}
+
+func WithAdminListener(ln *net.TCPListener) Option {
+	return &adminListenerOption{
 		ln: ln,
 	}
 }

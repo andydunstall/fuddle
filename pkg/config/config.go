@@ -9,6 +9,7 @@ type Config struct {
 	NodeID   string
 	RPC      *RPC
 	Gossip   *Gossip
+	Admin    *Admin
 	Registry *Registry
 }
 
@@ -17,6 +18,7 @@ func DefaultConfig() *Config {
 		NodeID:   "fuddle-" + randomID(),
 		RPC:      DefaultRPCConfig(),
 		Gossip:   DefaultGossipConfig(),
+		Admin:    DefaultAdminConfig(),
 		Registry: DefaultRegistryConfig(),
 	}
 }
@@ -27,6 +29,9 @@ func (c *Config) MarshalLogObject(e zapcore.ObjectEncoder) error {
 		return err
 	}
 	if err := e.AddObject("gossip", c.Gossip); err != nil {
+		return err
+	}
+	if err := e.AddObject("admin", c.Admin); err != nil {
 		return err
 	}
 	if err := e.AddObject("registry", c.Registry); err != nil {

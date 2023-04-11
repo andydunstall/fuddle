@@ -43,6 +43,7 @@ func run(cmd *cobra.Command, args []string) {
 		fmt.Println("Started fuddle node:")
 		fmt.Println("    ID:", n.Config.NodeID)
 		fmt.Println("    RPC addr:", n.Config.RPC.JoinAdvAddr())
+		fmt.Println("    Admin addr:", n.Config.Admin.JoinAdvAddr())
 		fmt.Println("    Log path:", c.LogPath(n.Config.NodeID))
 		fmt.Printf("    Inspect: fuddle info cluster --addr %s\n", n.Config.RPC.JoinAdvAddr())
 		fmt.Println("")
