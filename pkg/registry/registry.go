@@ -627,6 +627,7 @@ func (r *Registry) setMemberLocked(m *VersionedMember) {
 	if existing, ok := r.members[m.Member.Id]; ok {
 		r.metrics.MembersCount.Dec(map[string]string{
 			"status": existing.Member.Status.String(),
+			"owner":  existing.Version.Owner,
 		})
 	}
 
@@ -634,6 +635,7 @@ func (r *Registry) setMemberLocked(m *VersionedMember) {
 
 	r.metrics.MembersCount.Inc(map[string]string{
 		"status": m.Member.Status.String(),
+		"owner":  m.Version.Owner,
 	})
 }
 
@@ -641,6 +643,7 @@ func (r *Registry) deleteMemberLocked(id string) {
 	if existing, ok := r.members[id]; ok {
 		r.metrics.MembersCount.Dec(map[string]string{
 			"status": existing.Member.Status.String(),
+			"owner":  existing.Version.Owner,
 		})
 	}
 

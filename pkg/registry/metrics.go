@@ -13,7 +13,7 @@ func NewMetrics() *Metrics {
 		MembersCount: metrics.NewGauge(
 			"registry",
 			"members.count",
-			[]string{"status"},
+			[]string{"status", "owner"},
 			"Number of registered members in the cluster",
 		),
 	}

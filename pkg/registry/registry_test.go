@@ -25,6 +25,7 @@ func TestRegistry_AddLocalMember(t *testing.T) {
 
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
+		"owner":  "local",
 	}))
 }
 
@@ -61,6 +62,7 @@ func TestRegistry_AddMember(t *testing.T) {
 
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
+		"owner":  "local",
 	}))
 }
 
@@ -122,6 +124,7 @@ func TestRegistry_RemoveMember(t *testing.T) {
 
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "left",
+		"owner":  "local",
 	}))
 }
 
@@ -180,6 +183,11 @@ func TestRegistry_RemoteUpdateTakeOwnership(t *testing.T) {
 	addedMember := randomMember("my-member")
 	reg.AddMember(addedMember, WithRegistryNowTime(100))
 
+	assert.Equal(t, 2.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
+
 	updatedMember := randomMember("my-member")
 	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
 		Member: updatedMember,
@@ -194,6 +202,15 @@ func TestRegistry_RemoteUpdateTakeOwnership(t *testing.T) {
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(updatedMember, m))
+
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "local",
+	}))
+	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
+		"status": "up",
+		"owner":  "remote",
+	}))
 }
 
 func TestRegistry_RemoteUpdateWithOutdatedVersionIgnored(t *testing.T) {
@@ -411,9 +428,11 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
+		"owner":  "local",
 	}))
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "down",
+		"owner":  "local",
 	}))
 
 	// Adding the member again should revive it.
@@ -425,9 +444,11 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
+		"owner":  "local",
 	}))
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "down",
+		"owner":  "local",
 	}))
 }
 
@@ -460,9 +481,11 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
+		"owner":  "local",
 	}))
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "left",
+		"owner":  "local",
 	}))
 
 	m, ok = reg.Member("my-member")
@@ -478,9 +501,11 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
+		"owner":  "local",
 	}))
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "left",
+		"owner":  "local",
 	}))
 }
 
@@ -504,12 +529,15 @@ func TestRegistry_MarkMemberLeftMemberRemovedAfterTombstoneTimeout(t *testing.T)
 
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
+		"owner":  "local",
 	}))
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "down",
+		"owner":  "local",
 	}))
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "left",
+		"owner":  "local",
 	}))
 }
 
