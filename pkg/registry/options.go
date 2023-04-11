@@ -4,6 +4,7 @@ import (
 	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
+	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"go.uber.org/zap"
 )
 
@@ -13,6 +14,7 @@ type registryOptions struct {
 	reconnectTimeout int64
 	tombstoneTimeout int64
 	now              int64
+	collector        metrics.Collector
 	logger           *zap.Logger
 }
 
@@ -22,6 +24,7 @@ func defaultRegistryOptions() *registryOptions {
 		reconnectTimeout: 5 * 60 * 1000,
 		tombstoneTimeout: 30 * 60 * 1000,
 		now:              time.Now().UnixMilli(),
+		collector:        nil,
 		logger:           zap.NewNop(),
 	}
 }
@@ -90,6 +93,18 @@ func (o registryNowTimeOption) apply(opts *registryOptions) {
 // useful for testing.
 func WithRegistryNowTime(now int64) Option {
 	return registryNowTimeOption{now: now}
+}
+
+type collectorOption struct {
+	collector metrics.Collector
+}
+
+func (o collectorOption) apply(opts *registryOptions) {
+	opts.collector = o.collector
+}
+
+func WithCollector(c metrics.Collector) Option {
+	return collectorOption{collector: c}
 }
 
 type loggerRegistryOption struct {

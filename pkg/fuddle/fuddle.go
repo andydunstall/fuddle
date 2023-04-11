@@ -42,6 +42,8 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 
 	logger.Info("starting fuddle", zap.Object("conf", conf))
 
+	collector := metrics.NewPromCollector()
+
 	r := registry.NewRegistry(
 		conf.NodeID,
 		registry.WithRegistryLocalMember(&rpc.Member{
@@ -50,15 +52,14 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 			Created:  time.Now().UnixMilli(),
 			Revision: "unknown",
 		}),
-		registry.WithRegistryLogger(
-			logger.With(zap.String("stream", "registry")),
-		),
 		registry.WithHeartbeatTimeout(conf.Registry.HeartbeatTimeout.Milliseconds()),
 		registry.WithReconnectTimeout(conf.Registry.ReconnectTimeout.Milliseconds()),
 		registry.WithTombstoneTimeout(conf.Registry.TombstoneTimeout.Milliseconds()),
+		registry.WithCollector(collector),
+		registry.WithRegistryLogger(
+			logger.With(zap.String("stream", "registry")),
+		),
 	)
-
-	collector := metrics.NewPromCollector()
 
 	c := cluster.NewCluster(
 		r,

@@ -41,7 +41,29 @@ func NewGauge(subsystem string, name string, labels []string, help string) *Gaug
 	}
 }
 
+func (g *Gauge) Inc(labels map[string]string) {
+	labelsToLowercase(labels)
+
+	g.mu.Lock()
+	g.values[labelsToString(labels)] = g.values[labelsToString(labels)] + 1
+	g.mu.Unlock()
+
+	g.promGauge.With(prometheus.Labels(labels)).Inc()
+}
+
+func (g *Gauge) Dec(labels map[string]string) {
+	labelsToLowercase(labels)
+
+	g.mu.Lock()
+	g.values[labelsToString(labels)] = g.values[labelsToString(labels)] - 1
+	g.mu.Unlock()
+
+	g.promGauge.With(prometheus.Labels(labels)).Dec()
+}
+
 func (g *Gauge) Set(v float64, labels map[string]string) {
+	labelsToLowercase(labels)
+
 	g.mu.Lock()
 	g.values[labelsToString(labels)] = v
 	g.mu.Unlock()
@@ -73,4 +95,10 @@ func labelsToString(labels map[string]string) string {
 		strs = append(strs, lv.String())
 	}
 	return strings.Join(strs, ",")
+}
+
+func labelsToLowercase(labels map[string]string) {
+	for k, v := range labels {
+		labels[k] = strings.ToLower(v)
+	}
 }
