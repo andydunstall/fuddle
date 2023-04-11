@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 type PromCollector struct {
@@ -9,8 +10,10 @@ type PromCollector struct {
 }
 
 func NewPromCollector() *PromCollector {
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(collectors.NewGoCollector())
 	return &PromCollector{
-		reg: prometheus.NewRegistry(),
+		reg: reg,
 	}
 }
 
