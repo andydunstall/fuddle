@@ -10,6 +10,7 @@ import (
 	"github.com/fuddle-io/fuddle/demos/clock/pkg/services/frontend"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/fuddle"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -165,7 +166,10 @@ func (c *Cluster) addClockNode() error {
 		return fmt.Errorf("add clock node: %w", err)
 	}
 
-	node, err := clock.NewService(ln, fuddleAddrs)
+	id := "clock-" + uuid.New().String()[:8]
+	node, err := clock.NewService(
+		id, ln, fuddleAddrs, c.logger(id),
+	)
 	if err != nil {
 		return fmt.Errorf("add clock node: %w", err)
 	}
@@ -184,7 +188,10 @@ func (c *Cluster) addFrontendNode() error {
 		return fmt.Errorf("add frontend node: %w", err)
 	}
 
-	node, err := frontend.NewService(ln, fuddleAddrs)
+	id := "frontend-" + uuid.New().String()[:8]
+	node, err := frontend.NewService(
+		id, ln, fuddleAddrs, c.logger(id),
+	)
 	if err != nil {
 		return fmt.Errorf("add frontend node: %w", err)
 	}

@@ -1,8 +1,6 @@
 package fuddle
 
 import (
-	"fmt"
-
 	fuddle "github.com/fuddle-io/fuddle-go"
 	"google.golang.org/grpc/resolver"
 )
@@ -44,7 +42,6 @@ func (r *Resolver) resolve() {
 			}
 		}
 	}
-	if err := r.cc.UpdateState(resolver.State{Addresses: addrs}); err != nil {
-		fmt.Println(err)
-	}
+	// nolint
+	r.cc.UpdateState(resolver.State{Addresses: addrs})
 }

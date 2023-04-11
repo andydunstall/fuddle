@@ -8,7 +8,7 @@ import (
 
 	fuddle "github.com/fuddle-io/fuddle-go"
 	"github.com/fuddle-io/fuddle/demos/clock/pkg/services/clock"
-	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -20,9 +20,9 @@ type Service struct {
 	server       *server
 }
 
-func NewService(ln *net.TCPListener, fuddleAddrs []string) (*Service, error) {
+func NewService(id string, ln *net.TCPListener, fuddleAddrs []string, logger *zap.Logger) (*Service, error) {
 	member := fuddle.Member{
-		ID:       "frontend-" + uuid.New().String()[:8],
+		ID:       id,
 		Service:  "frontend",
 		Created:  time.Now().UnixMilli(),
 		Revision: "v0.1.0",
@@ -38,6 +38,7 @@ func NewService(ln *net.TCPListener, fuddleAddrs []string) (*Service, error) {
 		ctx,
 		fuddleAddrs,
 		member,
+		fuddle.WithLogger(logger.With(zap.String("stream", "fuddle"))),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("frontend service: %w", err)
@@ -48,9 +49,13 @@ func NewService(ln *net.TCPListener, fuddleAddrs []string) (*Service, error) {
 		return nil, fmt.Errorf("frontend service: %w", err)
 	}
 
-	server := newServer(ln, clockClient)
+	server := newServer(
+		ln,
+		clockClient,
+		logger.With(zap.String("stream", "server")),
+	)
 	return &Service{
-		ID:           member.ID,
+		ID:           id,
 		Addr:         ln.Addr().String(),
 		fuddleClient: fuddleClient,
 		clockClient:  clockClient,
