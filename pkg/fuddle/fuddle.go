@@ -8,6 +8,7 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/cluster"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/gossip"
+	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/fuddle-io/fuddle/pkg/server"
 	"go.uber.org/zap"
@@ -55,7 +56,13 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 		registry.WithTombstoneTimeout(conf.Registry.TombstoneTimeout.Milliseconds()),
 	)
 
-	c := cluster.NewCluster(r, logger.With(zap.String("stream", "cluster")))
+	collector := metrics.NewPromCollector()
+
+	c := cluster.NewCluster(
+		r,
+		cluster.WithLogger(logger.With(zap.String("stream", "cluster"))),
+		cluster.WithCollector(collector),
+	)
 
 	var gossipOpts []gossip.Option
 	if options.gossipTCPListener != nil {

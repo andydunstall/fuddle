@@ -8,6 +8,7 @@ import (
 )
 
 type Cluster struct {
+	nodes   map[string]interface{}
 	clients map[string]*registry.Client
 
 	// mu is a mutex protecting the fields above.
@@ -15,14 +16,26 @@ type Cluster struct {
 
 	registry *registry.Registry
 
-	logger *zap.Logger
+	logger  *zap.Logger
+	metrics *Metrics
 }
 
-func NewCluster(reg *registry.Registry, logger *zap.Logger) *Cluster {
+func NewCluster(reg *registry.Registry, opts ...Option) *Cluster {
+	options := defaultOptions()
+	for _, o := range opts {
+		o.apply(options)
+	}
+
+	metrics := NewMetrics()
+	if options.collector != nil {
+		metrics.Register(options.collector)
+	}
+
 	return &Cluster{
 		clients:  make(map[string]*registry.Client),
 		registry: reg,
-		logger:   logger,
+		logger:   options.logger,
+		metrics:  metrics,
 	}
 }
 
@@ -42,8 +55,13 @@ func (c *Cluster) OnJoin(id string, addr string) {
 	}
 
 	c.mu.Lock()
+	c.nodes[id] = struct{}{}
 	c.clients[id] = client
+
+	nodesCount := len(c.nodes)
 	c.mu.Unlock()
+
+	c.metrics.NodesCount.Set(float64(nodesCount), make(map[string]string))
 
 	c.registry.OnNodeJoin(id)
 }
@@ -52,11 +70,16 @@ func (c *Cluster) OnLeave(id string) {
 	c.logger.Info("cluster on leave", zap.String("id", id))
 
 	c.mu.Lock()
+	delete(c.nodes, id)
 	if client, ok := c.clients[id]; ok {
 		client.Close()
 		delete(c.clients, id)
 	}
+
+	nodesCount := len(c.nodes)
 	c.mu.Unlock()
+
+	c.metrics.NodesCount.Set(float64(nodesCount), make(map[string]string))
 
 	c.registry.OnNodeLeave(id)
 }
