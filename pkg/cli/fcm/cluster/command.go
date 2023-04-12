@@ -24,10 +24,12 @@ type nodeResponse struct {
 	ID        string `json:"id,omitempty"`
 	RPCAddr   string `json:"rpc_addr,omitempty"`
 	AdminAddr string `json:"admin_addr,omitempty"`
+	LogPath   string `json:"log_path,omitempty"`
 }
 
 type memberResponse struct {
-	ID string `json:"id,omitempty"`
+	ID      string `json:"id,omitempty"`
+	LogPath string `json:"log_path,omitempty"`
 }
 
 type clusterResponse struct {
@@ -66,11 +68,14 @@ func run(cmd *cobra.Command, args []string) {
 		fmt.Println("      ID:", n.ID)
 		fmt.Println("      RPC Addr:", n.RPCAddr)
 		fmt.Println("      Admin Addr:", n.AdminAddr)
+		fmt.Println("      Log Path:", n.LogPath)
 		fmt.Println("")
 	}
 
 	fmt.Println("  Members:")
 	for _, n := range clusterResp.Members {
 		fmt.Println("      ID:", n.ID)
+		fmt.Println("      Log Path:", n.LogPath)
+		fmt.Println("")
 	}
 }

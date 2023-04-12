@@ -17,7 +17,7 @@ func init() {
 	Command.Flags().IntVarP(
 		&port,
 		"bind-port", "",
-		9110,
+		8220,
 		"the port to listen on",
 	)
 
