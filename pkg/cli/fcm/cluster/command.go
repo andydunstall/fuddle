@@ -41,8 +41,8 @@ type clusterResponse struct {
 func run(cmd *cobra.Command, args []string) {
 	url := "http://" + addr + "/cluster"
 	req := clusterRequest{
-		Nodes:   nodes,
-		Members: members,
+		Nodes:   fuddleNodes,
+		Members: clientNodes,
 	}
 	b, err := json.Marshal(&req)
 	if err != nil {
