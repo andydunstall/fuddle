@@ -8,6 +8,7 @@ import (
 
 	"github.com/fuddle-io/fuddle-go"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // MemberNode is a random member that registers with Fuddle.
@@ -16,8 +17,8 @@ type MemberNode struct {
 	Registry *fuddle.Fuddle
 }
 
-func NewMemberNode(fuddleAddrs []string) (*MemberNode, error) {
-	member := randomMember()
+func NewMemberNode(id string, fuddleAddrs []string, logger *zap.Logger) (*MemberNode, error) {
+	member := randomMember(id)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -26,6 +27,7 @@ func NewMemberNode(fuddleAddrs []string) (*MemberNode, error) {
 		ctx,
 		fuddleAddrs,
 		member,
+		fuddle.WithLogger(logger),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("member register: %w", err)
@@ -41,9 +43,9 @@ func (n *MemberNode) Shutdown() {
 	n.Registry.Close()
 }
 
-func randomMember() fuddle.Member {
+func randomMember(id string) fuddle.Member {
 	return fuddle.Member{
-		ID:       "member-" + uuid.New().String()[:8],
+		ID:       id,
 		Service:  uuid.New().String(),
 		Locality: uuid.New().String(),
 		Created:  rand.Int63(),

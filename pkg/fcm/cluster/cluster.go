@@ -3,11 +3,14 @@ package cluster
 import (
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/fuddle"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type FuddleNode struct {
@@ -25,6 +28,8 @@ type Cluster struct {
 	fuddleNodes map[*FuddleNode]interface{}
 	memberNodes map[*MemberNode]interface{}
 	seeds       []string
+
+	logDir string
 }
 
 func NewCluster(opts ...Option) (*Cluster, error) {
@@ -33,10 +38,16 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 		o.apply(&options)
 	}
 
+	logDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		return nil, fmt.Errorf("cluster: create log dir: %w", err)
+	}
+
 	c := &Cluster{
 		id:          uuid.New().String()[:8],
 		fuddleNodes: make(map[*FuddleNode]interface{}),
 		memberNodes: make(map[*MemberNode]interface{}),
+		logDir:      logDir,
 	}
 	for i := 0; i != options.fuddleNodes; i++ {
 		_, err := c.AddFuddleNode()
@@ -152,6 +163,7 @@ func (c *Cluster) AddFuddleNode() (*FuddleNode, error) {
 		fuddle.WithAdminListener(adminLn),
 		fuddle.WithGossipTCPListener(gossipTCPLn),
 		fuddle.WithGossipUDPListener(gossipUDPLn),
+		fuddle.WithLogger(c.logger(conf.NodeID)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cluster: %w", err)
@@ -169,7 +181,8 @@ func (c *Cluster) AddFuddleNode() (*FuddleNode, error) {
 }
 
 func (c *Cluster) AddMemberNode() (*MemberNode, error) {
-	node, err := NewMemberNode(c.RPCAddrs())
+	id := "member-" + uuid.New().String()[:8]
+	node, err := NewMemberNode(id, c.RPCAddrs(), c.logger(id))
 	if err != nil {
 		return nil, fmt.Errorf("add member node: %w", err)
 	}
@@ -177,10 +190,22 @@ func (c *Cluster) AddMemberNode() (*MemberNode, error) {
 	return node, nil
 }
 
+func (c *Cluster) LogPath(id string) string {
+	return c.logDir + "/" + id + ".log"
+}
+
 func (c *Cluster) Shutdown() {
 	for n := range c.fuddleNodes {
 		n.Shutdown()
 	}
+}
+
+func (c *Cluster) logger(id string) *zap.Logger {
+	path := c.LogPath(id)
+	loggerConf := zap.NewProductionConfig()
+	loggerConf.Level.SetLevel(zapcore.DebugLevel)
+	loggerConf.OutputPaths = []string{path}
+	return zap.Must(loggerConf.Build())
 }
 
 func tcpListen(port int) (*net.TCPListener, error) {

@@ -23,10 +23,12 @@ type nodeResponse struct {
 	ID        string `json:"id,omitempty"`
 	RPCAddr   string `json:"rpc_addr,omitempty"`
 	AdminAddr string `json:"admin_addr,omitempty"`
+	LogPath   string `json:"log_path,omitempty"`
 }
 
 type memberResponse struct {
-	ID string `json:"id,omitempty"`
+	ID      string `json:"id,omitempty"`
+	LogPath string `json:"log_path,omitempty"`
 }
 
 type clusterResponse struct {
@@ -142,11 +144,13 @@ func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
 			ID:        node.Fuddle.Config.NodeID,
 			RPCAddr:   node.Fuddle.Config.RPC.JoinAdvAddr(),
 			AdminAddr: node.Fuddle.Config.Admin.JoinAdvAddr(),
+			LogPath:   c.LogPath(node.Fuddle.Config.NodeID),
 		})
 	}
 	for _, node := range c.MemberNodes() {
 		resp.Members = append(resp.Members, memberResponse{
-			ID: node.ID,
+			ID:      node.ID,
+			LogPath: c.LogPath(node.ID),
 		})
 	}
 
