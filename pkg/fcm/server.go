@@ -2,16 +2,35 @@ package fcm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
+	"github.com/fuddle-io/fuddle/pkg/fcm/cluster"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 
+type fuddleNodeResponse struct {
+	ID        string `json:"id,omitempty"`
+	RPCAddr   string `json:"rpc_addr,omitempty"`
+	AdminAddr string `json:"admin_addr,omitempty"`
+}
+
+type clusterResponse struct {
+	ID          string               `json:"id,omitempty"`
+	FuddleNodes []fuddleNodeResponse `json:"fuddle_nodes,omitempty"`
+}
+
 type Server struct {
+	clusters map[string]*cluster.Cluster
+
+	// mu is a mutex protecting the fields above.
+	mu sync.Mutex
+
 	httpServer *http.Server
 
 	logger *zap.Logger
@@ -24,7 +43,8 @@ func NewServer(addr string, port int, opts ...Option) (*Server, error) {
 	}
 
 	s := &Server{
-		logger: options.logger,
+		clusters: make(map[string]*cluster.Cluster),
+		logger:   options.logger,
 	}
 
 	r := mux.NewRouter()
@@ -72,13 +92,59 @@ func (s *Server) Shutdown() {
 	defer cancel()
 
 	s.httpServer.Shutdown(ctx)
+
+	for _, c := range s.clusters {
+		c.Shutdown()
+	}
 }
 
 func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
-	s.logger.Info("create cluster")
+	c, err := cluster.NewCluster()
+	if err != nil {
+		s.logger.Error("failed to create cluster", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	s.logger.Info("created cluster", zap.String("id", c.ID()))
+
+	resp := clusterResponse{
+		ID: c.ID(),
+	}
+	for _, node := range c.FuddleNodes() {
+		resp.FuddleNodes = append(resp.FuddleNodes, fuddleNodeResponse{
+			ID:        node.Fuddle.Config.NodeID,
+			RPCAddr:   node.Fuddle.Config.RPC.JoinAdvAddr(),
+			AdminAddr: node.Fuddle.Config.Admin.JoinAdvAddr(),
+		})
+	}
+
+	s.mu.Lock()
+	s.clusters[c.ID()] = c
+	s.mu.Unlock()
+
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.logger.Error("failed to encode cluster response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (s *Server) deleteCluster(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	s.logger.Info("delete cluster", zap.String("id", id))
+
+	s.mu.Lock()
+	c, ok := s.clusters[id]
+	delete(s.clusters, id)
+	s.mu.Unlock()
+
+	if !ok {
+		s.logger.Warn("delete cluster; not found", zap.String("id", id))
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	c.Shutdown()
+
+	s.logger.Info("delete cluster; ok", zap.String("id", id))
 }
