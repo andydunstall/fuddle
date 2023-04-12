@@ -1,4 +1,4 @@
-package cluster
+package create
 
 var (
 	fuddleNodes int
