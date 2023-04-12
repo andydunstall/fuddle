@@ -2,6 +2,7 @@ package cli
 
 import (
 	"github.com/fuddle-io/fuddle/pkg/cli/demo"
+	"github.com/fuddle-io/fuddle/pkg/cli/fcm"
 	"github.com/fuddle-io/fuddle/pkg/cli/info"
 	"github.com/fuddle-io/fuddle/pkg/cli/start"
 	"github.com/spf13/cobra"
@@ -25,6 +26,7 @@ func init() {
 		start.Command,
 		info.Command,
 		demo.Command,
+		fcm.Command,
 	)
 }
 

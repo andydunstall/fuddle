@@ -7,6 +7,7 @@ require (
 	github.com/fuddle-io/fuddle-go v0.0.0-20230410103143-ace811b8b921
 	github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230410054709-5e25e3169910
 	github.com/google/uuid v1.3.0
+	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-sockaddr v1.0.0
 	github.com/hashicorp/memberlist v0.5.0
 	github.com/prometheus/client_golang v1.14.0
