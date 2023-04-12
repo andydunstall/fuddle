@@ -26,9 +26,14 @@ type nodeResponse struct {
 	AdminAddr string `json:"admin_addr,omitempty"`
 }
 
+type memberResponse struct {
+	ID string `json:"id,omitempty"`
+}
+
 type clusterResponse struct {
-	ID    string         `json:"id,omitempty"`
-	Nodes []nodeResponse `json:"nodes,omitempty"`
+	ID      string           `json:"id,omitempty"`
+	Nodes   []nodeResponse   `json:"nodes,omitempty"`
+	Members []memberResponse `json:"members,omitempty"`
 }
 
 func run(cmd *cobra.Command, args []string) {
@@ -55,11 +60,17 @@ func run(cmd *cobra.Command, args []string) {
 	fmt.Println("")
 	fmt.Println("  ID:", clusterResp.ID)
 	fmt.Println("")
+
 	fmt.Println("  Nodes:")
 	for _, n := range clusterResp.Nodes {
 		fmt.Println("      ID:", n.ID)
 		fmt.Println("      RPC Addr:", n.RPCAddr)
 		fmt.Println("      Admin Addr:", n.AdminAddr)
 		fmt.Println("")
+	}
+
+	fmt.Println("  Members:")
+	for _, n := range clusterResp.Members {
+		fmt.Println("      ID:", n.ID)
 	}
 }

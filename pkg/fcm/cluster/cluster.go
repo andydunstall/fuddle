@@ -23,6 +23,7 @@ func (n *FuddleNode) Shutdown() {
 type Cluster struct {
 	id          string
 	fuddleNodes map[*FuddleNode]interface{}
+	memberNodes map[*MemberNode]interface{}
 	seeds       []string
 }
 
@@ -35,9 +36,16 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 	c := &Cluster{
 		id:          uuid.New().String()[:8],
 		fuddleNodes: make(map[*FuddleNode]interface{}),
+		memberNodes: make(map[*MemberNode]interface{}),
 	}
 	for i := 0; i != options.fuddleNodes; i++ {
 		_, err := c.AddFuddleNode()
+		if err != nil {
+			return nil, err
+		}
+	}
+	for i := 0; i != options.memberNodes; i++ {
+		_, err := c.AddMemberNode()
 		if err != nil {
 			return nil, err
 		}
@@ -56,6 +64,22 @@ func (c *Cluster) FuddleNodes() []*FuddleNode {
 		nodes = append(nodes, n)
 	}
 	return nodes
+}
+
+func (c *Cluster) MemberNodes() []*MemberNode {
+	var nodes []*MemberNode
+	for n := range c.memberNodes {
+		nodes = append(nodes, n)
+	}
+	return nodes
+}
+
+func (c *Cluster) RPCAddrs() []string {
+	var addrs []string
+	for n := range c.fuddleNodes {
+		addrs = append(addrs, fmt.Sprintf("127.0.0.1:%d", n.Fuddle.Config.RPC.AdvPort))
+	}
+	return addrs
 }
 
 func (c *Cluster) AddFuddleNode() (*FuddleNode, error) {
@@ -141,6 +165,15 @@ func (c *Cluster) AddFuddleNode() (*FuddleNode, error) {
 	c.fuddleNodes[node] = struct{}{}
 	c.seeds = append(c.seeds, fmt.Sprintf("127.0.0.1:%d", gossipPort))
 
+	return node, nil
+}
+
+func (c *Cluster) AddMemberNode() (*MemberNode, error) {
+	node, err := NewMemberNode(c.RPCAddrs())
+	if err != nil {
+		return nil, fmt.Errorf("add member node: %w", err)
+	}
+	c.memberNodes[node] = struct{}{}
 	return node, nil
 }
 
