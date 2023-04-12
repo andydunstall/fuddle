@@ -67,7 +67,7 @@ func NewServer(addr string, port int, opts ...Option) (*Server, error) {
 	r := mux.NewRouter()
 	r.HandleFunc("/cluster", s.createCluster).Methods("POST")
 	r.HandleFunc("/cluster/{id}", s.deleteCluster).Methods("DELETE")
-	r.HandleFunc("/cluster/{id}/prometheus", s.clusterPromTargets).Methods("GET")
+	r.HandleFunc("/cluster/{id}/prometheus/targets", s.clusterPromTargets).Methods("GET")
 
 	ln := options.listener
 	if ln == nil {
