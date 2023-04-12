@@ -85,6 +85,9 @@ attributes and metadata.
 
 # Documentation
 
+## Usage
+* [FCM](./docs/usage/fcm.md)
+
 ## Architecture
 * [Overview](./docs/architecture/overview.md)
 * [Registry](./docs/architecture/registry/registry.md)

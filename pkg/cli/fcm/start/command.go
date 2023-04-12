@@ -11,8 +11,9 @@ import (
 )
 
 var Command = &cobra.Command{
-	Use: "start",
-	Run: run,
+	Use:   "start",
+	Short: "start the fcm server",
+	Run:   run,
 }
 
 func run(cmd *cobra.Command, args []string) {

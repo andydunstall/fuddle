@@ -14,15 +14,20 @@ import (
 	"go.uber.org/zap"
 )
 
-type fuddleNodeResponse struct {
+type clusterRequest struct {
+	Nodes   int `json:"nodes,omitempty"`
+	Members int `json:"members,omitempty"`
+}
+
+type nodeResponse struct {
 	ID        string `json:"id,omitempty"`
 	RPCAddr   string `json:"rpc_addr,omitempty"`
 	AdminAddr string `json:"admin_addr,omitempty"`
 }
 
 type clusterResponse struct {
-	ID          string               `json:"id,omitempty"`
-	FuddleNodes []fuddleNodeResponse `json:"fuddle_nodes,omitempty"`
+	ID    string         `json:"id,omitempty"`
+	Nodes []nodeResponse `json:"nodes,omitempty"`
 }
 
 type promTarget struct {
@@ -53,7 +58,7 @@ func NewServer(addr string, port int, opts ...Option) (*Server, error) {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/cluster", s.createCluster).Methods("GET")
+	r.HandleFunc("/cluster", s.createCluster).Methods("POST")
 	r.HandleFunc("/cluster/{id}", s.deleteCluster).Methods("DELETE")
 	r.HandleFunc("/cluster/{id}/prometheus", s.clusterPromTargets).Methods("GET")
 
@@ -105,7 +110,16 @@ func (s *Server) Shutdown() {
 }
 
 func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
-	c, err := cluster.NewCluster()
+	var req clusterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.logger.Warn("failed to decode cluster request", zap.Error(err))
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	c, err := cluster.NewCluster(
+		cluster.WithFuddleNodes(req.Nodes),
+	)
 	if err != nil {
 		s.logger.Error("failed to create cluster", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -118,7 +132,7 @@ func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
 		ID: c.ID(),
 	}
 	for _, node := range c.FuddleNodes() {
-		resp.FuddleNodes = append(resp.FuddleNodes, fuddleNodeResponse{
+		resp.Nodes = append(resp.Nodes, nodeResponse{
 			ID:        node.Fuddle.Config.NodeID,
 			RPCAddr:   node.Fuddle.Config.RPC.JoinAdvAddr(),
 			AdminAddr: node.Fuddle.Config.Admin.JoinAdvAddr(),
