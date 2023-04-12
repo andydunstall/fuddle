@@ -1,24 +1,24 @@
-package cluster
+package create
 
 var (
-	nodes   int
-	members int
+	fuddleNodes int
+	clientNodes int
 
 	addr string
 )
 
 func init() {
 	Command.Flags().IntVarP(
-		&nodes,
-		"nodes", "",
+		&fuddleNodes,
+		"fuddle-nodes", "",
 		3,
 		"number of Fuddle nodes in the cluster",
 	)
 	Command.Flags().IntVarP(
-		&members,
-		"members", "",
+		&clientNodes,
+		"client-nodes", "",
 		10,
-		"number of registered random members in the cluster",
+		"number of client nodes in the cluster",
 	)
 
 	Command.Flags().StringVarP(
