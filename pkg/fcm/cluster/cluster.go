@@ -33,7 +33,7 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 	}
 
 	c := &Cluster{
-		id:          uuid.New().String(),
+		id:          uuid.New().String()[:8],
 		fuddleNodes: make(map[*FuddleNode]interface{}),
 	}
 	for i := 0; i != options.fuddleNodes; i++ {

@@ -25,6 +25,11 @@ type clusterResponse struct {
 	FuddleNodes []fuddleNodeResponse `json:"fuddle_nodes,omitempty"`
 }
 
+type promTarget struct {
+	Targets []string          `json:"targets,omitempty"`
+	Labels  map[string]string `json:"labels,omitempty"`
+}
+
 type Server struct {
 	clusters map[string]*cluster.Cluster
 
@@ -50,6 +55,7 @@ func NewServer(addr string, port int, opts ...Option) (*Server, error) {
 	r := mux.NewRouter()
 	r.HandleFunc("/cluster", s.createCluster).Methods("GET")
 	r.HandleFunc("/cluster/{id}", s.deleteCluster).Methods("DELETE")
+	r.HandleFunc("/cluster/{id}/prometheus", s.clusterPromTargets).Methods("GET")
 
 	ln := options.listener
 	if ln == nil {
@@ -123,6 +129,7 @@ func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
 	s.clusters[c.ID()] = c
 	s.mu.Unlock()
 
+	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.logger.Error("failed to encode cluster response", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -147,4 +154,41 @@ func (s *Server) deleteCluster(w http.ResponseWriter, r *http.Request) {
 	c.Shutdown()
 
 	s.logger.Info("delete cluster; ok", zap.String("id", id))
+}
+
+func (s *Server) clusterPromTargets(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	s.mu.Lock()
+	targets := make(map[string]string)
+	c, ok := s.clusters[id]
+	if ok {
+		for _, node := range c.FuddleNodes() {
+			targets[node.Fuddle.Config.NodeID] = node.Fuddle.Config.Admin.JoinAdvAddr()
+		}
+	}
+
+	s.mu.Unlock()
+
+	if !ok {
+		s.logger.Warn("cluster prom targets; not found", zap.String("id", id))
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	var resp []promTarget
+	for nodeID, addr := range targets {
+		resp = append(resp, promTarget{
+			Targets: []string{addr},
+			Labels: map[string]string{
+				"instance": nodeID,
+			},
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.logger.Error("failed to encode prom targets response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 }
