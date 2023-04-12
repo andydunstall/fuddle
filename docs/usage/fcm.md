@@ -10,7 +10,7 @@ creating clusters.
 ## Start FCM
 FCM runs as a HTTP server which manages all active clusters.
 
-Start FCM with `fuddle fcm start`. By default FCM runs on port `9110`.
+Start FCM with `fuddle fcm start`. By default FCM runs on port `8220`.
 
 ## Create A Cluster
 Once the FCM server is running, create a new Fuddle cluster with
@@ -38,7 +38,7 @@ scrape_configs:
     scheme: 'http'
 
     http_sd_configs:
-      - url: 'http://localhost:9110/cluster/7cde0ff4/prometheus'
+      - url: 'http://localhost:8220/cluster/7cde0ff4/prometheus'
         refresh_interval: 10s
 ```
 

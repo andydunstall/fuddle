@@ -24,7 +24,7 @@ func init() {
 	Command.Flags().StringVarP(
 		&addr,
 		"addr", "",
-		"localhost:9110",
+		"localhost:8220",
 		"fcm server address",
 	)
 }
