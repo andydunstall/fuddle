@@ -1,32 +1,45 @@
 # FCM (Fuddle Cluster Manager)
+FCM is a tool for spinning up local Fuddle clusters, used for development and
+testing.
 
-FCM is a tool for spinning up and testing local Fuddle clusters.
+The FCM server manages the set of active clusters, which exposes a REST API to
+create and modify clusters. This makes it easy to add FCM clients in different
+languages (such as for SDK testing) and add FCM support to the Fuddle CLI.
 
-Use FCM with the `fuddle fcm` command in the Fuddle CLI.
+# Usage
+This describes how to use FCM via the Fuddle CLI, though the same functionality
+can be achieved by querying the REST API directly.
 
-FCM runs a HTTP server (used by the Fuddle CLI) which can be used to automate
-creating clusters.
+This is just an overview of the available commands, a full list of commands can
+be seen using `fuddle fcm help`.
 
-## Start FCM
-FCM runs as a HTTP server which manages all active clusters.
-
-Start FCM with `fuddle fcm start`. By default FCM runs on port `8220`.
+## Server
+Before you can create a cluster, you must start the FCM server with `fuddle fcm
+start`. By default the server listens on port `8220`.
 
 ## Create A Cluster
-Once the FCM server is running, create a new Fuddle cluster with
-`fcm cluster create`.
+Once the FCM server is running, create a new cluster using `fuddle fcm cluster
+create`.
 
-By default this will create a cluster with 3 Fuddle nodes and 10 random members,
-which can be changed with `--nodes` and `--members` options.
+Each cluster is given a unique ID since FCM may run multiple clusters at once.
 
-## Prometheus
-To get Prometheus metrics, FCM exposes a `/cluster/{id}/prometheus/targets`
-endpoint which returns the set of Prometheus targets in the cluster. The
-set of targets will be updated as the nodes in the cluster change.
+A cluster contains:
+* Fuddle nodes that maintain the registry
+* Client nodes that connect to Fuddle and registry a random member
 
-To integrate with Prometheus running locally, configure `http_sd_config` to
-point to the targets URL for you're cluster, such as:
+By default, a cluster contains 3 Fuddle nodes and 10 clients, which can be
+changed with `--fuddle-nodes` and `--client-nodes` flags.
 
+The cluster can be inspected at any time with `fuddle fcm cluster info`.
+
+### Prometheus
+Each cluster has a HTTP endpoint that returns an up to date list of Prometheus
+targets of the set of nodes in the cluster at
+`/cluster/{id}/prometheus/targets`. This should be used when configuring
+Prometheus (using `http_sd_config`) instead of a static list of targets since
+the set of nodes may change.
+
+For example you could configure Prometheus running locally with:
 ```yaml
 global:
   scrape_interval: 10s
@@ -42,7 +55,12 @@ scrape_configs:
         refresh_interval: 10s
 ```
 
-Where `7cde0ff4` should be replaced by the ID of you're cluster.
+Where `7cde0ff4` is the cluster ID that should be replaced with the ID of your cluster.
 
-Note FCM runs each node in a separate goroutine instead of separate processes,
-so the Go runtime metrics will be wrong.
+## Add/Remove Nodes
+Nodes can be added and removed from running clusters with `fuddle fcm nodes add
+{cluster ID}` and `fuddle fcm nodes remove {cluster ID}` respectively.
+
+Similar to creating a cluster, each command accepts flags:
+* `--fuddle-nodes`: Number of Fuddle nodes to add/remove
+* `--client-nodes`: Number of client nodes to add/remove
