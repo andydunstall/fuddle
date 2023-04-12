@@ -25,9 +25,14 @@ type nodeResponse struct {
 	AdminAddr string `json:"admin_addr,omitempty"`
 }
 
+type memberResponse struct {
+	ID string `json:"id,omitempty"`
+}
+
 type clusterResponse struct {
-	ID    string         `json:"id,omitempty"`
-	Nodes []nodeResponse `json:"nodes,omitempty"`
+	ID      string           `json:"id,omitempty"`
+	Nodes   []nodeResponse   `json:"nodes,omitempty"`
+	Members []memberResponse `json:"members,omitempty"`
 }
 
 type promTarget struct {
@@ -119,6 +124,7 @@ func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
 
 	c, err := cluster.NewCluster(
 		cluster.WithFuddleNodes(req.Nodes),
+		cluster.WithMemberNodes(req.Members),
 	)
 	if err != nil {
 		s.logger.Error("failed to create cluster", zap.Error(err))
@@ -136,6 +142,11 @@ func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
 			ID:        node.Fuddle.Config.NodeID,
 			RPCAddr:   node.Fuddle.Config.RPC.JoinAdvAddr(),
 			AdminAddr: node.Fuddle.Config.Admin.JoinAdvAddr(),
+		})
+	}
+	for _, node := range c.MemberNodes() {
+		resp.Members = append(resp.Members, memberResponse{
+			ID: node.ID,
 		})
 	}
 
