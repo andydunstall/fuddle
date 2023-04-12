@@ -1,7 +1,6 @@
-package create
+package info
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,14 +9,9 @@ import (
 )
 
 var Command = &cobra.Command{
-	Use:   "create",
-	Short: "create an fcm cluster",
+	Use:   "info",
+	Short: "describe an fcm cluster",
 	Run:   run,
-}
-
-type clusterRequest struct {
-	Nodes   int `json:"nodes,omitempty"`
-	Members int `json:"members,omitempty"`
 }
 
 type nodeResponse struct {
@@ -39,17 +33,8 @@ type clusterResponse struct {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	url := "http://" + addr + "/cluster"
-	req := clusterRequest{
-		Nodes:   fuddleNodes,
-		Members: clientNodes,
-	}
-	b, err := json.Marshal(&req)
-	if err != nil {
-		fmt.Println("failed to encode request", err)
-		return
-	}
-	resp, err := http.Post(url, "application/json", bytes.NewReader(b))
+	url := "http://" + addr + "/cluster/" + clusterID
+	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Println("request failed", err)
 		return

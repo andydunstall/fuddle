@@ -190,14 +190,55 @@ func (c *Cluster) AddMemberNode() (*MemberNode, error) {
 	return node, nil
 }
 
+func (c *Cluster) RemoveFuddleNode() string {
+	node := c.randomFuddleNode()
+	if node == nil {
+		return ""
+	}
+
+	node.Shutdown()
+	delete(c.fuddleNodes, node)
+
+	return node.Fuddle.Config.NodeID
+}
+
+func (c *Cluster) RemoveMemberNode() string {
+	node := c.randomMemberNode()
+	if node == nil {
+		return ""
+	}
+
+	node.Shutdown()
+	delete(c.memberNodes, node)
+
+	return node.ID
+}
+
 func (c *Cluster) LogPath(id string) string {
 	return c.logDir + "/" + id + ".log"
 }
 
 func (c *Cluster) Shutdown() {
+	for n := range c.memberNodes {
+		n.Shutdown()
+	}
 	for n := range c.fuddleNodes {
 		n.Shutdown()
 	}
+}
+
+func (c *Cluster) randomFuddleNode() *FuddleNode {
+	for k := range c.fuddleNodes {
+		return k
+	}
+	return nil
+}
+
+func (c *Cluster) randomMemberNode() *MemberNode {
+	for k := range c.memberNodes {
+		return k
+	}
+	return nil
 }
 
 func (c *Cluster) logger(id string) *zap.Logger {

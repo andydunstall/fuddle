@@ -2,6 +2,7 @@ package fcm
 
 import (
 	"github.com/fuddle-io/fuddle/pkg/cli/fcm/cluster"
+	"github.com/fuddle-io/fuddle/pkg/cli/fcm/nodes"
 	"github.com/fuddle-io/fuddle/pkg/cli/fcm/start"
 	"github.com/spf13/cobra"
 )
@@ -15,5 +16,6 @@ func init() {
 	Command.AddCommand(
 		start.Command,
 		cluster.Command,
+		nodes.Command,
 	)
 }

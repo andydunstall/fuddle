@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"github.com/fuddle-io/fuddle/pkg/cli/fcm/cluster/create"
+	"github.com/fuddle-io/fuddle/pkg/cli/fcm/cluster/info"
 	"github.com/spf13/cobra"
 )
 
@@ -13,5 +14,6 @@ var Command = &cobra.Command{
 func init() {
 	Command.AddCommand(
 		create.Command,
+		info.Command,
 	)
 }

@@ -1,4 +1,4 @@
-package create
+package add
 
 import (
 	"bytes"
@@ -9,13 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var Command = &cobra.Command{
-	Use:   "create",
-	Short: "create an fcm cluster",
-	Run:   run,
-}
-
-type clusterRequest struct {
+type nodesRequest struct {
 	Nodes   int `json:"nodes,omitempty"`
 	Members int `json:"members,omitempty"`
 }
@@ -32,15 +26,20 @@ type memberResponse struct {
 	LogPath string `json:"log_path,omitempty"`
 }
 
-type clusterResponse struct {
-	ID      string           `json:"id,omitempty"`
+type nodesResponse struct {
 	Nodes   []nodeResponse   `json:"nodes,omitempty"`
 	Members []memberResponse `json:"members,omitempty"`
 }
 
+var Command = &cobra.Command{
+	Use:   "add",
+	Short: "add nodes to a cluster",
+	Run:   run,
+}
+
 func run(cmd *cobra.Command, args []string) {
-	url := "http://" + addr + "/cluster"
-	req := clusterRequest{
+	url := "http://" + addr + "/cluster/" + clusterID + "/nodes/add"
+	req := nodesRequest{
 		Nodes:   fuddleNodes,
 		Members: clientNodes,
 	}
@@ -61,29 +60,29 @@ func run(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	var clusterResp clusterResponse
-	if err := json.NewDecoder(resp.Body).Decode(&clusterResp); err != nil {
+	var nodesResp nodesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&nodesResp); err != nil {
 		fmt.Println("failed to decode response", err)
 		return
 	}
 
-	fmt.Println("")
-	fmt.Println("  ID:", clusterResp.ID)
-	fmt.Println("")
-
-	fmt.Println("  Nodes:")
-	for _, n := range clusterResp.Nodes {
-		fmt.Println("      ID:", n.ID)
-		fmt.Println("      RPC Addr:", n.RPCAddr)
-		fmt.Println("      Admin Addr:", n.AdminAddr)
-		fmt.Println("      Log Path:", n.LogPath)
-		fmt.Println("")
+	if nodesResp.Nodes != nil {
+		fmt.Println("  Nodes:")
+		for _, n := range nodesResp.Nodes {
+			fmt.Println("      ID:", n.ID)
+			fmt.Println("      RPC Addr:", n.RPCAddr)
+			fmt.Println("      Admin Addr:", n.AdminAddr)
+			fmt.Println("      Log Path:", n.LogPath)
+			fmt.Println("")
+		}
 	}
 
-	fmt.Println("  Members:")
-	for _, n := range clusterResp.Members {
-		fmt.Println("      ID:", n.ID)
-		fmt.Println("      Log Path:", n.LogPath)
-		fmt.Println("")
+	if nodesResp.Members != nil {
+		fmt.Println("  Members:")
+		for _, n := range nodesResp.Members {
+			fmt.Println("      ID:", n.ID)
+			fmt.Println("      Log Path:", n.LogPath)
+			fmt.Println("")
+		}
 	}
 }

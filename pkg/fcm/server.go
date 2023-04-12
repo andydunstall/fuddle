@@ -19,6 +19,11 @@ type clusterRequest struct {
 	Members int `json:"members,omitempty"`
 }
 
+type nodesRequest struct {
+	Nodes   int `json:"nodes,omitempty"`
+	Members int `json:"members,omitempty"`
+}
+
 type nodeResponse struct {
 	ID        string `json:"id,omitempty"`
 	RPCAddr   string `json:"rpc_addr,omitempty"`
@@ -33,6 +38,11 @@ type memberResponse struct {
 
 type clusterResponse struct {
 	ID      string           `json:"id,omitempty"`
+	Nodes   []nodeResponse   `json:"nodes,omitempty"`
+	Members []memberResponse `json:"members,omitempty"`
+}
+
+type nodesResponse struct {
 	Nodes   []nodeResponse   `json:"nodes,omitempty"`
 	Members []memberResponse `json:"members,omitempty"`
 }
@@ -66,7 +76,12 @@ func NewServer(addr string, port int, opts ...Option) (*Server, error) {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/cluster", s.createCluster).Methods("POST")
+	r.HandleFunc("/cluster/{id}", s.describeCluster).Methods("GET")
 	r.HandleFunc("/cluster/{id}", s.deleteCluster).Methods("DELETE")
+
+	r.HandleFunc("/cluster/{id}/nodes/add", s.addNodes).Methods("POST")
+	r.HandleFunc("/cluster/{id}/nodes/remove", s.removeNodes).Methods("POST")
+
 	r.HandleFunc("/cluster/{id}/prometheus/targets", s.clusterPromTargets).Methods("GET")
 
 	ln := options.listener
@@ -166,6 +181,44 @@ func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) describeCluster(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id := mux.Vars(r)["id"]
+	c, ok := s.clusters[id]
+	if !ok {
+		s.logger.Warn("describe cluster; not found", zap.String("id", id))
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	resp := clusterResponse{
+		ID: c.ID(),
+	}
+	for _, node := range c.FuddleNodes() {
+		resp.Nodes = append(resp.Nodes, nodeResponse{
+			ID:        node.Fuddle.Config.NodeID,
+			RPCAddr:   node.Fuddle.Config.RPC.JoinAdvAddr(),
+			AdminAddr: node.Fuddle.Config.Admin.JoinAdvAddr(),
+			LogPath:   c.LogPath(node.Fuddle.Config.NodeID),
+		})
+	}
+	for _, node := range c.MemberNodes() {
+		resp.Members = append(resp.Members, memberResponse{
+			ID:      node.ID,
+			LogPath: c.LogPath(node.ID),
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.logger.Error("failed to encode cluster response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
 func (s *Server) deleteCluster(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
@@ -183,6 +236,108 @@ func (s *Server) deleteCluster(w http.ResponseWriter, r *http.Request) {
 	c.Shutdown()
 
 	s.logger.Info("delete cluster; ok", zap.String("id", id))
+}
+
+func (s *Server) addNodes(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id := mux.Vars(r)["id"]
+	c, ok := s.clusters[id]
+	if !ok {
+		s.logger.Warn("add nodes; cluster not found", zap.String("id", id))
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	var req nodesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.logger.Warn("failed to decode nodes request", zap.Error(err))
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	resp := nodesResponse{}
+	for i := 0; i != req.Nodes; i++ {
+		n, err := c.AddFuddleNode()
+		if err != nil {
+			s.logger.Error("failed to add fuddle node", zap.Error(err))
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		resp.Nodes = append(resp.Nodes, nodeResponse{
+			ID:        n.Fuddle.Config.NodeID,
+			RPCAddr:   n.Fuddle.Config.RPC.JoinAdvAddr(),
+			AdminAddr: n.Fuddle.Config.Admin.JoinAdvAddr(),
+			LogPath:   c.LogPath(n.Fuddle.Config.NodeID),
+		})
+	}
+	for i := 0; i != req.Members; i++ {
+		n, err := c.AddMemberNode()
+		if err != nil {
+			s.logger.Error("failed to add client node", zap.Error(err))
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		resp.Members = append(resp.Members, memberResponse{
+			ID:      n.ID,
+			LogPath: c.LogPath(n.ID),
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.logger.Error("failed to encode nodes response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Server) removeNodes(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id := mux.Vars(r)["id"]
+	c, ok := s.clusters[id]
+	if !ok {
+		s.logger.Warn("remove nodes; cluster not found", zap.String("id", id))
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	var req nodesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.logger.Warn("failed to decode nodes request", zap.Error(err))
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	resp := nodesResponse{}
+	for i := 0; i != req.Nodes; i++ {
+		id := c.RemoveFuddleNode()
+		if id != "" {
+			resp.Nodes = append(resp.Nodes, nodeResponse{
+				ID: id,
+			})
+		}
+	}
+	for i := 0; i != req.Members; i++ {
+		id := c.RemoveMemberNode()
+		if id != "" {
+			resp.Members = append(resp.Members, memberResponse{
+				ID: id,
+			})
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.logger.Error("failed to encode members response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (s *Server) clusterPromTargets(w http.ResponseWriter, r *http.Request) {
