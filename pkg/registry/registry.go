@@ -629,6 +629,11 @@ func (r *Registry) setMemberLocked(m *VersionedMember) {
 			"status": existing.Member.Status.String(),
 			"owner":  existing.Version.Owner,
 		})
+		if existing.Version.Owner == r.localID {
+			r.metrics.MembersOwned.Dec(map[string]string{
+				"status": existing.Member.Status.String(),
+			})
+		}
 	}
 
 	r.members[m.Member.Id] = m
@@ -637,6 +642,11 @@ func (r *Registry) setMemberLocked(m *VersionedMember) {
 		"status": m.Member.Status.String(),
 		"owner":  m.Version.Owner,
 	})
+	if m.Version.Owner == r.localID {
+		r.metrics.MembersOwned.Inc(map[string]string{
+			"status": m.Member.Status.String(),
+		})
+	}
 }
 
 func (r *Registry) deleteMemberLocked(id string) {
@@ -645,6 +655,12 @@ func (r *Registry) deleteMemberLocked(id string) {
 			"status": existing.Member.Status.String(),
 			"owner":  existing.Version.Owner,
 		})
+
+		if existing.Version.Owner == r.localID {
+			r.metrics.MembersOwned.Dec(map[string]string{
+				"status": existing.Member.Status.String(),
+			})
+		}
 	}
 
 	delete(r.members, id)

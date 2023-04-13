@@ -27,6 +27,9 @@ func TestRegistry_AddLocalMember(t *testing.T) {
 		"status": "up",
 		"owner":  "local",
 	}))
+	assert.Equal(t, 1.0, reg.Metrics().MembersOwned.Value(map[string]string{
+		"status": "up",
+	}))
 }
 
 func TestRegistry_LocalMemberUpdateIgnored(t *testing.T) {
@@ -63,6 +66,9 @@ func TestRegistry_AddMember(t *testing.T) {
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
 		"owner":  "local",
+	}))
+	assert.Equal(t, 1.0, reg.Metrics().MembersOwned.Value(map[string]string{
+		"status": "up",
 	}))
 }
 
@@ -126,6 +132,9 @@ func TestRegistry_RemoveMember(t *testing.T) {
 		"status": "left",
 		"owner":  "local",
 	}))
+	assert.Equal(t, 1.0, reg.Metrics().MembersOwned.Value(map[string]string{
+		"status": "left",
+	}))
 }
 
 func TestRegistry_RemoveMemberDiscardOutdated(t *testing.T) {
@@ -187,6 +196,9 @@ func TestRegistry_RemoteUpdateTakeOwnership(t *testing.T) {
 		"status": "up",
 		"owner":  "local",
 	}))
+	assert.Equal(t, 2.0, reg.Metrics().MembersOwned.Value(map[string]string{
+		"status": "up",
+	}))
 
 	updatedMember := randomMember("my-member")
 	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
@@ -210,6 +222,9 @@ func TestRegistry_RemoteUpdateTakeOwnership(t *testing.T) {
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
 		"owner":  "remote",
+	}))
+	assert.Equal(t, 1.0, reg.Metrics().MembersOwned.Value(map[string]string{
+		"status": "up",
 	}))
 }
 
@@ -434,6 +449,9 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 		"status": "down",
 		"owner":  "local",
 	}))
+	assert.Equal(t, 1.0, reg.Metrics().MembersOwned.Value(map[string]string{
+		"status": "down",
+	}))
 
 	// Adding the member again should revive it.
 	reg.AddMember(addedMember, WithRegistryNowTime(600))
@@ -449,6 +467,9 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "down",
 		"owner":  "local",
+	}))
+	assert.Equal(t, 1.0, reg.Metrics().MembersOwned.Value(map[string]string{
+		"status": "up",
 	}))
 }
 
