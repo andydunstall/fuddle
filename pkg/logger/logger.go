@@ -20,6 +20,9 @@ func NewLogger(opts ...Option) (*Logger, error) {
 
 	conf := zap.NewProductionConfig()
 	conf.Level.SetLevel(options.level)
+	if options.path != "" {
+		conf.OutputPaths = []string{options.path}
+	}
 
 	metrics := NewMetrics()
 	if options.collector != nil {
@@ -27,7 +30,7 @@ func NewLogger(opts ...Option) (*Logger, error) {
 	}
 
 	logger, err := conf.Build(zap.WrapCore(func(core zapcore.Core) zapcore.Core {
-		return newMetricsCore(metrics)
+		return newMetricsCore(metrics, core)
 	}))
 	if err != nil {
 		return nil, fmt.Errorf("logger: %w", err)
@@ -45,4 +48,20 @@ func (l *Logger) Metrics() *Metrics {
 
 func (l *Logger) Logger(subsystem string) *zap.Logger {
 	return l.baseLogger.With(zap.String("subsystem", subsystem))
+}
+
+func StringToLevel(lvl string) zapcore.Level {
+	switch lvl {
+	case "debug":
+		return zapcore.DebugLevel
+	case "info":
+		return zapcore.InfoLevel
+	case "warn":
+		return zapcore.WarnLevel
+	case "error":
+		return zapcore.ErrorLevel
+	default:
+		// If the level is invalid or not specified, default to info.
+		return zapcore.InfoLevel
+	}
 }

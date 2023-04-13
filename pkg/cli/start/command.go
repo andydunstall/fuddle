@@ -1,15 +1,15 @@
 package start
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/fuddle"
+	"github.com/fuddle-io/fuddle/pkg/logger"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 // Command starts a fuddle node.
@@ -21,22 +21,6 @@ var Command = &cobra.Command{
 }
 
 func run(cmd *cobra.Command, args []string) {
-	loggerConf := zap.NewProductionConfig()
-	switch logLevel {
-	case "debug":
-		loggerConf.Level.SetLevel(zapcore.DebugLevel)
-	case "info":
-		loggerConf.Level.SetLevel(zapcore.InfoLevel)
-	case "warn":
-		loggerConf.Level.SetLevel(zapcore.WarnLevel)
-	case "error":
-		loggerConf.Level.SetLevel(zapcore.ErrorLevel)
-	default:
-		// If the level is invalid or not specified, use info.
-		loggerConf.Level.SetLevel(zapcore.InfoLevel)
-	}
-	logger := zap.Must(loggerConf.Build())
-
 	conf := config.DefaultConfig()
 
 	conf.Gossip.BindAddr = gossipBindAddr
@@ -86,12 +70,14 @@ func run(cmd *cobra.Command, args []string) {
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, os.Interrupt)
 
-	server, err := fuddle.NewFuddle(conf, fuddle.WithLogger(logger))
+	server, err := fuddle.NewFuddle(
+		conf,
+		fuddle.WithLogLevel(logger.StringToLevel(logLevel)),
+	)
 	if err != nil {
-		logger.Fatal("failed to start server", zap.Error(err))
+		fmt.Println("failed to start server:", err)
 	}
 	defer server.Shutdown()
 
-	sig := <-signalCh
-	logger.Info("received exit signal", zap.String("signal", sig.String()))
+	<-signalCh
 }

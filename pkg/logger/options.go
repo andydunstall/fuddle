@@ -7,12 +7,14 @@ import (
 
 type options struct {
 	level     zapcore.Level
+	path      string
 	collector metrics.Collector
 }
 
 func defaultOptions() *options {
 	return &options{
 		level:     zapcore.InfoLevel,
+		path:      "",
 		collector: nil,
 	}
 }
@@ -31,6 +33,18 @@ func (o levelOption) apply(opts *options) {
 
 func WithLevel(l zapcore.Level) Option {
 	return levelOption{level: l}
+}
+
+type pathOption struct {
+	path string
+}
+
+func (o pathOption) apply(opts *options) {
+	opts.path = o.path
+}
+
+func WithPath(path string) Option {
+	return pathOption{path: path}
 }
 
 type collectorOption struct {

@@ -36,13 +36,13 @@ type metricsCore struct {
 	metrics   *Metrics
 	subsystem string
 
-	zapcore.LevelEnabler
+	core zapcore.Core
 }
 
-func newMetricsCore(metrics *Metrics) zapcore.Core {
+func newMetricsCore(metrics *Metrics, core zapcore.Core) zapcore.Core {
 	return &metricsCore{
-		metrics:      metrics,
-		LevelEnabler: zapcore.WarnLevel,
+		metrics: metrics,
+		core:    core,
 	}
 }
 
@@ -55,17 +55,17 @@ func (c *metricsCore) With(fields []zapcore.Field) zapcore.Core {
 	}
 
 	return &metricsCore{
-		metrics:      c.metrics,
-		subsystem:    subsystem,
-		LevelEnabler: zapcore.WarnLevel,
+		metrics:   c.metrics,
+		subsystem: subsystem,
+		core:      c.core,
 	}
 }
 
 func (c *metricsCore) Check(entry zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	if c.Enabled(entry.Level) {
-		return ce.AddCore(entry, c)
+	if entry.Level >= zapcore.WarnLevel {
+		ce = ce.AddCore(entry, c)
 	}
-	return ce
+	return c.core.Check(entry, ce)
 }
 
 func (c *metricsCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
@@ -86,9 +86,16 @@ func (c *metricsCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 		})
 	}
 
-	return nil
+	return c.core.Write(entry, fields)
+}
+
+func (c *metricsCore) Enabled(lvl zapcore.Level) bool {
+	if lvl >= zapcore.WarnLevel {
+		return true
+	}
+	return c.core.Enabled(lvl)
 }
 
 func (c *metricsCore) Sync() error {
-	return nil
+	return c.core.Sync()
 }

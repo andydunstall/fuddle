@@ -3,7 +3,7 @@ package fuddle
 import (
 	"net"
 
-	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type options struct {
@@ -11,12 +11,14 @@ type options struct {
 	gossipUDPListener *net.UDPConn
 	rpcListener       *net.TCPListener
 	adminListener     *net.TCPListener
-	logger            *zap.Logger
+	logLevel          zapcore.Level
+	logPath           string
 }
 
 func defaultOptions() options {
 	return options{
-		logger: zap.NewNop(),
+		logLevel: zapcore.InfoLevel,
+		logPath:  "",
 	}
 }
 
@@ -80,14 +82,27 @@ func WithAdminListener(ln *net.TCPListener) Option {
 	}
 }
 
-type loggerOption struct {
-	Log *zap.Logger
+type logLevelOption struct {
+	level zapcore.Level
 }
 
-func (o loggerOption) apply(opts *options) {
-	opts.logger = o.Log
+func (o logLevelOption) apply(opts *options) {
+	opts.logLevel = o.level
 }
 
-func WithLogger(log *zap.Logger) Option {
-	return loggerOption{Log: log}
+func WithLogLevel(level zapcore.Level) Option {
+	return logLevelOption{level: level}
+}
+
+type logPathOption struct {
+	path string
+}
+
+func (o logPathOption) apply(opts *options) {
+	opts.logPath = o.path
+}
+
+// WithLogPath sets the logger output path. If unset defaults to stdout.
+func WithLogPath(path string) Option {
+	return logPathOption{path: path}
 }

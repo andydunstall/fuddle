@@ -9,6 +9,7 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/cluster"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/gossip"
+	"github.com/fuddle-io/fuddle/pkg/logger"
 	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/fuddle-io/fuddle/pkg/server"
@@ -35,14 +36,18 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 		o.apply(&options)
 	}
 
-	logger := options.logger.With(
-		zap.String("stream", "fuddle"),
-		zap.String("node-id", conf.NodeID),
-	)
-
-	logger.Info("starting fuddle", zap.Object("conf", conf))
-
 	collector := metrics.NewPromCollector()
+
+	logger, err := logger.NewLogger(
+		logger.WithLevel(options.logLevel),
+		logger.WithPath(options.logPath),
+		logger.WithCollector(collector),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Logger("fuddle").Info("starting fuddle", zap.Object("conf", conf))
 
 	r := registry.NewRegistry(
 		conf.NodeID,
@@ -56,14 +61,12 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 		registry.WithReconnectTimeout(conf.Registry.ReconnectTimeout.Milliseconds()),
 		registry.WithTombstoneTimeout(conf.Registry.TombstoneTimeout.Milliseconds()),
 		registry.WithCollector(collector),
-		registry.WithRegistryLogger(
-			logger.With(zap.String("stream", "registry")),
-		),
+		registry.WithRegistryLogger(logger.Logger("registry")),
 	)
 
 	c := cluster.NewCluster(
 		r,
-		cluster.WithLogger(logger.With(zap.String("stream", "cluster"))),
+		cluster.WithLogger(logger.Logger("cluster")),
 		cluster.WithCollector(collector),
 	)
 
@@ -72,9 +75,7 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 		adminServerOpts = append(adminServerOpts, adminServer.WithListener(options.adminListener))
 	}
 	adminServerOpts = append(adminServerOpts, adminServer.WithCollector(collector))
-	adminServerOpts = append(adminServerOpts, adminServer.WithLogger(
-		logger.With(zap.String("stream", "admin")),
-	))
+	adminServerOpts = append(adminServerOpts, adminServer.WithLogger(logger.Logger("admin")))
 	adminServer, err := adminServer.NewServer(conf, adminServerOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("fuddle: %w", err)
@@ -101,9 +102,7 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 			c.OnLeave(node.ID)
 		}
 	}))
-	gossipOpts = append(gossipOpts, gossip.WithLogger(
-		options.logger.With(zap.String("stream", "gossip")),
-	))
+	gossipOpts = append(gossipOpts, gossip.WithLogger(logger.Logger("gossip")))
 
 	g, err := gossip.NewGossip(conf, gossipOpts...)
 	if err != nil {
@@ -114,14 +113,10 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 	if options.rpcListener != nil {
 		serverOpts = append(serverOpts, server.WithListener(options.rpcListener))
 	}
-	serverOpts = append(serverOpts, server.WithLogger(
-		logger.With(zap.String("stream", "server")),
-	))
+	serverOpts = append(serverOpts, server.WithLogger(logger.Logger("server")))
 	s := server.NewServer(conf, serverOpts...)
 
-	registryServer := registry.NewServer(r, registry.WithServerLogger(
-		logger.With(zap.String("stream", "registry")),
-	))
+	registryServer := registry.NewServer(r, registry.WithServerLogger(logger.Logger("registry")))
 	rpc.RegisterRegistryServer(s.GRPCServer(), registryServer)
 
 	if err := s.Serve(); err != nil {
@@ -134,7 +129,7 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 		gossip:      g,
 		server:      s,
 		adminServer: adminServer,
-		logger:      logger,
+		logger:      logger.Logger("fuddle"),
 		done:        make(chan interface{}),
 	}
 

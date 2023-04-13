@@ -170,7 +170,7 @@ func (c *Cluster) AddFuddleNode() (*FuddleNode, error) {
 		fuddle.WithAdminListener(adminLn),
 		fuddle.WithGossipTCPListener(gossipTCPLn),
 		fuddle.WithGossipUDPListener(gossipUDPLn),
-		fuddle.WithLogger(c.logger(conf.NodeID)),
+		fuddle.WithLogPath(c.LogPath(conf.NodeID)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cluster: %w", err)
