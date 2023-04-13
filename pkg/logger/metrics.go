@@ -57,7 +57,7 @@ func (c *metricsCore) With(fields []zapcore.Field) zapcore.Core {
 	return &metricsCore{
 		metrics:   c.metrics,
 		subsystem: subsystem,
-		core:      c.core,
+		core:      c.core.With(fields),
 	}
 }
 

@@ -1,4 +1,4 @@
-package fuddle
+package node
 
 import (
 	"net"

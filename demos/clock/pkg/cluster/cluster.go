@@ -9,14 +9,14 @@ import (
 	"github.com/fuddle-io/fuddle/demos/clock/pkg/services/clock"
 	"github.com/fuddle-io/fuddle/demos/clock/pkg/services/frontend"
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/fuddle"
+	"github.com/fuddle-io/fuddle/pkg/node"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type Cluster struct {
-	fuddleNodes   map[*fuddle.Fuddle]interface{}
+	fuddleNodes   map[*node.Node]interface{}
 	clockNodes    map[*clock.Service]interface{}
 	frontendNodes map[*frontend.Service]interface{}
 	seeds         []string
@@ -35,7 +35,7 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 	}
 
 	c := &Cluster{
-		fuddleNodes:   make(map[*fuddle.Fuddle]interface{}),
+		fuddleNodes:   make(map[*node.Node]interface{}),
 		clockNodes:    make(map[*clock.Service]interface{}),
 		frontendNodes: make(map[*frontend.Service]interface{}),
 		logDir:        logDir,
@@ -59,8 +59,8 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 	return c, nil
 }
 
-func (c *Cluster) FuddleNodes() []*fuddle.Fuddle {
-	var nodes []*fuddle.Fuddle
+func (c *Cluster) FuddleNodes() []*node.Node {
+	var nodes []*node.Node
 	for n := range c.fuddleNodes {
 		nodes = append(nodes, n)
 	}
@@ -153,13 +153,13 @@ func (c *Cluster) addFuddleNode() error {
 	conf.Gossip.AdvPort = gossipPort
 	conf.Gossip.Seeds = c.seeds
 
-	node, err := fuddle.NewFuddle(
+	node, err := node.NewNode(
 		conf,
-		fuddle.WithRPCListener(rpcLn),
-		fuddle.WithAdminListener(adminLn),
-		fuddle.WithGossipTCPListener(gossipTCPLn),
-		fuddle.WithGossipUDPListener(gossipUDPLn),
-		fuddle.WithLogPath(c.LogPath(conf.NodeID)),
+		node.WithRPCListener(rpcLn),
+		node.WithAdminListener(adminLn),
+		node.WithGossipTCPListener(gossipTCPLn),
+		node.WithGossipUDPListener(gossipUDPLn),
+		node.WithLogPath(c.LogPath(conf.NodeID)),
 	)
 	if err != nil {
 		return fmt.Errorf("add fuddle node: %w", err)

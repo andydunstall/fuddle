@@ -1,4 +1,4 @@
-package fuddle
+package node
 
 import (
 	"fmt"
@@ -12,17 +12,17 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/logger"
 	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"github.com/fuddle-io/fuddle/pkg/registry"
-	"github.com/fuddle-io/fuddle/pkg/server"
+	rpcServer "github.com/fuddle-io/fuddle/pkg/server"
 	"go.uber.org/zap"
 )
 
-// Fuddle implements a single Fuddle node.
-type Fuddle struct {
+// Node sets up and manages a Fuddle node.
+type Node struct {
 	Config *config.Config
 
 	gossip      *gossip.Gossip
 	registry    *registry.Registry
-	server      *server.Server
+	rpcServer   *rpcServer.Server
 	adminServer *adminServer.Server
 
 	done chan interface{}
@@ -30,7 +30,8 @@ type Fuddle struct {
 	logger *zap.Logger
 }
 
-func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
+// NewNode creates and starts a Fuddle node with the given config and options.
+func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(&options)
@@ -109,12 +110,12 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 		return nil, fmt.Errorf("fuddle: %w", err)
 	}
 
-	var serverOpts []server.Option
+	var rpcServerOpts []rpcServer.Option
 	if options.rpcListener != nil {
-		serverOpts = append(serverOpts, server.WithListener(options.rpcListener))
+		rpcServerOpts = append(rpcServerOpts, rpcServer.WithListener(options.rpcListener))
 	}
-	serverOpts = append(serverOpts, server.WithLogger(logger.Logger("server")))
-	s := server.NewServer(conf, serverOpts...)
+	rpcServerOpts = append(rpcServerOpts, rpcServer.WithLogger(logger.Logger("server")))
+	s := rpcServer.NewServer(conf, rpcServerOpts...)
 
 	registryServer := registry.NewServer(r, registry.WithServerLogger(logger.Logger("registry")))
 	rpc.RegisterRegistryServer(s.GRPCServer(), registryServer)
@@ -123,49 +124,49 @@ func NewFuddle(conf *config.Config, opts ...Option) (*Fuddle, error) {
 		return nil, fmt.Errorf("fuddle: %w", err)
 	}
 
-	f := &Fuddle{
+	n := &Node{
 		Config:      conf,
 		registry:    r,
 		gossip:      g,
-		server:      s,
+		rpcServer:   s,
 		adminServer: adminServer,
 		logger:      logger.Logger("fuddle"),
 		done:        make(chan interface{}),
 	}
 
-	go f.failureDetector()
+	go n.failureDetector()
 
-	return f, nil
+	return n, nil
 }
 
-func (f *Fuddle) Registry() *registry.Registry {
-	return f.registry
+func (n *Node) Registry() *registry.Registry {
+	return n.registry
 }
 
-func (f *Fuddle) Nodes() map[string]interface{} {
-	return f.gossip.Nodes()
+func (n *Node) Nodes() map[string]interface{} {
+	return n.gossip.Nodes()
 }
 
-func (f *Fuddle) Shutdown() {
-	f.logger.Info("shutting down fuddle")
+func (n *Node) Shutdown() {
+	n.logger.Info("shutting down fuddle")
 
-	close(f.done)
+	close(n.done)
 
-	f.server.Shutdown()
-	f.gossip.Shutdown()
-	f.adminServer.Shutdown()
+	n.rpcServer.Shutdown()
+	n.gossip.Shutdown()
+	n.adminServer.Shutdown()
 }
 
-func (f *Fuddle) failureDetector() {
+func (n *Node) failureDetector() {
 	ticker := time.NewTicker(time.Millisecond * 100)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-f.done:
+		case <-n.done:
 			return
 		case <-ticker.C:
-			f.registry.CheckMembersLiveness()
+			n.registry.CheckMembersLiveness()
 		}
 	}
 }
