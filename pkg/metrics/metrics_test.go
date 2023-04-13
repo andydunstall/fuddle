@@ -6,6 +6,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestCounter(t *testing.T) {
+	counter := NewCounter("foo", "bar", []string{"a", "b", "c"}, "")
+
+	counter.Inc(map[string]string{
+		"a": "x",
+		"b": "y",
+		"c": "z",
+	})
+	counter.Inc(map[string]string{
+		"a": "x",
+		"b": "y",
+		"c": "z",
+	})
+
+	assert.Equal(t, 2.0, counter.Value(map[string]string{
+		"a": "x",
+		"b": "y",
+		"c": "z",
+	}))
+}
+
 func TestGauge(t *testing.T) {
 	gauge := NewGauge("foo", "bar", []string{"a", "b", "c"}, "")
 
