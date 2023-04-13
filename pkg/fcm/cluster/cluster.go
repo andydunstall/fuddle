@@ -27,7 +27,6 @@ type Cluster struct {
 	id          string
 	fuddleNodes map[*FuddleNode]interface{}
 	memberNodes map[*MemberNode]interface{}
-	seeds       []string
 
 	logDir string
 }
@@ -89,6 +88,14 @@ func (c *Cluster) RPCAddrs() []string {
 	var addrs []string
 	for n := range c.fuddleNodes {
 		addrs = append(addrs, fmt.Sprintf("127.0.0.1:%d", n.Fuddle.Config.RPC.AdvPort))
+	}
+	return addrs
+}
+
+func (c *Cluster) GossipAddrs() []string {
+	var addrs []string
+	for n := range c.fuddleNodes {
+		addrs = append(addrs, fmt.Sprintf("127.0.0.1:%d", n.Fuddle.Config.Gossip.AdvPort))
 	}
 	return addrs
 }
@@ -155,7 +162,7 @@ func (c *Cluster) AddFuddleNode() (*FuddleNode, error) {
 	conf.Gossip.AdvAddr = "127.0.0.1"
 	conf.Gossip.BindPort = gossipPort
 	conf.Gossip.AdvPort = gossipPort
-	conf.Gossip.Seeds = c.seeds
+	conf.Gossip.Seeds = c.GossipAddrs()
 
 	f, err := fuddle.NewFuddle(
 		conf,
@@ -175,7 +182,6 @@ func (c *Cluster) AddFuddleNode() (*FuddleNode, error) {
 	}
 
 	c.fuddleNodes[node] = struct{}{}
-	c.seeds = append(c.seeds, fmt.Sprintf("127.0.0.1:%d", gossipPort))
 
 	return node, nil
 }

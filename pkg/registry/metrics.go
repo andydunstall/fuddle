@@ -6,6 +6,7 @@ import (
 
 type Metrics struct {
 	MembersCount *metrics.Gauge
+	MembersOwned *metrics.Gauge
 }
 
 func NewMetrics() *Metrics {
@@ -16,9 +17,16 @@ func NewMetrics() *Metrics {
 			[]string{"status", "owner"},
 			"Number of registered members in the cluster",
 		),
+		MembersOwned: metrics.NewGauge(
+			"registry",
+			"members.owned",
+			[]string{"status"},
+			"Number of members owned by this node",
+		),
 	}
 }
 
 func (m *Metrics) Register(collector metrics.Collector) {
 	collector.AddGauge(m.MembersCount)
+	collector.AddGauge(m.MembersOwned)
 }
