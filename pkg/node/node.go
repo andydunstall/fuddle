@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Node sets up and manages a Fuddle node.
 type Node struct {
 	Config *config.Config
 
@@ -29,6 +30,7 @@ type Node struct {
 	logger *zap.Logger
 }
 
+// NewNode creates and starts a Fuddle node with the given config and options.
 func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	options := defaultOptions()
 	for _, o := range opts {
