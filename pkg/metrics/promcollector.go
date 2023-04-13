@@ -21,6 +21,10 @@ func (c *PromCollector) AddGauge(g *Gauge) {
 	c.reg.MustRegister(g.ToProm())
 }
 
+func (c *PromCollector) AddCounter(counter *Counter) {
+	c.reg.MustRegister(counter.ToProm())
+}
+
 func (c *PromCollector) Registry() *prometheus.Registry {
 	return c.reg
 }

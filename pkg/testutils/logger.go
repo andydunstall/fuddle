@@ -3,6 +3,7 @@ package testutils
 import (
 	"os"
 
+	"github.com/fuddle-io/fuddle/pkg/logger"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -25,4 +26,8 @@ func Logger() *zap.Logger {
 		return zap.NewNop()
 	}
 	return zap.Must(loggerConf.Build())
+}
+
+func LogLevel() zapcore.Level {
+	return logger.StringToLevel(os.Getenv("FUDDLE_LOG_LEVEL"))
 }

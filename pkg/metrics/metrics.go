@@ -17,6 +17,48 @@ func (lv *labelledValue) String() string {
 	return lv.Label + "=" + lv.Value
 }
 
+type Counter struct {
+	values map[string]float64
+
+	// mu is a mutex protecting the fields above.
+	mu sync.Mutex
+
+	promCounter *prometheus.CounterVec
+}
+
+func NewCounter(subsystem string, name string, labels []string, help string) *Counter {
+	return &Counter{
+		values: make(map[string]float64),
+		promCounter: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name:      strings.ReplaceAll(name, ".", "_"),
+				Subsystem: subsystem,
+				Namespace: "fuddle",
+				Help:      help,
+			},
+			labels,
+		),
+	}
+}
+
+func (c *Counter) Inc(labels map[string]string) {
+	labelsToLowercase(labels)
+
+	c.mu.Lock()
+	c.values[labelsToString(labels)] = c.values[labelsToString(labels)] + 1
+	c.mu.Unlock()
+
+	c.promCounter.With(prometheus.Labels(labels)).Inc()
+}
+
+func (c *Counter) Value(labels map[string]string) float64 {
+	return c.values[labelsToString(labels)]
+}
+
+func (c *Counter) ToProm() *prometheus.CounterVec {
+	return c.promCounter
+}
+
 type Gauge struct {
 	values map[string]float64
 
