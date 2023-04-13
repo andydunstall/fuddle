@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/fuddle"
+	"github.com/fuddle-io/fuddle/pkg/node"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 )
 
 type Node struct {
-	Fuddle   *fuddle.Fuddle
+	Fuddle   *node.Node
 	RPCProxy *Proxy
 }
 
@@ -134,13 +134,13 @@ func (c *Cluster) AddNode() (*Node, error) {
 		conf.Registry = c.options.registryConfig
 	}
 
-	f, err := fuddle.NewFuddle(
+	f, err := node.NewNode(
 		conf,
-		fuddle.WithRPCListener(rpcLn),
-		fuddle.WithAdminListener(adminLn),
-		fuddle.WithGossipTCPListener(gossipTCPLn),
-		fuddle.WithGossipUDPListener(gossipUDPLn),
-		fuddle.WithLogLevel(testutils.LogLevel()),
+		node.WithRPCListener(rpcLn),
+		node.WithAdminListener(adminLn),
+		node.WithGossipTCPListener(gossipTCPLn),
+		node.WithGossipUDPListener(gossipUDPLn),
+		node.WithLogLevel(testutils.LogLevel()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cluster: %w", err)

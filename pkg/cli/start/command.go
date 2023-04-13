@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/fuddle"
 	"github.com/fuddle-io/fuddle/pkg/logger"
+	"github.com/fuddle-io/fuddle/pkg/node"
 	"github.com/spf13/cobra"
 )
 
@@ -70,14 +70,14 @@ func run(cmd *cobra.Command, args []string) {
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, os.Interrupt)
 
-	server, err := fuddle.NewFuddle(
+	node, err := node.NewNode(
 		conf,
-		fuddle.WithLogLevel(logger.StringToLevel(logLevel)),
+		node.WithLogLevel(logger.StringToLevel(logLevel)),
 	)
 	if err != nil {
-		fmt.Println("failed to start server:", err)
+		fmt.Println("failed to start node:", err)
 	}
-	defer server.Shutdown()
+	defer node.Shutdown()
 
 	<-signalCh
 }

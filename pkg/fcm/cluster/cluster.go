@@ -7,14 +7,14 @@ import (
 	"strconv"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
-	"github.com/fuddle-io/fuddle/pkg/fuddle"
+	"github.com/fuddle-io/fuddle/pkg/node"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type FuddleNode struct {
-	Fuddle   *fuddle.Fuddle
+	Fuddle   *node.Node
 	RPCProxy *Proxy
 }
 
@@ -164,13 +164,13 @@ func (c *Cluster) AddFuddleNode() (*FuddleNode, error) {
 	conf.Gossip.AdvPort = gossipPort
 	conf.Gossip.Seeds = c.GossipAddrs()
 
-	f, err := fuddle.NewFuddle(
+	f, err := node.NewNode(
 		conf,
-		fuddle.WithRPCListener(rpcLn),
-		fuddle.WithAdminListener(adminLn),
-		fuddle.WithGossipTCPListener(gossipTCPLn),
-		fuddle.WithGossipUDPListener(gossipUDPLn),
-		fuddle.WithLogPath(c.LogPath(conf.NodeID)),
+		node.WithRPCListener(rpcLn),
+		node.WithAdminListener(adminLn),
+		node.WithGossipTCPListener(gossipTCPLn),
+		node.WithGossipUDPListener(gossipUDPLn),
+		node.WithLogPath(c.LogPath(conf.NodeID)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cluster: %w", err)
