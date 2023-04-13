@@ -12,7 +12,7 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/logger"
 	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"github.com/fuddle-io/fuddle/pkg/registry"
-	"github.com/fuddle-io/fuddle/pkg/server"
+	rpcServer "github.com/fuddle-io/fuddle/pkg/server"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +21,7 @@ type Node struct {
 
 	gossip      *gossip.Gossip
 	registry    *registry.Registry
-	server      *server.Server
+	rpcServer   *rpcServer.Server
 	adminServer *adminServer.Server
 
 	done chan interface{}
@@ -108,12 +108,12 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 		return nil, fmt.Errorf("fuddle: %w", err)
 	}
 
-	var serverOpts []server.Option
+	var rpcServerOpts []rpcServer.Option
 	if options.rpcListener != nil {
-		serverOpts = append(serverOpts, server.WithListener(options.rpcListener))
+		rpcServerOpts = append(rpcServerOpts, rpcServer.WithListener(options.rpcListener))
 	}
-	serverOpts = append(serverOpts, server.WithLogger(logger.Logger("server")))
-	s := server.NewServer(conf, serverOpts...)
+	rpcServerOpts = append(rpcServerOpts, rpcServer.WithLogger(logger.Logger("server")))
+	s := rpcServer.NewServer(conf, rpcServerOpts...)
 
 	registryServer := registry.NewServer(r, registry.WithServerLogger(logger.Logger("registry")))
 	rpc.RegisterRegistryServer(s.GRPCServer(), registryServer)
@@ -126,7 +126,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 		Config:      conf,
 		registry:    r,
 		gossip:      g,
-		server:      s,
+		rpcServer:   s,
 		adminServer: adminServer,
 		logger:      logger.Logger("fuddle"),
 		done:        make(chan interface{}),
@@ -150,7 +150,7 @@ func (n *Node) Shutdown() {
 
 	close(n.done)
 
-	n.server.Shutdown()
+	n.rpcServer.Shutdown()
 	n.gossip.Shutdown()
 	n.adminServer.Shutdown()
 }
