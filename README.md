@@ -86,6 +86,8 @@ attributes and metadata.
 # Documentation
 
 ## Usage
+* Monitoring
+  * [Metrics](./docs/usage/monitoring/metrics.md)
 * [FCM](./docs/usage/fcm.md)
 
 ## Architecture
