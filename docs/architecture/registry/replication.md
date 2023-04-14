@@ -1,4 +1,6 @@
 # Replication
+:warning: Note the registry is being replaced with [registry v2](../registryv2/registry.md).
+
 The registry is replicated across all Fuddle nodes. This means clients can
 connect to any node in the cluster and stream the entire registry state and all
 registry updates.

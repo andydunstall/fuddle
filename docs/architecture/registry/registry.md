@@ -1,4 +1,6 @@
 # Registry
+:warning: Note the registry is being replaced with [registry v2](../registryv2/registry.md).
+
 The registry contains the set of registered members.
 
 # Member State

@@ -1,4 +1,6 @@
 # Client
+:warning: Note the registry is being replaced with [registry v2](../registryv2/registry.md).
+
 The Fuddle client is used by applications to subscribe to registry updates and
 register local members. This document describes how clients interact with
 Fuddle.
