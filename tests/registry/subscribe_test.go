@@ -10,6 +10,7 @@ import (
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/registry"
+	registryClient "github.com/fuddle-io/fuddle/pkg/registry/client"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/fuddle-io/fuddle/tests/cluster"
 	"github.com/stretchr/testify/assert"
@@ -35,10 +36,10 @@ func TestSubscribe_ReceiveNodesLocalMember(t *testing.T) {
 		updatesCh <- update
 	})
 
-	client, err := registry.Connect(
+	client, err := registryClient.Connect(
 		node.Fuddle.Config.RPC.JoinAdvAddr(),
 		r,
-		registry.WithClientLogger(testutils.Logger()),
+		registryClient.WithLogger(testutils.Logger()),
 	)
 	require.NoError(t, err)
 	defer client.Close()

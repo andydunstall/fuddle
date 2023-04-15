@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type registryOptions struct {
+type options struct {
 	localMember      *rpc.Member
 	heartbeatTimeout int64
 	reconnectTimeout int64
@@ -18,8 +18,8 @@ type registryOptions struct {
 	logger           *zap.Logger
 }
 
-func defaultRegistryOptions() *registryOptions {
-	return &registryOptions{
+func defaultOptions() *options {
+	return &options{
 		heartbeatTimeout: 20 * 1000,
 		reconnectTimeout: 5 * 60 * 1000,
 		tombstoneTimeout: 30 * 60 * 1000,
@@ -30,76 +30,76 @@ func defaultRegistryOptions() *registryOptions {
 }
 
 type Option interface {
-	apply(*registryOptions)
+	apply(*options)
 }
 
-type localMemberRegistryOption struct {
+type localMemberOption struct {
 	member *rpc.Member
 }
 
-func (o localMemberRegistryOption) apply(opts *registryOptions) {
+func (o localMemberOption) apply(opts *options) {
 	opts.localMember = o.member
 }
 
-func WithRegistryLocalMember(m *rpc.Member) Option {
-	return localMemberRegistryOption{member: m}
+func WithLocalMember(m *rpc.Member) Option {
+	return localMemberOption{member: m}
 }
 
-type registryHeartbeatTimeoutOption struct {
+type heartbeatTimeoutOption struct {
 	timeout int64
 }
 
-func (o registryHeartbeatTimeoutOption) apply(opts *registryOptions) {
+func (o heartbeatTimeoutOption) apply(opts *options) {
 	opts.heartbeatTimeout = o.timeout
 }
 
 func WithHeartbeatTimeout(timeout int64) Option {
-	return registryHeartbeatTimeoutOption{timeout: timeout}
+	return heartbeatTimeoutOption{timeout: timeout}
 }
 
-type registryReconnectTimeoutOption struct {
+type reconnectTimeoutOption struct {
 	timeout int64
 }
 
-func (o registryReconnectTimeoutOption) apply(opts *registryOptions) {
+func (o reconnectTimeoutOption) apply(opts *options) {
 	opts.reconnectTimeout = o.timeout
 }
 
 func WithReconnectTimeout(timeout int64) Option {
-	return registryReconnectTimeoutOption{timeout: timeout}
+	return reconnectTimeoutOption{timeout: timeout}
 }
 
-type registryTombstoneTimeoutOption struct {
+type tombstoneTimeoutOption struct {
 	timeout int64
 }
 
-func (o registryTombstoneTimeoutOption) apply(opts *registryOptions) {
+func (o tombstoneTimeoutOption) apply(opts *options) {
 	opts.tombstoneTimeout = o.timeout
 }
 
 func WithTombstoneTimeout(timeout int64) Option {
-	return registryTombstoneTimeoutOption{timeout: timeout}
+	return tombstoneTimeoutOption{timeout: timeout}
 }
 
-type registryNowTimeOption struct {
+type nowTimeOption struct {
 	now int64
 }
 
-func (o registryNowTimeOption) apply(opts *registryOptions) {
+func (o nowTimeOption) apply(opts *options) {
 	opts.now = o.now
 }
 
-// WithRegistryNowTime sets the time 'now' to the given timestamp. This can be
+// WithNowTime sets the time 'now' to the given timestamp. This can be
 // useful for testing.
-func WithRegistryNowTime(now int64) Option {
-	return registryNowTimeOption{now: now}
+func WithNowTime(now int64) Option {
+	return nowTimeOption{now: now}
 }
 
 type collectorOption struct {
 	collector metrics.Collector
 }
 
-func (o collectorOption) apply(opts *registryOptions) {
+func (o collectorOption) apply(opts *options) {
 	opts.collector = o.collector
 }
 
@@ -107,83 +107,14 @@ func WithCollector(c metrics.Collector) Option {
 	return collectorOption{collector: c}
 }
 
-type loggerRegistryOption struct {
+type loggerOption struct {
 	Log *zap.Logger
 }
 
-func (o loggerRegistryOption) apply(opts *registryOptions) {
+func (o loggerOption) apply(opts *options) {
 	opts.logger = o.Log
 }
 
-func WithRegistryLogger(log *zap.Logger) Option {
-	return loggerRegistryOption{Log: log}
-}
-
-type clientOptions struct {
-	onConnectionStateChange func(state ConnState)
-
-	logger *zap.Logger
-}
-
-func defaultClientOptions() *clientOptions {
-	return &clientOptions{
-		onConnectionStateChange: nil,
-		logger:                  zap.NewNop(),
-	}
-}
-
-type ClientOption interface {
-	apply(*clientOptions)
-}
-
-type onConnectionStateChangeClientOption struct {
-	cb func(state ConnState)
-}
-
-func (o onConnectionStateChangeClientOption) apply(opts *clientOptions) {
-	opts.onConnectionStateChange = o.cb
-}
-
-func WithOnClientConnectionStateChange(cb func(state ConnState)) ClientOption {
-	return &onConnectionStateChangeClientOption{
-		cb: cb,
-	}
-}
-
-type loggerClientOption struct {
-	Log *zap.Logger
-}
-
-func (o loggerClientOption) apply(opts *clientOptions) {
-	opts.logger = o.Log
-}
-
-func WithClientLogger(log *zap.Logger) ClientOption {
-	return loggerClientOption{Log: log}
-}
-
-type serverOptions struct {
-	logger *zap.Logger
-}
-
-func defaultServerOptions() *serverOptions {
-	return &serverOptions{
-		logger: zap.NewNop(),
-	}
-}
-
-type ServerOption interface {
-	apply(*serverOptions)
-}
-
-type loggerServerOption struct {
-	Log *zap.Logger
-}
-
-func (o loggerServerOption) apply(opts *serverOptions) {
-	opts.logger = o.Log
-}
-
-func WithServerLogger(log *zap.Logger) ServerOption {
-	return loggerServerOption{Log: log}
+func WithLogger(log *zap.Logger) Option {
+	return loggerOption{Log: log}
 }

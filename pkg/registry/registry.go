@@ -61,7 +61,7 @@ type Registry struct {
 }
 
 func NewRegistry(localID string, opts ...Option) *Registry {
-	options := defaultRegistryOptions()
+	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
 	}
@@ -187,7 +187,7 @@ func (r *Registry) OnNodeJoin(id string) {
 }
 
 func (r *Registry) OnNodeLeave(id string, opts ...Option) {
-	options := defaultRegistryOptions()
+	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
 	}
@@ -316,7 +316,7 @@ func (r *Registry) CheckMembersLiveness(opts ...Option) {
 }
 
 func (r *Registry) updateMemberLocked(member *rpc.Member, opts ...Option) {
-	options := defaultRegistryOptions()
+	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
 	}
@@ -385,7 +385,7 @@ func (r *Registry) checkMemberLivenessLocked(id string, opts ...Option) {
 }
 
 func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
-	options := defaultRegistryOptions()
+	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
 	}
@@ -430,7 +430,7 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 }
 
 func (r *Registry) checkRemoteMemberLivenessLocked(id string, opts ...Option) {
-	options := defaultRegistryOptions()
+	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
 	}

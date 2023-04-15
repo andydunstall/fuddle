@@ -12,6 +12,7 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/logger"
 	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"github.com/fuddle-io/fuddle/pkg/registry"
+	registryServer "github.com/fuddle-io/fuddle/pkg/registry/server"
 	rpcServer "github.com/fuddle-io/fuddle/pkg/server"
 	"go.uber.org/zap"
 )
@@ -52,7 +53,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 
 	r := registry.NewRegistry(
 		conf.NodeID,
-		registry.WithRegistryLocalMember(&rpc.Member{
+		registry.WithLocalMember(&rpc.Member{
 			Id:       conf.NodeID,
 			Service:  "fuddle",
 			Created:  time.Now().UnixMilli(),
@@ -62,7 +63,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 		registry.WithReconnectTimeout(conf.Registry.ReconnectTimeout.Milliseconds()),
 		registry.WithTombstoneTimeout(conf.Registry.TombstoneTimeout.Milliseconds()),
 		registry.WithCollector(collector),
-		registry.WithRegistryLogger(logger.Logger("registry")),
+		registry.WithLogger(logger.Logger("registry")),
 	)
 
 	c := cluster.NewCluster(
@@ -117,8 +118,24 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	rpcServerOpts = append(rpcServerOpts, rpcServer.WithLogger(logger.Logger("server")))
 	s := rpcServer.NewServer(conf, rpcServerOpts...)
 
-	registryServer := registry.NewServer(r, registry.WithServerLogger(logger.Logger("registry")))
-	rpc.RegisterRegistryServer(s.GRPCServer(), registryServer)
+	clientReadRegistryServer := registryServer.NewClientReadRegistryServer(
+		r,
+		registryServer.WithLogger(logger.Logger("registry")),
+		registryServer.WithCollector(collector),
+	)
+	clientWriteRegistryServer := registryServer.NewClientWriteRegistryServer(
+		r,
+		registryServer.WithLogger(logger.Logger("registry")),
+		registryServer.WithCollector(collector),
+	)
+	replicaReadRegistryServer := registryServer.NewReplicaReadRegistryServer(
+		r,
+		registryServer.WithLogger(logger.Logger("registry")),
+		registryServer.WithCollector(collector),
+	)
+	rpc.RegisterClientReadRegistryServer(s.GRPCServer(), clientReadRegistryServer)
+	rpc.RegisterClientWriteRegistryServer(s.GRPCServer(), clientWriteRegistryServer)
+	rpc.RegisterReplicaReadRegistryServer(s.GRPCServer(), replicaReadRegistryServer)
 
 	if err := s.Serve(); err != nil {
 		return nil, fmt.Errorf("fuddle: %w", err)

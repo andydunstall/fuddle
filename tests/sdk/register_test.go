@@ -34,10 +34,10 @@ func TestRegister_RegisterMembers(t *testing.T) {
 
 	var clients []*fuddle.Fuddle
 	for i := 0; i != 10; i++ {
-		client, err := fuddle.Register(
+		client, err := fuddle.Connect(
 			ctx,
-			c.RPCAddrs(),
 			randomMember(fmt.Sprintf("member-%d", i)),
+			c.RPCAddrs(),
 			fuddle.WithLogger(testutils.Logger()),
 		)
 		require.NoError(t, err)
@@ -81,10 +81,10 @@ func TestRegister_UnregisterOnClose(t *testing.T) {
 	ctx, cancel = context.WithTimeout(context.Background(), time.Millisecond*100)
 	defer cancel()
 
-	client, err := fuddle.Register(
+	client, err := fuddle.Connect(
 		ctx,
-		c.RPCAddrs(),
 		randomMember("member-base"),
+		c.RPCAddrs(),
 		fuddle.WithLogger(testutils.Logger()),
 	)
 	require.NoError(t, err)
@@ -92,10 +92,10 @@ func TestRegister_UnregisterOnClose(t *testing.T) {
 
 	var clients []*fuddle.Fuddle
 	for i := 0; i != 10; i++ {
-		cl, err := fuddle.Register(
+		cl, err := fuddle.Connect(
 			ctx,
-			c.RPCAddrs(),
 			randomMember(fmt.Sprintf("member-%d", i)),
+			c.RPCAddrs(),
 			fuddle.WithLogger(testutils.Logger()),
 		)
 		require.NoError(t, err)

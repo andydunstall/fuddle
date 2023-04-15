@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fuddle-io/fuddle/pkg/registry"
+	registryClient "github.com/fuddle-io/fuddle/pkg/registry/client"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/fuddle-io/fuddle/tests/cluster"
 	"github.com/stretchr/testify/assert"
@@ -28,12 +29,12 @@ func TestConnection_Reconnect(t *testing.T) {
 
 	r := registry.NewRegistry("local")
 
-	connStateCh := make(chan registry.ConnState)
-	client, err := registry.Connect(
+	connStateCh := make(chan registryClient.ConnState)
+	client, err := registryClient.Connect(
 		node.Fuddle.Config.RPC.JoinAdvAddr(),
 		r,
-		registry.WithClientLogger(testutils.Logger()),
-		registry.WithOnClientConnectionStateChange(func(state registry.ConnState) {
+		registryClient.WithLogger(testutils.Logger()),
+		registryClient.WithOnConnectionStateChange(func(state registryClient.ConnState) {
 			connStateCh <- state
 		}),
 	)
@@ -42,7 +43,7 @@ func TestConnection_Reconnect(t *testing.T) {
 
 	state, err := waitForConnState(connStateCh)
 	assert.NoError(t, err)
-	assert.Equal(t, registry.StateConnected, state)
+	assert.Equal(t, registryClient.StateConnected, state)
 
 	// Drop the proxy connections and wait for the client to reconnect.
 
@@ -50,11 +51,11 @@ func TestConnection_Reconnect(t *testing.T) {
 
 	state, err = waitForConnState(connStateCh)
 	assert.NoError(t, err)
-	assert.Equal(t, registry.StateDisconnected, state)
+	assert.Equal(t, registryClient.StateDisconnected, state)
 
 	state, err = waitForConnState(connStateCh)
 	assert.NoError(t, err)
-	assert.Equal(t, registry.StateConnected, state)
+	assert.Equal(t, registryClient.StateConnected, state)
 }
 
 func TestConnection_Connect(t *testing.T) {
@@ -70,12 +71,12 @@ func TestConnection_Connect(t *testing.T) {
 
 	r := registry.NewRegistry("local")
 
-	connStateCh := make(chan registry.ConnState)
-	client, err := registry.Connect(
+	connStateCh := make(chan registryClient.ConnState)
+	client, err := registryClient.Connect(
 		node.Fuddle.Config.RPC.JoinAdvAddr(),
 		r,
-		registry.WithClientLogger(testutils.Logger()),
-		registry.WithOnClientConnectionStateChange(func(state registry.ConnState) {
+		registryClient.WithLogger(testutils.Logger()),
+		registryClient.WithOnConnectionStateChange(func(state registryClient.ConnState) {
 			connStateCh <- state
 		}),
 	)
@@ -84,14 +85,14 @@ func TestConnection_Connect(t *testing.T) {
 
 	state, err := waitForConnState(connStateCh)
 	assert.NoError(t, err)
-	assert.Equal(t, registry.StateConnected, state)
+	assert.Equal(t, registryClient.StateConnected, state)
 }
 
-func waitForConnState(ch <-chan registry.ConnState) (registry.ConnState, error) {
+func waitForConnState(ch <-chan registryClient.ConnState) (registryClient.ConnState, error) {
 	select {
 	case c := <-ch:
 		return c, nil
 	case <-time.After(time.Second):
-		return registry.ConnState(""), fmt.Errorf("timeout")
+		return registryClient.ConnState(""), fmt.Errorf("timeout")
 	}
 }

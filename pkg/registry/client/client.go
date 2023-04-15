@@ -1,10 +1,11 @@
-package registry
+package client
 
 import (
 	"context"
 	"fmt"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
+	"github.com/fuddle-io/fuddle/pkg/registry"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -14,10 +15,10 @@ import (
 type Client struct {
 	addr string
 
-	registry *Registry
+	registry *registry.Registry
 
 	conn   *grpc.ClientConn
-	client rpc.RegistryClient
+	client rpc.ReplicaReadRegistryClient
 
 	cancelCtx context.Context
 	cancel    func()
@@ -31,8 +32,8 @@ type Client struct {
 //
 // If the client cannot connect, or the connection drops, the client will keep
 // trying to reconnect in the background until it is closed.
-func Connect(addr string, registry *Registry, opts ...ClientOption) (*Client, error) {
-	options := defaultClientOptions()
+func Connect(addr string, registry *registry.Registry, opts ...Option) (*Client, error) {
+	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
 	}
@@ -56,7 +57,7 @@ func Connect(addr string, registry *Registry, opts ...ClientOption) (*Client, er
 		conn:                    conn,
 		cancelCtx:               ctx,
 		cancel:                  cancel,
-		client:                  rpc.NewRegistryClient(conn),
+		client:                  rpc.NewReplicaReadRegistryClient(conn),
 		onConnectionStateChange: options.onConnectionStateChange,
 		logger:                  options.logger,
 	}
@@ -102,7 +103,7 @@ func (c *Client) onConnected() {
 		c.onConnectionStateChange(StateConnected)
 	}
 
-	stream, err := c.client.Subscribe(
+	stream, err := c.client.Updates(
 		context.Background(),
 		&rpc.SubscribeRequest{
 			OwnerOnly:    true,

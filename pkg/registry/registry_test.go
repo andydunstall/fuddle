@@ -16,8 +16,8 @@ func TestRegistry_AddLocalMember(t *testing.T) {
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
 	)
 	m, ok := reg.Member("local")
 	assert.True(t, ok)
@@ -36,8 +36,8 @@ func TestRegistry_LocalMemberUpdateIgnored(t *testing.T) {
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
 	)
 
 	updatedMember := randomMember("local")
@@ -53,7 +53,7 @@ func TestRegistry_LocalMemberUpdateIgnored(t *testing.T) {
 func TestRegistry_AddMember(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 	)
 
 	addedMember := randomMember("my-member")
@@ -75,13 +75,13 @@ func TestRegistry_AddMember(t *testing.T) {
 func TestRegistry_AddMemberDiscardOutdated(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 	)
 
 	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithRegistryNowTime(100))
+	reg.AddMember(addedMember, WithNowTime(100))
 
-	reg.AddMember(randomMember("my-member"), WithRegistryNowTime(50))
+	reg.AddMember(randomMember("my-member"), WithNowTime(50))
 
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
@@ -91,7 +91,7 @@ func TestRegistry_AddMemberDiscardOutdated(t *testing.T) {
 func TestRegistry_SubscribeToAddMember(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 	)
 
 	var update *rpc.RemoteMemberUpdate
@@ -100,7 +100,7 @@ func TestRegistry_SubscribeToAddMember(t *testing.T) {
 	})
 
 	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithRegistryNowTime(100))
+	reg.AddMember(addedMember, WithNowTime(100))
 
 	assert.True(t, proto.Equal(&rpc.RemoteMemberUpdate{
 		Member: addedMember,
@@ -115,7 +115,7 @@ func TestRegistry_SubscribeToAddMember(t *testing.T) {
 func TestRegistry_RemoveMember(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 	)
 
 	addedMember := randomMember("my-member")
@@ -140,13 +140,13 @@ func TestRegistry_RemoveMember(t *testing.T) {
 func TestRegistry_RemoveMemberDiscardOutdated(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 	)
 
 	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithRegistryNowTime(100))
+	reg.AddMember(addedMember, WithNowTime(100))
 
-	reg.RemoveMember("my-member", WithRegistryNowTime(50))
+	reg.RemoveMember("my-member", WithNowTime(50))
 
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
@@ -156,18 +156,18 @@ func TestRegistry_RemoveMemberDiscardOutdated(t *testing.T) {
 func TestRegistry_SubscribeToRemoveMember(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 	)
 
 	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithRegistryNowTime(100))
+	reg.AddMember(addedMember, WithNowTime(100))
 
 	var update *rpc.RemoteMemberUpdate
 	reg.Subscribe(nil, func(u *rpc.RemoteMemberUpdate) {
 		update = u
 	})
 
-	reg.RemoveMember("my-member", WithRegistryNowTime(200))
+	reg.RemoveMember("my-member", WithNowTime(200))
 
 	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_LEFT)
 
@@ -185,12 +185,12 @@ func TestRegistry_RemoteUpdateTakeOwnership(t *testing.T) {
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
 	)
 
 	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithRegistryNowTime(100))
+	reg.AddMember(addedMember, WithNowTime(100))
 
 	assert.Equal(t, 2.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
@@ -232,12 +232,12 @@ func TestRegistry_RemoteUpdateWithOutdatedVersionIgnored(t *testing.T) {
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
 	)
 
 	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithRegistryNowTime(200))
+	reg.AddMember(addedMember, WithNowTime(200))
 
 	updatedMember := randomMember("my-member")
 	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
@@ -259,8 +259,8 @@ func TestRegistry_LocalMemberRemoteUpdateIgnored(t *testing.T) {
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
 	)
 
 	updatedMember := randomMember("local")
@@ -282,8 +282,8 @@ func TestRegistry_RemoteUpdateWithLocalOwnerIgnored(t *testing.T) {
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
 	)
 
 	addedMember := randomMember("my-member")
@@ -309,8 +309,8 @@ func TestRegistry_SubscribeToRemoteUpdate(t *testing.T) {
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
 	)
 
 	var update *rpc.RemoteMemberUpdate
@@ -334,7 +334,7 @@ func TestRegistry_SubscribeToRemoteUpdate(t *testing.T) {
 func TestRegistry_SubscribeOwnerOnlyIgnoresRemoteUpdate(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 	)
 
 	var update *rpc.RemoteMemberUpdate
@@ -364,11 +364,11 @@ func TestRegistry_SubscribeOwnerOnlyReceivesOwnershipChangesUpdates(t *testing.T
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
 	)
 
-	reg.AddMember(randomMember("my-member"), WithRegistryNowTime(50))
+	reg.AddMember(randomMember("my-member"), WithNowTime(50))
 
 	var update *rpc.RemoteMemberUpdate
 	reg.Subscribe(
@@ -394,7 +394,7 @@ func TestRegistry_SubscribeOwnerOnlyReceivesOwnershipChangesUpdates(t *testing.T
 func TestRegistry_MemberNotFound(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 	)
 	_, ok := reg.Member("foo")
 	assert.False(t, ok)
@@ -404,16 +404,16 @@ func TestRegistry_MarkMemberDownIgnoresLocal(t *testing.T) {
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
-		WithRegistryNowTime(100),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
+		WithNowTime(100),
 		WithHeartbeatTimeout(500),
 	)
 
 	expectedMember := copyMember(localMember)
 
 	reg.CheckMembersLiveness(
-		WithRegistryNowTime(1000),
+		WithNowTime(1000),
 	)
 
 	m, ok := reg.Member("local")
@@ -424,15 +424,15 @@ func TestRegistry_MarkMemberDownIgnoresLocal(t *testing.T) {
 func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 		WithHeartbeatTimeout(300),
 	)
 
 	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithRegistryNowTime(100))
+	reg.AddMember(addedMember, WithNowTime(100))
 
 	reg.CheckMembersLiveness(
-		WithRegistryNowTime(500),
+		WithNowTime(500),
 	)
 
 	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_DOWN)
@@ -454,7 +454,7 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 	}))
 
 	// Adding the member again should revive it.
-	reg.AddMember(addedMember, WithRegistryNowTime(600))
+	reg.AddMember(addedMember, WithNowTime(600))
 
 	m, ok = reg.Member("my-member")
 	assert.True(t, ok)
@@ -476,16 +476,16 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 		WithHeartbeatTimeout(300),
 		WithReconnectTimeout(800),
 	)
 
 	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithRegistryNowTime(100))
+	reg.AddMember(addedMember, WithNowTime(100))
 
 	reg.CheckMembersLiveness(
-		WithRegistryNowTime(500),
+		WithNowTime(500),
 	)
 
 	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_DOWN)
@@ -495,7 +495,7 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 	assert.True(t, proto.Equal(expectedMember, m))
 
 	reg.CheckMembersLiveness(
-		WithRegistryNowTime(1500),
+		WithNowTime(1500),
 	)
 
 	expectedMember = memberWithStatus(addedMember, rpc.MemberStatus_LEFT)
@@ -514,7 +514,7 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 	assert.True(t, proto.Equal(expectedMember, m))
 
 	// Adding the member again should revive it.
-	reg.AddMember(addedMember, WithRegistryNowTime(2000))
+	reg.AddMember(addedMember, WithNowTime(2000))
 
 	m, ok = reg.Member("my-member")
 	assert.True(t, ok)
@@ -533,16 +533,16 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 func TestRegistry_MarkMemberLeftMemberRemovedAfterTombstoneTimeout(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 		WithTombstoneTimeout(1000),
 	)
 
 	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithRegistryNowTime(100))
-	reg.RemoveMember("my-member", WithRegistryNowTime(200))
+	reg.AddMember(addedMember, WithNowTime(100))
+	reg.RemoveMember("my-member", WithNowTime(200))
 
 	reg.CheckMembersLiveness(
-		WithRegistryNowTime(1500),
+		WithNowTime(1500),
 	)
 
 	_, ok := reg.Member("my-member")
@@ -565,7 +565,7 @@ func TestRegistry_MarkMemberLeftMemberRemovedAfterTombstoneTimeout(t *testing.T)
 func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
+		WithLogger(testutils.Logger()),
 		WithHeartbeatTimeout(500),
 	)
 
@@ -578,10 +578,10 @@ func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
 		},
 	})
 
-	reg.OnNodeLeave("remote", WithRegistryNowTime(200))
+	reg.OnNodeLeave("remote", WithNowTime(200))
 
 	reg.CheckMembersLiveness(
-		WithRegistryNowTime(1000),
+		WithNowTime(1000),
 	)
 
 	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_DOWN)
@@ -595,9 +595,9 @@ func TestRegistry_UpdatesUnknownMembers(t *testing.T) {
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
-		WithRegistryNowTime(100),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
+		WithNowTime(100),
 	)
 
 	updates := reg.Updates(&rpc.SubscribeRequest{
@@ -631,8 +631,8 @@ func TestRegistry_UpdatesUnknownMembers(t *testing.T) {
 func TestRegistry_KnownMemberNotFound(t *testing.T) {
 	reg := NewRegistry(
 		"local",
-		WithRegistryLogger(testutils.Logger()),
-		WithRegistryNowTime(100),
+		WithLogger(testutils.Logger()),
+		WithNowTime(100),
 	)
 
 	updates := reg.Updates(&rpc.SubscribeRequest{
@@ -683,9 +683,9 @@ func TestRegistry_UpdatesKnownMemberOutOfDate(t *testing.T) {
 	localMember := randomMember("local")
 	reg := NewRegistry(
 		"local",
-		WithRegistryLocalMember(localMember),
-		WithRegistryLogger(testutils.Logger()),
-		WithRegistryNowTime(100),
+		WithLocalMember(localMember),
+		WithLogger(testutils.Logger()),
+		WithNowTime(100),
 	)
 
 	updates := reg.Updates(&rpc.SubscribeRequest{

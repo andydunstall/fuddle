@@ -37,10 +37,10 @@ func TestAdmin_ListMembers(t *testing.T) {
 
 	var clients []*fuddle.Fuddle
 	for i := 0; i != 10; i++ {
-		client, err := fuddle.Register(
+		client, err := fuddle.Connect(
 			ctx,
-			c.RPCAddrs(),
 			randomMember(fmt.Sprintf("member-%d", i)),
+			c.RPCAddrs(),
 			fuddle.WithLogger(testutils.Logger()),
 		)
 		require.NoError(t, err)
@@ -96,10 +96,10 @@ func TestAdmin_GetMember(t *testing.T) {
 
 	var clients []*fuddle.Fuddle
 	for i := 0; i != 10; i++ {
-		client, err := fuddle.Register(
+		client, err := fuddle.Connect(
 			ctx,
-			c.RPCAddrs(),
 			randomMember(fmt.Sprintf("member-%d", i)),
+			c.RPCAddrs(),
 			fuddle.WithLogger(testutils.Logger()),
 		)
 		require.NoError(t, err)

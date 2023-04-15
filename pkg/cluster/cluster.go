@@ -4,12 +4,13 @@ import (
 	"sync"
 
 	"github.com/fuddle-io/fuddle/pkg/registry"
+	registryClient "github.com/fuddle-io/fuddle/pkg/registry/client"
 	"go.uber.org/zap"
 )
 
 type Cluster struct {
 	nodes   map[string]interface{}
-	clients map[string]*registry.Client
+	clients map[string]*registryClient.Client
 
 	// mu is a mutex protecting the fields above.
 	mu sync.Mutex
@@ -33,7 +34,7 @@ func NewCluster(reg *registry.Registry, opts ...Option) *Cluster {
 
 	return &Cluster{
 		nodes:    make(map[string]interface{}),
-		clients:  make(map[string]*registry.Client),
+		clients:  make(map[string]*registryClient.Client),
 		registry: reg,
 		logger:   options.logger,
 		metrics:  metrics,
@@ -47,8 +48,8 @@ func (c *Cluster) OnJoin(id string, addr string) {
 		zap.String("addr", addr),
 	)
 
-	client, err := registry.Connect(
-		addr, c.registry, registry.WithClientLogger(c.logger),
+	client, err := registryClient.Connect(
+		addr, c.registry, registryClient.WithLogger(c.logger),
 	)
 	if err != nil {
 		c.logger.Error("client connect", zap.Error(err))
