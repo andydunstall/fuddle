@@ -124,6 +124,17 @@ func (r *Registry) Members() []*rpc.Member {
 	return members
 }
 
+func (r *Registry) VersionedMembers() []*VersionedMember {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	members := make([]*VersionedMember, 0, len(r.members))
+	for _, m := range r.members {
+		members = append(members, m)
+	}
+	return members
+}
+
 func (r *Registry) UpMembers() []*VersionedMember {
 	r.mu.Lock()
 	defer r.mu.Unlock()

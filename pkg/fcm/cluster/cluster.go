@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/node"
+	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -223,20 +225,11 @@ func (c *Cluster) RemoveMemberNode() string {
 }
 
 func (c *Cluster) WaitForHealthy(ctx context.Context) error {
-	for n := range c.fuddleNodes {
-		for {
-			serviceDiscoveryHealthy := len(n.Fuddle.Nodes()) == len(c.fuddleNodes)
-			registryHealthy := len(n.Fuddle.Registry().UpMembers()) == len(c.fuddleNodes)
-			if serviceDiscoveryHealthy && registryHealthy {
-				break
-			}
-
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(time.Millisecond * 10):
-			}
-		}
+	if err := c.waitForNodeDiscovery(ctx); err != nil {
+		return err
+	}
+	if err := c.waitForRegistryDiscovery(ctx); err != nil {
+		return err
 	}
 	return nil
 }
@@ -288,6 +281,66 @@ func (c *Cluster) logger(id string) *zap.Logger {
 	return zap.Must(loggerConf.Build())
 }
 
+func (c *Cluster) waitForNodeDiscovery(ctx context.Context) error {
+	// Wait for Fuddle nodes to discover each other.
+	for n := range c.fuddleNodes {
+		for {
+			if c.knownNodesMatch(n) {
+				break
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(time.Millisecond * 10):
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Cluster) waitForRegistryDiscovery(ctx context.Context) error {
+	for {
+		expectedMembers := c.randomFuddleNode().Fuddle.Registry().VersionedMembers()
+		equal := true
+		for n := range c.fuddleNodes {
+			members := n.Fuddle.Registry().VersionedMembers()
+			if !membersEqual(expectedMembers, members) {
+				equal = false
+				break
+			}
+		}
+
+		if equal {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Millisecond * 10):
+		}
+	}
+}
+
+func (c *Cluster) knownNodesMatch(node *FuddleNode) bool {
+	knownNodes := node.Fuddle.Nodes()
+
+	if len(c.fuddleNodes) != len(knownNodes) {
+		return false
+	}
+
+	for n := range c.fuddleNodes {
+		id := n.Fuddle.Config.NodeID
+		if _, ok := knownNodes[id]; !ok {
+			return false
+		}
+	}
+
+	return true
+}
+
 func tcpListen(port int) (*net.TCPListener, error) {
 	ln, err := net.ListenTCP("tcp", &net.TCPAddr{
 		IP:   net.ParseIP("127.0.0.1"),
@@ -320,4 +373,25 @@ func parseAddrPort(addr string) (int, error) {
 		return 0, fmt.Errorf("parse addr: %w", err)
 	}
 	return port, nil
+}
+
+func membersEqual(lhs []*registry.VersionedMember, rhs []*registry.VersionedMember) bool {
+	if len(lhs) != len(rhs) {
+		return false
+	}
+
+	sort.Slice(lhs, func(i, j int) bool {
+		return lhs[i].Member.Id < lhs[j].Member.Id
+	})
+	sort.Slice(rhs, func(i, j int) bool {
+		return rhs[i].Member.Id < rhs[j].Member.Id
+	})
+
+	for i := 0; i != len(lhs); i++ {
+		if !lhs[i].Equal(rhs[i]) {
+			return false
+		}
+	}
+
+	return true
 }
