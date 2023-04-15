@@ -21,7 +21,7 @@ func run(cmd *cobra.Command, args []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	clusterInfo, err := client.CreateCluster(ctx, fuddleNodes, clientNodes)
+	clusterInfo, err := client.ClusterCreate(ctx, fuddleNodes, clientNodes)
 	if err != nil {
 		fmt.Println(err)
 		return

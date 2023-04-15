@@ -44,13 +44,13 @@ func NewClient(addr string) *Client {
 	}
 }
 
-func (c *Client) CreateCluster(ctx context.Context, fuddleNodes int, clientNodes int) (ClusterInfo, error) {
+func (c *Client) ClusterCreate(ctx context.Context, fuddleNodes int, clientNodes int) (ClusterInfo, error) {
 	b, err := json.Marshal(&clusterRequest{
 		FuddleNodes: fuddleNodes,
 		ClientNodes: clientNodes,
 	})
 	if err != nil {
-		return ClusterInfo{}, fmt.Errorf("fcm client: create cluster: encode request: %w", err)
+		return ClusterInfo{}, fmt.Errorf("fcm client: cluster create: encode request: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(
@@ -60,22 +60,51 @@ func (c *Client) CreateCluster(ctx context.Context, fuddleNodes int, clientNodes
 		bytes.NewReader(b),
 	)
 	if err != nil {
-		return ClusterInfo{}, fmt.Errorf("fcm client: create cluster: create request: %w", err)
+		return ClusterInfo{}, fmt.Errorf("fcm client: cluster create: create request: %w", err)
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return ClusterInfo{}, fmt.Errorf("fcm client: create cluster: request failed: %w", err)
+		return ClusterInfo{}, fmt.Errorf("fcm client: cluster create: request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return ClusterInfo{}, fmt.Errorf("fcm client: create cluster: request failed: bad status: %d", resp.StatusCode)
+		return ClusterInfo{}, fmt.Errorf("fcm client: cluster create: request failed: bad status: %d", resp.StatusCode)
 	}
 
 	var clusterInfo ClusterInfo
 	if err := json.NewDecoder(resp.Body).Decode(&clusterInfo); err != nil {
-		return ClusterInfo{}, fmt.Errorf("fcm client: create cluster: decode response: %w", err)
+		return ClusterInfo{}, fmt.Errorf("fcm client: cluster create: decode response: %w", err)
+	}
+
+	return clusterInfo, nil
+}
+
+func (c *Client) ClusterInfo(ctx context.Context, id string) (ClusterInfo, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		"http://"+c.addr+"/cluster/"+id,
+		nil,
+	)
+	if err != nil {
+		return ClusterInfo{}, fmt.Errorf("fcm client: cluster info: create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return ClusterInfo{}, fmt.Errorf("fcm client: cluster info: request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ClusterInfo{}, fmt.Errorf("fcm client: cluster info: request failed: bad status: %d", resp.StatusCode)
+	}
+
+	var clusterInfo ClusterInfo
+	if err := json.NewDecoder(resp.Body).Decode(&clusterInfo); err != nil {
+		return ClusterInfo{}, fmt.Errorf("fcm client: cluster info: decode response: %w", err)
 	}
 
 	return clusterInfo, nil
