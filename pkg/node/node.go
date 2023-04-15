@@ -53,7 +53,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 
 	r := registry.NewRegistry(
 		conf.NodeID,
-		registry.WithRegistryLocalMember(&rpc.Member{
+		registry.WithLocalMember(&rpc.Member{
 			Id:       conf.NodeID,
 			Service:  "fuddle",
 			Created:  time.Now().UnixMilli(),
@@ -63,7 +63,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 		registry.WithReconnectTimeout(conf.Registry.ReconnectTimeout.Milliseconds()),
 		registry.WithTombstoneTimeout(conf.Registry.TombstoneTimeout.Milliseconds()),
 		registry.WithCollector(collector),
-		registry.WithRegistryLogger(logger.Logger("registry")),
+		registry.WithLogger(logger.Logger("registry")),
 	)
 
 	c := cluster.NewCluster(

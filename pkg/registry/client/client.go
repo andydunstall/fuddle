@@ -1,10 +1,11 @@
-package registry
+package client
 
 import (
 	"context"
 	"fmt"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
+	"github.com/fuddle-io/fuddle/pkg/registry"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -14,7 +15,7 @@ import (
 type Client struct {
 	addr string
 
-	registry *Registry
+	registry *registry.Registry
 
 	conn   *grpc.ClientConn
 	client rpc.ReplicaReadRegistryClient
@@ -31,8 +32,8 @@ type Client struct {
 //
 // If the client cannot connect, or the connection drops, the client will keep
 // trying to reconnect in the background until it is closed.
-func Connect(addr string, registry *Registry, opts ...ClientOption) (*Client, error) {
-	options := defaultClientOptions()
+func Connect(addr string, registry *registry.Registry, opts ...Option) (*Client, error) {
+	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
 	}

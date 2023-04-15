@@ -1,4 +1,4 @@
-package registry
+package client
 
 type ConnState string
 
