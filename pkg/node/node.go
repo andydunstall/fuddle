@@ -119,13 +119,19 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	s := rpcServer.NewServer(conf, rpcServerOpts...)
 
 	clientReadRegistryServer := registryServer.NewClientReadRegistryServer(
-		r, registryServer.WithLogger(logger.Logger("registry")),
+		r,
+		registryServer.WithLogger(logger.Logger("registry")),
+		registryServer.WithCollector(collector),
 	)
 	clientWriteRegistryServer := registryServer.NewClientWriteRegistryServer(
-		r, registryServer.WithLogger(logger.Logger("registry")),
+		r,
+		registryServer.WithLogger(logger.Logger("registry")),
+		registryServer.WithCollector(collector),
 	)
 	replicaReadRegistryServer := registryServer.NewReplicaReadRegistryServer(
-		r, registryServer.WithLogger(logger.Logger("registry")),
+		r,
+		registryServer.WithLogger(logger.Logger("registry")),
+		registryServer.WithCollector(collector),
 	)
 	rpc.RegisterClientReadRegistryServer(s.GRPCServer(), clientReadRegistryServer)
 	rpc.RegisterClientWriteRegistryServer(s.GRPCServer(), clientWriteRegistryServer)
