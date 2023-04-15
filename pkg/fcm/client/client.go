@@ -27,7 +27,17 @@ type ClusterInfo struct {
 	ClientNodes []ClientNodeInfo `json:"members,omitempty"`
 }
 
+type NodesInfo struct {
+	FuddleNodes []FuddleNodeInfo `json:"nodes,omitempty"`
+	ClientNodes []ClientNodeInfo `json:"members,omitempty"`
+}
+
 type clusterRequest struct {
+	FuddleNodes int `json:"nodes,omitempty"`
+	ClientNodes int `json:"members,omitempty"`
+}
+
+type nodesRequest struct {
 	FuddleNodes int `json:"nodes,omitempty"`
 	ClientNodes int `json:"members,omitempty"`
 }
@@ -108,4 +118,78 @@ func (c *Client) ClusterInfo(ctx context.Context, id string) (ClusterInfo, error
 	}
 
 	return clusterInfo, nil
+}
+
+func (c *Client) AddNodes(ctx context.Context, clusterID string, fuddleNodes int, clientNodes int) (NodesInfo, error) {
+	b, err := json.Marshal(&nodesRequest{
+		FuddleNodes: fuddleNodes,
+		ClientNodes: clientNodes,
+	})
+	if err != nil {
+		return NodesInfo{}, fmt.Errorf("fcm client: add nodes: encode request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"http://"+c.addr+"/cluster/"+clusterID+"/nodes/add",
+		bytes.NewReader(b),
+	)
+	if err != nil {
+		return NodesInfo{}, fmt.Errorf("fcm client: add nodes: create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return NodesInfo{}, fmt.Errorf("fcm client: add nodes: request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return NodesInfo{}, fmt.Errorf("fcm client: add nodes: request failed: bad status: %d", resp.StatusCode)
+	}
+
+	var nodesInfo NodesInfo
+	if err := json.NewDecoder(resp.Body).Decode(&nodesInfo); err != nil {
+		return NodesInfo{}, fmt.Errorf("fcm client: add nodes: decode response: %w", err)
+	}
+
+	return nodesInfo, nil
+}
+
+func (c *Client) RemoveNodes(ctx context.Context, clusterID string, fuddleNodes int, clientNodes int) (NodesInfo, error) {
+	b, err := json.Marshal(&nodesRequest{
+		FuddleNodes: fuddleNodes,
+		ClientNodes: clientNodes,
+	})
+	if err != nil {
+		return NodesInfo{}, fmt.Errorf("fcm client: remove nodes: encode request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"http://"+c.addr+"/cluster/"+clusterID+"/nodes/remove",
+		bytes.NewReader(b),
+	)
+	if err != nil {
+		return NodesInfo{}, fmt.Errorf("fcm client: remove nodes: create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return NodesInfo{}, fmt.Errorf("fcm client: remove nodes: request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return NodesInfo{}, fmt.Errorf("fcm client: remove nodes: request failed: bad status: %d", resp.StatusCode)
+	}
+
+	var nodesInfo NodesInfo
+	if err := json.NewDecoder(resp.Body).Decode(&nodesInfo); err != nil {
+		return NodesInfo{}, fmt.Errorf("fcm client: remove nodes: decode response: %w", err)
+	}
+
+	return nodesInfo, nil
 }
