@@ -23,10 +23,10 @@ func NewMemberNode(id string, fuddleAddrs []string, logger *zap.Logger) (*Member
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	registry, err := fuddle.Register(
+	registry, err := fuddle.Connect(
 		ctx,
-		fuddleAddrs,
 		member,
+		fuddleAddrs,
 		fuddle.WithLogger(logger),
 	)
 	if err != nil {

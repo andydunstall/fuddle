@@ -28,10 +28,10 @@ func TestUpdates_ReceiveMembers(t *testing.T) {
 	ctx, cancel = context.WithTimeout(context.Background(), time.Millisecond*100)
 	defer cancel()
 
-	client, err := fuddle.Register(
+	client, err := fuddle.Connect(
 		ctx,
-		c.RPCAddrs(),
 		randomMember(""),
+		c.RPCAddrs(),
 		fuddle.WithLogger(testutils.Logger()),
 	)
 	require.NoError(t, err)

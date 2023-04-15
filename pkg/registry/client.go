@@ -17,7 +17,7 @@ type Client struct {
 	registry *Registry
 
 	conn   *grpc.ClientConn
-	client rpc.RegistryClient
+	client rpc.ReplicaReadRegistryClient
 
 	cancelCtx context.Context
 	cancel    func()
@@ -56,7 +56,7 @@ func Connect(addr string, registry *Registry, opts ...ClientOption) (*Client, er
 		conn:                    conn,
 		cancelCtx:               ctx,
 		cancel:                  cancel,
-		client:                  rpc.NewRegistryClient(conn),
+		client:                  rpc.NewReplicaReadRegistryClient(conn),
 		onConnectionStateChange: options.onConnectionStateChange,
 		logger:                  options.logger,
 	}
@@ -102,7 +102,7 @@ func (c *Client) onConnected() {
 		c.onConnectionStateChange(StateConnected)
 	}
 
-	stream, err := c.client.Subscribe(
+	stream, err := c.client.Updates(
 		context.Background(),
 		&rpc.SubscribeRequest{
 			OwnerOnly:    true,

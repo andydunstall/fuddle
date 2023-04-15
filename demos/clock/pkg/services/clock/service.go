@@ -34,10 +34,10 @@ func NewService(id string, ln *net.TCPListener, fuddleAddrs []string, logger *za
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	fuddleClient, err := fuddle.Register(
+	fuddleClient, err := fuddle.Connect(
 		ctx,
-		fuddleAddrs,
 		member,
+		fuddleAddrs,
 		fuddle.WithLogger(logger.With(zap.String("stream", "fuddle"))),
 	)
 	if err != nil {

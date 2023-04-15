@@ -13,7 +13,7 @@ import (
 type Client struct {
 	addr   string
 	conn   *grpc.ClientConn
-	client rpc.RegistryClient
+	client rpc.ClientReadRegistryClient
 }
 
 func Connect(addr string, opts ...Option) (*Client, error) {
@@ -24,14 +24,14 @@ func Connect(addr string, opts ...Option) (*Client, error) {
 		o.apply(&options)
 	}
 
-	conn, client, err := connect(addr, options.connectTimeout)
+	conn, err := connect(addr, options.connectTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("admin client: connect: %w", err)
 	}
 	return &Client{
 		addr:   addr,
 		conn:   conn,
-		client: client,
+		client: rpc.NewClientReadRegistryClient(conn),
 	}, nil
 }
 
@@ -61,7 +61,7 @@ func (c *Client) Close() {
 	c.conn.Close()
 }
 
-func connect(addr string, timeout time.Duration) (*grpc.ClientConn, rpc.RegistryClient, error) {
+func connect(addr string, timeout time.Duration) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -71,9 +71,8 @@ func connect(addr string, timeout time.Duration) (*grpc.ClientConn, rpc.Registry
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("connect: %w", err)
+		return nil, fmt.Errorf("connect: %w", err)
 	}
 
-	client := rpc.NewRegistryClient(conn)
-	return conn, client, nil
+	return conn, nil
 }

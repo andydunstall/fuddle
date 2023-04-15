@@ -32,7 +32,7 @@ func TestClient_Register(t *testing.T) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	require.Nil(t, err)
-	client := rpc.NewRegistryClient(conn)
+	client := rpc.NewClientWriteRegistryClient(conn)
 
 	updatesCh := make(chan *rpc.RemoteMemberUpdate, 10)
 	req := &rpc.SubscribeRequest{}

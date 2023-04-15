@@ -4,8 +4,8 @@ go 1.20
 
 require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
-	github.com/fuddle-io/fuddle-go v0.0.0-20230410103143-ace811b8b921
-	github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230410054709-5e25e3169910
+	github.com/fuddle-io/fuddle-go v0.0.0-20230415052753-924720f690ec
+	github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230415052234-60b65351062e
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-sockaddr v1.0.0

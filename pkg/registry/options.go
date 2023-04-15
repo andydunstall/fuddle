@@ -161,29 +161,3 @@ func (o loggerClientOption) apply(opts *clientOptions) {
 func WithClientLogger(log *zap.Logger) ClientOption {
 	return loggerClientOption{Log: log}
 }
-
-type serverOptions struct {
-	logger *zap.Logger
-}
-
-func defaultServerOptions() *serverOptions {
-	return &serverOptions{
-		logger: zap.NewNop(),
-	}
-}
-
-type ServerOption interface {
-	apply(*serverOptions)
-}
-
-type loggerServerOption struct {
-	Log *zap.Logger
-}
-
-func (o loggerServerOption) apply(opts *serverOptions) {
-	opts.logger = o.Log
-}
-
-func WithServerLogger(log *zap.Logger) ServerOption {
-	return loggerServerOption{Log: log}
-}
