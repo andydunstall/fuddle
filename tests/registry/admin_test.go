@@ -13,8 +13,8 @@ import (
 	fuddle "github.com/fuddle-io/fuddle-go"
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	admin "github.com/fuddle-io/fuddle/pkg/admin/client"
+	"github.com/fuddle-io/fuddle/pkg/fcm/cluster"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
-	"github.com/fuddle-io/fuddle/tests/cluster"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +24,7 @@ import (
 func TestAdmin_ListMembers(t *testing.T) {
 	t.Parallel()
 
-	c, err := cluster.NewCluster(cluster.WithNodes(5))
+	c, err := cluster.NewCluster(cluster.WithFuddleNodes(5))
 	require.Nil(t, err)
 	defer c.Shutdown()
 
@@ -58,7 +58,7 @@ func TestAdmin_ListMembers(t *testing.T) {
 
 	expectedMembers := clients[0].Members()
 
-	adminClient, err := admin.Connect(c.Nodes()[0].Fuddle.Config.RPC.JoinAdvAddr())
+	adminClient, err := admin.Connect(c.FuddleNodes()[0].Fuddle.Config.RPC.JoinAdvAddr())
 	assert.NoError(t, err)
 
 	// List the members via the admin client and check the result matches the
@@ -83,7 +83,7 @@ func TestAdmin_ListMembers(t *testing.T) {
 func TestAdmin_GetMember(t *testing.T) {
 	t.Parallel()
 
-	c, err := cluster.NewCluster(cluster.WithNodes(5))
+	c, err := cluster.NewCluster(cluster.WithFuddleNodes(5))
 	require.Nil(t, err)
 	defer c.Shutdown()
 
@@ -115,7 +115,7 @@ func TestAdmin_GetMember(t *testing.T) {
 		assert.NoError(t, waitForMembers(ctx, client, 15))
 	}
 
-	adminClient, err := admin.Connect(c.Nodes()[0].Fuddle.Config.RPC.JoinAdvAddr())
+	adminClient, err := admin.Connect(c.FuddleNodes()[0].Fuddle.Config.RPC.JoinAdvAddr())
 	assert.NoError(t, err)
 
 	ctx, cancel = context.WithTimeout(context.Background(), time.Millisecond*100)
@@ -124,7 +124,7 @@ func TestAdmin_GetMember(t *testing.T) {
 	member, err := adminClient.Member(ctx, "member-5")
 	assert.NoError(t, err)
 
-	expected, _ := c.Nodes()[0].Fuddle.Registry().Member("member-5")
+	expected, _ := c.FuddleNodes()[0].Fuddle.Registry().Member("member-5")
 	assert.True(t, proto.Equal(expected, member))
 }
 

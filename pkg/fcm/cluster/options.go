@@ -8,7 +8,7 @@ type options struct {
 func defaultOptions() options {
 	return options{
 		fuddleNodes: 3,
-		memberNodes: 10,
+		memberNodes: 0,
 	}
 }
 

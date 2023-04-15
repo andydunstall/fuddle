@@ -1,10 +1,12 @@
 package cluster
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/node"
@@ -218,6 +220,37 @@ func (c *Cluster) RemoveMemberNode() string {
 	delete(c.memberNodes, node)
 
 	return node.ID
+}
+
+func (c *Cluster) WaitForHealthy(ctx context.Context) error {
+	for n := range c.fuddleNodes {
+		for {
+			serviceDiscoveryHealthy := len(n.Fuddle.Nodes()) == len(c.fuddleNodes)
+			registryHealthy := len(n.Fuddle.Registry().UpMembers()) == len(c.fuddleNodes)
+			if serviceDiscoveryHealthy && registryHealthy {
+				break
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(time.Millisecond * 10):
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Cluster) DropActiveConns() {
+	for n := range c.fuddleNodes {
+		n.RPCProxy.Drop()
+	}
+}
+
+func (c *Cluster) BlockActiveConns() {
+	for n := range c.fuddleNodes {
+		n.RPCProxy.BlockActiveConns()
+	}
 }
 
 func (c *Cluster) LogPath(id string) string {
