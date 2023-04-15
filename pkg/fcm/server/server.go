@@ -1,4 +1,4 @@
-package fcm
+package server
 
 import (
 	"context"

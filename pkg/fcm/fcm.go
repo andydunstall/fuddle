@@ -2,10 +2,12 @@ package fcm
 
 import (
 	"fmt"
+
+	"github.com/fuddle-io/fuddle/pkg/fcm/server"
 )
 
 type FCM struct {
-	server *Server
+	server *server.Server
 }
 
 func NewFCM(addr string, port int, opts ...Option) (*FCM, error) {
@@ -17,11 +19,11 @@ func NewFCM(addr string, port int, opts ...Option) (*FCM, error) {
 	logger := options.logger
 	logger.Info("starting fcm")
 
-	server, err := NewServer(
+	server, err := server.NewServer(
 		addr,
 		port,
-		WithLogger(options.logger),
-		WithListener(options.listener),
+		server.WithLogger(options.logger),
+		server.WithListener(options.listener),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("fcm: %w", err)
