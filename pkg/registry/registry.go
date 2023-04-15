@@ -37,6 +37,11 @@ type Registry struct {
 	// * Non-owned members, which are members owned by other nodes
 	members map[string]*VersionedMember
 
+	// lastSeen contains a map of member ID to timestamp the member was last
+	// seen (either updated or received a heartbeat). This only contains members
+	// that are owned by the local node.
+	lastSeen map[string]int64
+
 	// subs contains a set of subscriptions.
 	subs map[*subHandle]interface{}
 
@@ -74,6 +79,7 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 	reg := &Registry{
 		localID:          localID,
 		members:          make(map[string]*VersionedMember),
+		lastSeen:         make(map[string]int64),
 		subs:             make(map[*subHandle]interface{}),
 		leftNodes:        make(map[string]int64),
 		heartbeatTimeout: options.heartbeatTimeout,
@@ -234,6 +240,32 @@ func (r *Registry) AddMember(member *rpc.Member, opts ...Option) {
 	defer r.mu.Unlock()
 
 	r.updateMemberLocked(memberWithStatus(member, rpc.MemberStatus_UP), opts...)
+}
+
+// MemberHeartbeat updates the last seen timestamp for the member.
+//
+// If we've lost ownership of the member (such as if we had networking issues
+// so another node took ownership, but the client is still connected to this
+// node), then update the member version and status to take back ownership.
+func (r *Registry) MemberHeartbeat(member *rpc.Member, opts ...Option) {
+	options := defaultOptions()
+	for _, o := range opts {
+		o.apply(options)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// If we own the node and it has a status of UP, theres no need to propagate
+	// the update to other nodes, so just update the last seen timestamp.
+	// Otherwise update the member with a status of UP to take back ownership
+	// and update the members status.
+	existing, ok := r.members[member.Id]
+	if ok && existing.Version.Owner == r.localID && existing.Member.Status == rpc.MemberStatus_UP {
+		r.lastSeen[member.Id] = options.now
+	} else {
+		r.updateMemberLocked(memberWithStatus(member, rpc.MemberStatus_UP), opts...)
+	}
 }
 
 // RemoveMember removes the member with the given ID.
@@ -403,21 +435,23 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 
 	m := r.members[id]
 
+	lastSeen := r.lastSeen[id]
+
 	if m.Member.Status == rpc.MemberStatus_LEFT {
-		if options.now-m.Version.Timestamp > r.tombstoneTimeout {
+		if options.now-lastSeen > r.tombstoneTimeout {
 			r.logger.Info(
 				"removing left member",
-				zap.Int64("last-update", options.now-m.Version.Timestamp),
+				zap.Int64("last-update", options.now-lastSeen),
 			)
 			r.deleteMemberLocked(m.Member.Id)
 		}
 	}
 
 	if m.Member.Status == rpc.MemberStatus_DOWN {
-		if options.now-m.Version.Timestamp > r.reconnectTimeout {
+		if options.now-lastSeen > r.reconnectTimeout {
 			r.logger.Info(
 				"member removed after missing heartbeats",
-				zap.Int64("last-update", options.now-m.Version.Timestamp),
+				zap.Int64("last-update", options.now-lastSeen),
 			)
 			r.updateMemberLocked(
 				memberWithStatus(m.Member, rpc.MemberStatus_LEFT), opts...,
@@ -428,10 +462,10 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 	// If the last contact from the member exceeds the heartbeat timeout,
 	// mark the member down.
 	if m.Member.Status == rpc.MemberStatus_UP {
-		if options.now-m.Version.Timestamp > r.heartbeatTimeout {
+		if options.now-lastSeen > r.heartbeatTimeout {
 			r.logger.Info(
 				"member down after missing heartbeats",
-				zap.Int64("last-update", options.now-m.Version.Timestamp),
+				zap.Int64("last-update", options.now-lastSeen),
 			)
 			r.updateMemberLocked(
 				memberWithStatus(m.Member, rpc.MemberStatus_DOWN), opts...,
@@ -657,6 +691,13 @@ func (r *Registry) setMemberLocked(m *VersionedMember) {
 		r.metrics.MembersOwned.Inc(map[string]string{
 			"status": m.Member.Status.String(),
 		})
+
+	}
+
+	if m.Version.Owner == r.localID {
+		r.lastSeen[m.Member.Id] = m.Version.Timestamp
+	} else {
+		delete(r.lastSeen, m.Member.Id)
 	}
 }
 
@@ -675,6 +716,7 @@ func (r *Registry) deleteMemberLocked(id string) {
 	}
 
 	delete(r.members, id)
+	delete(r.lastSeen, id)
 }
 
 // compareVersions compares lhs and rhs.
