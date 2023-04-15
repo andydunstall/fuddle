@@ -17,8 +17,20 @@ by each node. Labels:
   * `owner`: The ID of the node that owns the member
 
 * `fuddle.registry.members.owned` (gauge): Number of members owned by the node.
-labels:
+Labels:
   * `status`: The members status (either `up`, `down`, or `left`)
+
+* `fuddle.registry.updates.replica.outbound` (counter): Number of outbound
+updates sent to a replica node. Labels:
+  * `updatetype`: The type of update (either `register`, `unregister`)
+
+* `fuddle.registry.updates.client.outbound` (counter): Number of outbound
+updates sent to a client node. Labels:
+  * `updatetype`: The type of update (either `register`, `unregister`)
+
+* `fuddle.registry.updates.client.inbound` (counter): Number of inbound
+updates received from a client node. Labels:
+  * `updatetype`: The type of update (either `register`, `unregister`, or `heartbeat`)
 
 ## Errors
 * `fuddle.errors` (counter): Number of errors logged on the node. Labels:

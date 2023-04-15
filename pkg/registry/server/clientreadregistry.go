@@ -30,7 +30,7 @@ func NewClientReadRegistryServer(reg *registry.Registry, opts ...Option) *Client
 		"registry",
 		"updates.client.outbound",
 		[]string{"updatetype"},
-		"Number of outbound updates from to client",
+		"Number of outbound updates sent to a client",
 	)
 	if options.collector != nil {
 		options.collector.AddCounter(outboundUpdates)
