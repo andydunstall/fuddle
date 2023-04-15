@@ -27,6 +27,10 @@ type ClusterInfo struct {
 	ClientNodes []ClientNodeInfo `json:"members,omitempty"`
 }
 
+type ClusterHealth struct {
+	Healthy bool `json:"healthy,omitempty"`
+}
+
 type NodesInfo struct {
 	FuddleNodes []FuddleNodeInfo `json:"nodes,omitempty"`
 	ClientNodes []ClientNodeInfo `json:"members,omitempty"`
@@ -118,6 +122,35 @@ func (c *Client) ClusterInfo(ctx context.Context, id string) (ClusterInfo, error
 	}
 
 	return clusterInfo, nil
+}
+
+func (c *Client) ClusterHealth(ctx context.Context, id string) (bool, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		"http://"+c.addr+"/cluster/"+id+"/health",
+		nil,
+	)
+	if err != nil {
+		return false, fmt.Errorf("fcm client: cluster health: create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("fcm client: cluster health: request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("fcm client: cluster health: request failed: bad status: %d", resp.StatusCode)
+	}
+
+	var clusterHealth ClusterHealth
+	if err := json.NewDecoder(resp.Body).Decode(&clusterHealth); err != nil {
+		return false, fmt.Errorf("fcm client: cluster health: decode response: %w", err)
+	}
+
+	return clusterHealth.Healthy, nil
 }
 
 func (c *Client) AddNodes(ctx context.Context, clusterID string, fuddleNodes int, clientNodes int) (NodesInfo, error) {

@@ -234,6 +234,13 @@ func (c *Cluster) WaitForHealthy(ctx context.Context) error {
 	return nil
 }
 
+func (c *Cluster) Healthy() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+	defer cancel()
+
+	return c.WaitForHealthy(ctx) == nil
+}
+
 func (c *Cluster) DropActiveConns() {
 	for n := range c.fuddleNodes {
 		n.RPCProxy.Drop()
