@@ -42,6 +42,10 @@ type clusterResponse struct {
 	Members []memberResponse `json:"members,omitempty"`
 }
 
+type clusterHealth struct {
+	Healthy bool `json:"healthy,omitempty"`
+}
+
 type nodesResponse struct {
 	Nodes   []nodeResponse   `json:"nodes,omitempty"`
 	Members []memberResponse `json:"members,omitempty"`
@@ -77,6 +81,7 @@ func NewServer(addr string, port int, opts ...Option) (*Server, error) {
 	r := mux.NewRouter()
 	r.HandleFunc("/cluster", s.createCluster).Methods("POST")
 	r.HandleFunc("/cluster/{id}", s.describeCluster).Methods("GET")
+	r.HandleFunc("/cluster/{id}/health", s.clusterHealth).Methods("GET")
 	r.HandleFunc("/cluster/{id}", s.deleteCluster).Methods("DELETE")
 
 	r.HandleFunc("/cluster/{id}/nodes/add", s.addNodes).Methods("POST")
@@ -209,6 +214,30 @@ func (s *Server) describeCluster(w http.ResponseWriter, r *http.Request) {
 			ID:      node.ID,
 			LogPath: c.LogPath(node.ID),
 		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.logger.Error("failed to encode cluster response", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Server) clusterHealth(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id := mux.Vars(r)["id"]
+	c, ok := s.clusters[id]
+	if !ok {
+		s.logger.Warn("cluster health; not found", zap.String("id", id))
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	resp := clusterHealth{
+		Healthy: c.Healthy(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")

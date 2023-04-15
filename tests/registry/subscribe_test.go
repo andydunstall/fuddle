@@ -9,16 +9,16 @@ import (
 	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
+	"github.com/fuddle-io/fuddle/pkg/fcm/cluster"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	registryClient "github.com/fuddle-io/fuddle/pkg/registry/client"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
-	"github.com/fuddle-io/fuddle/tests/cluster"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSubscribe_ReceiveNodesLocalMember(t *testing.T) {
-	c, err := cluster.NewCluster(cluster.WithNodes(1))
+	c, err := cluster.NewCluster(cluster.WithFuddleNodes(1))
 	require.Nil(t, err)
 	defer c.Shutdown()
 
@@ -26,7 +26,7 @@ func TestSubscribe_ReceiveNodesLocalMember(t *testing.T) {
 	defer cancel()
 	assert.NoError(t, c.WaitForHealthy(ctx))
 
-	node := c.Nodes()[0]
+	node := c.FuddleNodes()[0]
 
 	r := registry.NewRegistry("local")
 

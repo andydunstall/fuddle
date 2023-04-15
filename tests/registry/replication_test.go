@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fuddle-io/fuddle/tests/cluster"
+	"github.com/fuddle-io/fuddle/pkg/fcm/cluster"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestReplication(t *testing.T) {
-	c, err := cluster.NewCluster(cluster.WithNodes(5))
+	c, err := cluster.NewCluster(cluster.WithFuddleNodes(5))
 	require.Nil(t, err)
 	defer c.Shutdown()
 

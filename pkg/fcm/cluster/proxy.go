@@ -38,6 +38,25 @@ func (p *Proxy) Addr() string {
 	return p.ln.Addr().String()
 }
 
+// Drop drops all existing connections.
+func (p *Proxy) Drop() {
+	p.mu.Lock()
+	for c := range p.conns {
+		c.Close()
+	}
+	p.conns = make(map[*proxyConn]interface{})
+	p.mu.Unlock()
+}
+
+func (p *Proxy) BlockActiveConns() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for c := range p.conns {
+		c.SetBlock(true)
+	}
+}
+
 func (p *Proxy) Close() {
 	for c := range p.conns {
 		c.Close()

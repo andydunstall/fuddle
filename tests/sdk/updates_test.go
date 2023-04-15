@@ -8,8 +8,8 @@ import (
 	"time"
 
 	fuddle "github.com/fuddle-io/fuddle-go"
+	"github.com/fuddle-io/fuddle/pkg/fcm/cluster"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
-	"github.com/fuddle-io/fuddle/tests/cluster"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +17,7 @@ import (
 func TestUpdates_ReceiveMembers(t *testing.T) {
 	t.Parallel()
 
-	c, err := cluster.NewCluster(cluster.WithNodes(5))
+	c, err := cluster.NewCluster(cluster.WithFuddleNodes(5))
 	require.Nil(t, err)
 	defer c.Shutdown()
 

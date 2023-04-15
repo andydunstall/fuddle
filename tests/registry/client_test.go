@@ -8,7 +8,7 @@ import (
 	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
-	"github.com/fuddle-io/fuddle/tests/cluster"
+	"github.com/fuddle-io/fuddle/pkg/fcm/cluster"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -16,7 +16,7 @@ import (
 )
 
 func TestClient_Register(t *testing.T) {
-	c, err := cluster.NewCluster(cluster.WithNodes(5))
+	c, err := cluster.NewCluster(cluster.WithFuddleNodes(5))
 	require.Nil(t, err)
 	defer c.Shutdown()
 
@@ -24,7 +24,7 @@ func TestClient_Register(t *testing.T) {
 	defer cancel()
 	assert.NoError(t, c.WaitForHealthy(ctx))
 
-	node := c.Nodes()[0]
+	node := c.FuddleNodes()[0]
 
 	conn, err := grpc.DialContext(
 		context.Background(),
