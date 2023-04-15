@@ -76,7 +76,7 @@ func (s *ClientWriteRegistryServer) Register(stream rpc.ClientWriteRegistry_Regi
 		}
 
 		if m.UpdateType == rpc.ClientUpdateType_CLIENT_HEARTBEAT {
-			s.registry.AddMember(member)
+			s.registry.MemberHeartbeat(member)
 		}
 
 		if m.UpdateType == rpc.ClientUpdateType_CLIENT_UNREGISTER {

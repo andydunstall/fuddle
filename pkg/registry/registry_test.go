@@ -453,8 +453,8 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 		"status": "down",
 	}))
 
-	// Adding the member again should revive it.
-	reg.AddMember(addedMember, WithNowTime(600))
+	// A heartbeat should revive it.
+	reg.MemberHeartbeat(addedMember, WithNowTime(600))
 
 	m, ok = reg.Member("my-member")
 	assert.True(t, ok)
@@ -514,7 +514,7 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 	assert.True(t, proto.Equal(expectedMember, m))
 
 	// Adding the member again should revive it.
-	reg.AddMember(addedMember, WithNowTime(2000))
+	reg.MemberHeartbeat(addedMember, WithNowTime(2000))
 
 	m, ok = reg.Member("my-member")
 	assert.True(t, ok)

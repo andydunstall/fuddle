@@ -242,6 +242,32 @@ func (r *Registry) AddMember(member *rpc.Member, opts ...Option) {
 	r.updateMemberLocked(memberWithStatus(member, rpc.MemberStatus_UP), opts...)
 }
 
+// MemberHeartbeat updates the last seen timestamp for the member.
+//
+// If we've lost ownership of the member (such as if we had networking issues
+// so another node took ownership, but the client is still connected to this
+// node), then update the member version and status to take back ownership.
+func (r *Registry) MemberHeartbeat(member *rpc.Member, opts ...Option) {
+	options := defaultOptions()
+	for _, o := range opts {
+		o.apply(options)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// If we own the node and it has a status of UP, theres no need to propagate
+	// the update to other nodes, so just update the last seen timestamp.
+	// Otherwise update the member with a status of UP to take back ownership
+	// and update the members status.
+	existing, ok := r.members[member.Id]
+	if ok && existing.Version.Owner == r.localID && existing.Member.Status == rpc.MemberStatus_UP {
+		r.lastSeen[member.Id] = options.now
+	} else {
+		r.updateMemberLocked(memberWithStatus(member, rpc.MemberStatus_UP), opts...)
+	}
+}
+
 // RemoveMember removes the member with the given ID.
 //
 // Note this won't actually remove it, but instead mark it as left. This is
