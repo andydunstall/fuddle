@@ -4,6 +4,7 @@ import (
 	"context"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
+	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	"go.uber.org/zap"
 )
@@ -13,7 +14,8 @@ import (
 type ClientReadRegistryServer struct {
 	registry *registry.Registry
 
-	logger *zap.Logger
+	outboundUpdates *metrics.Counter
+	logger          *zap.Logger
 
 	rpc.UnimplementedClientReadRegistryServer
 }
@@ -24,9 +26,20 @@ func NewClientReadRegistryServer(reg *registry.Registry, opts ...Option) *Client
 		o.apply(options)
 	}
 
+	outboundUpdates := metrics.NewCounter(
+		"registry",
+		"updates.client.outbound",
+		[]string{"updatetype"},
+		"Number of outbound updates from to client",
+	)
+	if options.collector != nil {
+		options.collector.AddCounter(outboundUpdates)
+	}
+
 	return &ClientReadRegistryServer{
-		registry: reg,
-		logger:   options.logger,
+		registry:        reg,
+		outboundUpdates: outboundUpdates,
+		logger:          options.logger,
 	}
 }
 
@@ -42,6 +55,10 @@ func (s *ClientReadRegistryServer) Updates(req *rpc.SubscribeRequest, stream rpc
 			zap.String("id", update.Member.Id),
 			zap.String("type", update.UpdateType.String()),
 		)
+
+		s.outboundUpdates.Inc(map[string]string{
+			"updatetype": memberUpdateTypeToString(update.UpdateType),
+		})
 
 		// Ignore return error, if the client closes the stream the context
 		// will be cancelled.

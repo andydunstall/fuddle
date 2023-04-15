@@ -2,6 +2,7 @@ package server
 
 import (
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
+	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	"go.uber.org/zap"
 )
@@ -10,7 +11,8 @@ import (
 type ClientWriteRegistryServer struct {
 	registry *registry.Registry
 
-	logger *zap.Logger
+	inboundUpdates *metrics.Counter
+	logger         *zap.Logger
 
 	rpc.UnimplementedClientWriteRegistryServer
 }
@@ -21,9 +23,20 @@ func NewClientWriteRegistryServer(reg *registry.Registry, opts ...Option) *Clien
 		o.apply(options)
 	}
 
+	inboundUpdates := metrics.NewCounter(
+		"registry",
+		"updates.client.inbound",
+		[]string{"updatetype"},
+		"Number of inbound updates from the client",
+	)
+	if options.collector != nil {
+		options.collector.AddCounter(inboundUpdates)
+	}
+
 	return &ClientWriteRegistryServer{
-		registry: reg,
-		logger:   options.logger,
+		registry:       reg,
+		inboundUpdates: inboundUpdates,
+		logger:         options.logger,
 	}
 }
 
@@ -40,6 +53,10 @@ func (s *ClientWriteRegistryServer) Register(stream rpc.ClientWriteRegistry_Regi
 		return nil
 	}
 
+	s.inboundUpdates.Inc(map[string]string{
+		"updatetype": clientUpdateTypeToString(m.UpdateType),
+	})
+
 	member := m.Member
 	s.registry.AddMember(member)
 
@@ -48,6 +65,10 @@ func (s *ClientWriteRegistryServer) Register(stream rpc.ClientWriteRegistry_Regi
 		if err != nil {
 			return nil
 		}
+
+		s.inboundUpdates.Inc(map[string]string{
+			"updatetype": clientUpdateTypeToString(m.UpdateType),
+		})
 
 		if m.UpdateType == rpc.ClientUpdateType_CLIENT_REGISTER {
 			member = m.Member
