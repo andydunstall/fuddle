@@ -11,6 +11,8 @@ observability.
 
 The attributes contain:
 * ID (`string`): A unique identifier for the member in the cluster
+* Status (`string`): An application defined status for the member (such as
+`booting`, `active` or `leaving`)
 * Service (`string`): The type of service running on the member (such as
 `orders`, `redis` and `storage`)
 * Locality
