@@ -1,5 +1,5 @@
 # Replication
-:warning: In progress
+> :warning: In progress
 
 In its simplest form, the registry is just a small distributed in-memory
 database.

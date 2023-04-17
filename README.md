@@ -95,6 +95,9 @@ attributes and metadata.
 * [Registry](./docs/architecture/registry/registry.md)
 	* [Replication](./docs/architecture/registry/replication.md)
 	* [Client](./docs/architecture/registry/client.md)
+* [RegistryV2](./docs/architecture/registryv2/registry.md)
+	* [Members](./docs/architecture/registryv2/members.md)
+	* [Replication](./docs/architecture/registryv2/replication.md)
 
 # :warning: Limitations
 Fuddle is still early in development so is missing features needed to run in

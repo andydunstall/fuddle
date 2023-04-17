@@ -1,6 +1,5 @@
 # Registry
-:warning: The registry is being replaced by
-[registryv2](../registryv2/registry.md).
+> :warning: The registry is being replaced by [registryv2](../registryv2/registry.md).
 
 The registry contains the set of registered members.
 
