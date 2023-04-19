@@ -2,6 +2,7 @@ package registry
 
 import (
 	"sync"
+	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 )
@@ -12,8 +13,15 @@ type Registry struct {
 
 	members map[string]*rpc.Member2
 
+	// lastVersion is the last version used by this node. This is used to
+	// increment the version counter when there are multiple versions in the
+	// same millisecond.
+	lastVersion *rpc.Version2
+
 	// mu is a mutex protecting the fields above.
 	mu sync.Mutex
+
+	tombstoneTimeout int64
 
 	metrics *Metrics
 }
@@ -30,13 +38,14 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 	}
 
 	r := &Registry{
-		localID: localID,
-		members: make(map[string]*rpc.Member2),
-		metrics: metrics,
+		localID:          localID,
+		members:          make(map[string]*rpc.Member2),
+		tombstoneTimeout: options.tombstoneTimeout,
+		metrics:          metrics,
 	}
 
 	if options.localMember != nil {
-		r.LocalMemberAdd(options.localMember)
+		r.OwnedMemberAdd(options.localMember)
 	}
 
 	return r
@@ -50,6 +59,9 @@ func (r *Registry) Member(id string) (*rpc.MemberState, bool) {
 
 	m, ok := r.members[id]
 	if !ok {
+		return nil, false
+	}
+	if m.Liveness != rpc.Liveness_UP {
 		return nil, false
 	}
 	return copyMemberState(m.State), ok
@@ -69,55 +81,48 @@ func (r *Registry) SubscribeFromDigest(digest map[string]*rpc.MonotonicTimestamp
 	// get a delta similar to MembersDelta and send to onUpdate
 }
 
-func (r *Registry) LocalMemberAdd(memberState *rpc.MemberState) {
+func (r *Registry) OwnedMemberAdd(memberState *rpc.MemberState) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	existing, ok := r.members[memberState.Id]
 	if ok {
-		r.metrics.MembersCount.Dec(map[string]string{
-			"liveness": livenessToString(existing.Liveness),
-			"service":  existing.State.Service,
-			"owner":    existing.Version.OwnerId,
-		})
-		if existing.Version.OwnerId == r.localID {
-			r.metrics.MembersOwned.Dec(map[string]string{
-				"liveness": livenessToString(existing.Liveness),
-				"service":  existing.State.Service,
-			})
-		}
+		r.decMembersCount(existing)
 	}
 
 	member := &rpc.Member2{
 		State:    copyMemberState(memberState),
 		Liveness: rpc.Liveness_UP,
-		Version: &rpc.Version2{
-			OwnerId: r.localID,
-		},
+		Version:  r.nextVersionLocked(time.Now().UnixMilli()),
 	}
 	r.members[memberState.Id] = member
 
-	r.metrics.MembersCount.Inc(map[string]string{
-		"liveness": livenessToString(member.Liveness),
-		"service":  member.State.Service,
-		"owner":    member.Version.OwnerId,
-	})
-	if member.Version.OwnerId == r.localID {
-		r.metrics.MembersOwned.Inc(map[string]string{
-			"liveness": livenessToString(member.Liveness),
-			"service":  member.State.Service,
-		})
+	r.incMembersCount(member)
+}
+
+func (r *Registry) OwnedMemberLeave(id string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	existing, ok := r.members[id]
+	if ok {
+		r.decMembersCount(existing)
 	}
+
+	// Mark the member as left with an expiry to be removed after the tombstone
+	// timeout.
+	member := &rpc.Member2{
+		State:    existing.State,
+		Liveness: rpc.Liveness_LEFT,
+		Version:  r.nextVersionLocked(time.Now().UnixMilli()),
+		Expiry:   time.Now().UnixMilli() + r.tombstoneTimeout,
+	}
+	r.members[id] = member
+
+	r.incMembersCount(member)
 }
 
-func (r *Registry) LocalMemberLeave(id string) {
-	// if we own the member set its status to 'left' with an expiry of
-	// 'now + tombstone timeout'
-
-	// notify all subscribers
-}
-
-func (r *Registry) LocalMemberHeartbeat(id string) {
+func (r *Registry) OwnedMemberHeartbeat(id string) {
 	// if not owned by the local node, take ownership and set liveness=up
 	// else we already own, set liveness=up
 
@@ -159,6 +164,51 @@ func (r *Registry) OnNodeJoin(id string) {
 
 func (r *Registry) OnNodeLeave(id string) {
 	// if the node was considered up, mark it as down
+}
+
+func (r *Registry) nextVersionLocked(now int64) *rpc.Version2 {
+	v := &rpc.Version2{
+		OwnerId: r.localID,
+		Timestamp: &rpc.MonotonicTimestamp{
+			Timestamp: now,
+			Counter:   0,
+		},
+	}
+	// If the version has the same count as the previous version, increment
+	// the counter.
+	if r.lastVersion != nil && r.lastVersion.Timestamp.Timestamp == v.Timestamp.Timestamp {
+		v.Timestamp.Counter = r.lastVersion.Timestamp.Counter + 1
+	}
+	r.lastVersion = v
+	return v
+}
+
+func (r *Registry) incMembersCount(m *rpc.Member2) {
+	r.metrics.MembersCount.Inc(map[string]string{
+		"liveness": livenessToString(m.Liveness),
+		"service":  m.State.Service,
+		"owner":    m.Version.OwnerId,
+	})
+	if m.Version.OwnerId == r.localID {
+		r.metrics.MembersOwned.Inc(map[string]string{
+			"liveness": livenessToString(m.Liveness),
+			"service":  m.State.Service,
+		})
+	}
+}
+
+func (r *Registry) decMembersCount(m *rpc.Member2) {
+	r.metrics.MembersCount.Dec(map[string]string{
+		"liveness": livenessToString(m.Liveness),
+		"service":  m.State.Service,
+		"owner":    m.Version.OwnerId,
+	})
+	if m.Version.OwnerId == r.localID {
+		r.metrics.MembersOwned.Dec(map[string]string{
+			"liveness": livenessToString(m.Liveness),
+			"service":  m.State.Service,
+		})
+	}
 }
 
 func copyMemberState(m *rpc.MemberState) *rpc.MemberState {

@@ -10,7 +10,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestRegistry_RegisterLocalMember(t *testing.T) {
+func TestRegistry_AddOwnedMember(t *testing.T) {
+	r := NewRegistry("local")
+
+	addedMember := randomMember("", "")
+	r.OwnedMemberAdd(addedMember)
+	r.OwnedMemberLeave(addedMember.Id)
+
+	_, ok := r.Member(addedMember.Id)
+	assert.False(t, ok)
+}
+
+func TestRegistry_AddLocalMember(t *testing.T) {
 	localMember := randomMember("local", "fuddle")
 	r := NewRegistry("local", WithLocalMember(localMember))
 

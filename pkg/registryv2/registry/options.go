@@ -7,13 +7,17 @@ import (
 
 type options struct {
 	localMember *rpc.MemberState
-	collector   metrics.Collector
+
+	tombstoneTimeout int64
+
+	collector metrics.Collector
 }
 
 func defaultOptions() *options {
 	return &options{
-		localMember: nil,
-		collector:   nil,
+		localMember:      nil,
+		tombstoneTimeout: 30 * 60 * 1000,
+		collector:        nil,
 	}
 }
 
@@ -31,6 +35,18 @@ func (o localMemberOption) apply(opts *options) {
 
 func WithLocalMember(m *rpc.MemberState) Option {
 	return localMemberOption{member: m}
+}
+
+type tombstoneTimeoutOption struct {
+	timeout int64
+}
+
+func (o tombstoneTimeoutOption) apply(opts *options) {
+	opts.tombstoneTimeout = o.timeout
+}
+
+func WithTombstoneTimeout(timeout int64) Option {
+	return tombstoneTimeoutOption{timeout: timeout}
 }
 
 type collectorOption struct {

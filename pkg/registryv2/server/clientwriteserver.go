@@ -31,20 +31,20 @@ func (s *ClientWriteServer) Sync(stream rpc.ClientWriteRegistry2_SyncServer) err
 			}
 
 			member = m.State
-			s.registry.LocalMemberAdd(member)
+			s.registry.OwnedMemberAdd(member)
 		case rpc.ClientMemberUpdateType_LEAVE:
 			if member == nil {
 				// TODO(AD) log error and ignore
 				continue
 			}
-			s.registry.LocalMemberLeave(member.Id)
+			s.registry.OwnedMemberLeave(member.Id)
 		case rpc.ClientMemberUpdateType_HEARTBEAT:
 			if member == nil {
 				// TODO(AD) log error and ignore
 				continue
 			}
 
-			s.registry.LocalMemberHeartbeat(member.Id)
+			s.registry.OwnedMemberHeartbeat(member.Id)
 		}
 	}
 }
