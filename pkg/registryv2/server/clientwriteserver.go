@@ -11,6 +11,10 @@ type ClientWriteServer struct {
 	rpc.UnimplementedClientWriteRegistry2Server
 }
 
+func NewClientWriteServer() *ClientWriteServer {
+	return &ClientWriteServer{}
+}
+
 func (s *ClientWriteServer) Sync(stream rpc.ClientWriteRegistry2_SyncServer) error {
 	var member *rpc.Member2
 	for {
