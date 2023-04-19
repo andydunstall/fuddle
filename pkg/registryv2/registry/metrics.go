@@ -14,13 +14,13 @@ func NewMetrics() *Metrics {
 		MembersCount: metrics.NewGauge(
 			"registry",
 			"members.count",
-			[]string{"status", "service", "owner"},
+			[]string{"liveness", "service", "owner"},
 			"Number of members in the registry",
 		),
 		MembersOwned: metrics.NewGauge(
 			"registry",
 			"members.owned",
-			[]string{"status", "service"},
+			[]string{"liveness", "service"},
 			"Number of members owned by the node",
 		),
 	}

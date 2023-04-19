@@ -37,7 +37,7 @@ func (c *ReplicaClient) Sync(ctx context.Context) error {
 		return fmt.Errorf("replica client: sync: %w", err)
 	}
 	for _, m := range resp.Members {
-		c.registry.UpsertMember(m)
+		c.registry.RemoteUpsertMember(m)
 	}
 	return nil
 }

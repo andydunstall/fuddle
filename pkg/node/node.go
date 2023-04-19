@@ -71,7 +71,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 		registry.WithLogger(logger.Logger("registry")),
 	)
 
-	regv2 := registryv2.NewRegistry()
+	regv2 := registryv2.NewRegistry(conf.NodeID)
 
 	c := cluster.NewCluster(
 		r,
