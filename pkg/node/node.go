@@ -7,6 +7,7 @@ import (
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	adminServer "github.com/fuddle-io/fuddle/pkg/admin/server"
 	"github.com/fuddle-io/fuddle/pkg/cluster"
+	clusterv2 "github.com/fuddle-io/fuddle/pkg/clusterv2"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/gossip"
 	"github.com/fuddle-io/fuddle/pkg/logger"
@@ -26,6 +27,7 @@ type Node struct {
 	gossip      *gossip.Gossip
 	registry    *registry.Registry
 	registryv2  *registryv2.Registry
+	clusterv2   *clusterv2.Cluster
 	rpcServer   *rpcServer.Server
 	adminServer *adminServer.Server
 
@@ -76,6 +78,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 		cluster.WithLogger(logger.Logger("cluster")),
 		cluster.WithCollector(collector),
 	)
+	clusterv2 := clusterv2.NewCluster(regv2)
 
 	var adminServerOpts []adminServer.Option
 	if options.adminListener != nil {
@@ -102,11 +105,12 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	gossipOpts = append(gossipOpts, gossip.WithOnJoin(func(node gossip.Node) {
 		if node.ID != conf.NodeID {
 			c.OnJoin(node.ID, node.RPCAddr)
+			clusterv2.OnJoin(node.ID, node.RPCAddr)
 		}
 	}))
 	gossipOpts = append(gossipOpts, gossip.WithOnLeave(func(node gossip.Node) {
 		if node.ID != conf.NodeID {
-			c.OnLeave(node.ID)
+			clusterv2.OnLeave(node.ID)
 		}
 	}))
 	gossipOpts = append(gossipOpts, gossip.WithLogger(logger.Logger("gossip")))
@@ -157,6 +161,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 		Config:      conf,
 		registry:    r,
 		registryv2:  regv2,
+		clusterv2:   clusterv2,
 		gossip:      g,
 		rpcServer:   s,
 		adminServer: adminServer,
@@ -165,6 +170,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	}
 
 	go n.failureDetector()
+	go n.replicaRepair()
 
 	return n, nil
 }
@@ -197,6 +203,20 @@ func (n *Node) failureDetector() {
 			return
 		case <-ticker.C:
 			n.registry.CheckMembersLiveness()
+		}
+	}
+}
+
+func (n *Node) replicaRepair() {
+	ticker := time.NewTicker(time.Millisecond * 500)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-n.done:
+			return
+		case <-ticker.C:
+			n.clusterv2.ReplicaRepair()
 		}
 	}
 }

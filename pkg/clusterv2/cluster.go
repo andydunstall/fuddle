@@ -8,20 +8,18 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/registryv2/registry"
 )
 
-// nolint
-type ClusterV2 struct {
+type Cluster struct {
 	registry *registry.Registry
 }
 
-func NewClusterV2(registry *registry.Registry) *ClusterV2 {
-	c := &ClusterV2{
+func NewCluster(registry *registry.Registry) *Cluster {
+	c := &Cluster{
 		registry: registry,
 	}
-	go c.readRepair()
 	return c
 }
 
-func (c *ClusterV2) OnJoin(id string, addr string) {
+func (c *Cluster) OnJoin(id string, addr string) {
 	c.registry.OnNodeJoin(id)
 
 	conn := client.ConnectReplica(addr)
@@ -31,12 +29,10 @@ func (c *ClusterV2) OnJoin(id string, addr string) {
 	})
 }
 
-func (c *ClusterV2) OnLeave(id string) {
+func (c *Cluster) OnLeave(id string) {
 	c.registry.OnNodeLeave(id)
 }
 
-func (c *ClusterV2) readRepair() {
-	// Start a ticker.
-	// Whenever the ticker goes off, select a random node and call
-	// client.Sync().
+func (c *Cluster) ReplicaRepair() {
+	// Select a random node and call client.Sync().
 }
