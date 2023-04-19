@@ -11,6 +11,10 @@ type ClientReadServer struct {
 	rpc.UnimplementedClientReadRegistry2Server
 }
 
+func NewClientReadServer() *ClientReadServer {
+	return &ClientReadServer{}
+}
+
 func (s *ClientReadServer) Sync(req *rpc.ClientSyncRequest, stream rpc.ClientReadRegistry2_SyncServer) error {
 	s.registry.SubscribeFromDigest(req.Digest, req.Filter, func(member *rpc.Member2) {
 		// TODO(AD) can't block so queue and send in background

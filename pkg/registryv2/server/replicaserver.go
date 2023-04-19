@@ -13,6 +13,10 @@ type ReplicaServer struct {
 	rpc.UnimplementedReplicaRegistry2Server
 }
 
+func NewReplicaServer() *ReplicaServer {
+	return &ReplicaServer{}
+}
+
 func (s *ReplicaServer) Update(ctx context.Context, req *rpc.UpdateRequest) (*rpc.UpdateResponse, error) {
 	s.registry.UpsertMember(req.Member)
 	return &rpc.UpdateResponse{}, nil

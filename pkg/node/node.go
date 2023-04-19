@@ -13,6 +13,8 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	registryServer "github.com/fuddle-io/fuddle/pkg/registry/server"
+	registryv2 "github.com/fuddle-io/fuddle/pkg/registryv2/registry"
+	registryServerv2 "github.com/fuddle-io/fuddle/pkg/registryv2/server"
 	rpcServer "github.com/fuddle-io/fuddle/pkg/server"
 	"go.uber.org/zap"
 )
@@ -23,6 +25,7 @@ type Node struct {
 
 	gossip      *gossip.Gossip
 	registry    *registry.Registry
+	registryv2  *registryv2.Registry
 	rpcServer   *rpcServer.Server
 	adminServer *adminServer.Server
 
@@ -65,6 +68,8 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 		registry.WithCollector(collector),
 		registry.WithLogger(logger.Logger("registry")),
 	)
+
+	regv2 := registryv2.NewRegistry()
 
 	c := cluster.NewCluster(
 		r,
@@ -137,6 +142,13 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	rpc.RegisterClientWriteRegistryServer(s.GRPCServer(), clientWriteRegistryServer)
 	rpc.RegisterReplicaReadRegistryServer(s.GRPCServer(), replicaReadRegistryServer)
 
+	clientReadRegistryServerv2 := registryServerv2.NewClientReadServer()
+	clientWriteRegistryServerv2 := registryServerv2.NewClientWriteServer()
+	replicaRegistryServer := registryServerv2.NewReplicaServer()
+	rpc.RegisterClientReadRegistry2Server(s.GRPCServer(), clientReadRegistryServerv2)
+	rpc.RegisterClientWriteRegistry2Server(s.GRPCServer(), clientWriteRegistryServerv2)
+	rpc.RegisterReplicaRegistry2Server(s.GRPCServer(), replicaRegistryServer)
+
 	if err := s.Serve(); err != nil {
 		return nil, fmt.Errorf("fuddle: %w", err)
 	}
@@ -144,6 +156,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	n := &Node{
 		Config:      conf,
 		registry:    r,
+		registryv2:  regv2,
 		gossip:      g,
 		rpcServer:   s,
 		adminServer: adminServer,
