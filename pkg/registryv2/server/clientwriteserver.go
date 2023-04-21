@@ -1,6 +1,8 @@
 package server
 
 import (
+	"time"
+
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/registryv2/registry"
 )
@@ -16,7 +18,7 @@ func NewClientWriteServer() *ClientWriteServer {
 }
 
 func (s *ClientWriteServer) Sync(stream rpc.ClientWriteRegistry2_SyncServer) error {
-	var member *rpc.Member2
+	var member *rpc.MemberState
 	for {
 		m, err := stream.Recv()
 		if err != nil {
@@ -24,27 +26,27 @@ func (s *ClientWriteServer) Sync(stream rpc.ClientWriteRegistry2_SyncServer) err
 		}
 
 		switch m.UpdateType {
-		case rpc.ClientMemberUpdateType_REGISTER:
-			if m.Member == nil {
+		case rpc.ClientMemberUpdateType_JOIN:
+			if m.State == nil {
 				// TODO(AD) log error and ignore
 				continue
 			}
 
-			member = m.Member
-			s.registry.UpsertMember(member)
-		case rpc.ClientMemberUpdateType_UNREGISTER:
+			member = m.State
+			s.registry.OwnedMemberUpsert(member, time.Now().UnixMilli())
+		case rpc.ClientMemberUpdateType_LEAVE:
 			if member == nil {
 				// TODO(AD) log error and ignore
 				continue
 			}
-			s.registry.MemberLeave(member.State.Id)
+			s.registry.OwnedMemberLeave(member.Id, time.Now().UnixMilli())
 		case rpc.ClientMemberUpdateType_HEARTBEAT:
 			if member == nil {
 				// TODO(AD) log error and ignore
 				continue
 			}
 
-			s.registry.MemberHeartbeat(member.State.Id)
+			s.registry.OwnedMemberHeartbeat(member.Id)
 		}
 	}
 }

@@ -18,7 +18,7 @@ func NewReplicaServer() *ReplicaServer {
 }
 
 func (s *ReplicaServer) Update(ctx context.Context, req *rpc.UpdateRequest) (*rpc.UpdateResponse, error) {
-	s.registry.UpsertMember(req.Member)
+	s.registry.RemoteUpsertMember(req.Member)
 	return &rpc.UpdateResponse{}, nil
 }
 
