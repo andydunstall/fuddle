@@ -166,9 +166,9 @@ func (r *Registry) OwnedMemberLeave(id string, timestamp int64) {
 	r.incMembersCount(member)
 }
 
-func (r *Registry) OwnedMemberHeartbeat(id string) {
-	// if not owned by the local node, take ownership and set liveness=up
-	// else we already own, set liveness=up
+func (r *Registry) OwnedMemberHeartbeat(id string, timestamp int64) {
+	// if not owned by the local node, return an error so the client
+	// re-registers
 
 	// update last contact
 }
