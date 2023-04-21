@@ -67,6 +67,8 @@ github.com/fuddle-io/fuddle-go v0.0.0-20230415052753-924720f690ec h1:MWMKeTMC/27
 github.com/fuddle-io/fuddle-go v0.0.0-20230415052753-924720f690ec/go.mod h1:zgz5bJDTIaiIh+4QpfTcbBDrTfgTONr+iAsr3OdMIN8=
 github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230419074357-7a278340f176 h1:yWssl5QvyKagsY3Be4m8fapcrnjdgHJXZP0b8BcWTcM=
 github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230419074357-7a278340f176/go.mod h1:plrExYS7pCDF4Np8fz1W+Rcc+KYY6DlqRAMmu9Qr4sA=
+github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230421171436-00bc196b1a37 h1:MC3c0yXgLoP+lD7fkmAUo+++zMNq8Bm06z3Dwx5XqGI=
+github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230421171436-00bc196b1a37/go.mod h1:plrExYS7pCDF4Np8fz1W+Rcc+KYY6DlqRAMmu9Qr4sA=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=

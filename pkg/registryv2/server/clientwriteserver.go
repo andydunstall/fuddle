@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
@@ -17,36 +18,17 @@ func NewClientWriteServer() *ClientWriteServer {
 	return &ClientWriteServer{}
 }
 
-func (s *ClientWriteServer) Sync(stream rpc.ClientWriteRegistry2_SyncServer) error {
-	var member *rpc.MemberState
-	for {
-		m, err := stream.Recv()
-		if err != nil {
-			return nil
-		}
+func (s *ClientWriteServer) MemberJoin(ctx context.Context, req *rpc.ClientMemberJoinRequest) (*rpc.ClientMemberJoinResponse, error) {
+	s.registry.OwnedMemberUpsert(req.Member, time.Now().UnixMilli())
+	return &rpc.ClientMemberJoinResponse{}, nil
+}
 
-		switch m.UpdateType {
-		case rpc.ClientMemberUpdateType_JOIN:
-			if m.State == nil {
-				// TODO(AD) log error and ignore
-				continue
-			}
+func (s *ClientWriteServer) MemberLeave(ctx context.Context, req *rpc.ClientMemberLeaveRequest) (*rpc.ClientMemberLeaveResponse, error) {
+	s.registry.OwnedMemberLeave(req.MemberId, time.Now().UnixMilli())
+	return &rpc.ClientMemberLeaveResponse{}, nil
+}
 
-			member = m.State
-			s.registry.OwnedMemberUpsert(member, time.Now().UnixMilli())
-		case rpc.ClientMemberUpdateType_LEAVE:
-			if member == nil {
-				// TODO(AD) log error and ignore
-				continue
-			}
-			s.registry.OwnedMemberLeave(member.Id, time.Now().UnixMilli())
-		case rpc.ClientMemberUpdateType_HEARTBEAT:
-			if member == nil {
-				// TODO(AD) log error and ignore
-				continue
-			}
-
-			s.registry.OwnedMemberHeartbeat(member.Id)
-		}
-	}
+func (s *ClientWriteServer) MemberHeartbeat(ctx context.Context, req *rpc.ClientMemberHeartbeatRequest) (*rpc.ClientMemberHeartbeatResponse, error) {
+	s.registry.OwnedMemberHeartbeat(req.MemberId, time.Now().UnixMilli())
+	return nil, nil
 }
