@@ -2,7 +2,6 @@ package registry
 
 import (
 	"sync"
-	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 )
@@ -26,7 +25,7 @@ type Registry struct {
 	metrics *Metrics
 }
 
-func NewRegistry(localID string, opts ...Option) *Registry {
+func NewRegistry(localID string, timestamp int64, opts ...Option) *Registry {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
@@ -45,7 +44,13 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 	}
 
 	if options.localMember != nil {
-		r.OwnedMemberAdd(options.localMember)
+		member := &rpc.Member2{
+			State:    copyMemberState(options.localMember),
+			Liveness: rpc.Liveness_UP,
+			Version:  r.nextVersionLocked(timestamp),
+		}
+		r.members[localID] = member
+		r.incMembersCount(member)
 	}
 
 	return r
@@ -81,31 +86,70 @@ func (r *Registry) SubscribeFromDigest(digest map[string]*rpc.MonotonicTimestamp
 	// get a delta similar to MembersDelta and send to onUpdate
 }
 
-func (r *Registry) OwnedMemberAdd(memberState *rpc.MemberState) {
+// OwnedMemberUpsert takes ownership of the given member and adds or updates the
+// members state.
+func (r *Registry) OwnedMemberUpsert(memberState *rpc.MemberState, timestamp int64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// Discard any update to the local member.
+	if memberState.Id == r.localID {
+		return
+	}
+
+	version := r.nextVersionLocked(timestamp)
+
 	existing, ok := r.members[memberState.Id]
 	if ok {
+		// If the local update is before the existing member version, this
+		// likely means there is clock skew between nodes, so this should never
+		// happen.
+		//
+		// If it does, the local node will try again whenever it gets a
+		// heartbeat and eventually take back ownership.
+		if compareVersions(existing.Version, version) <= 0 {
+			return
+		}
+
 		r.decMembersCount(existing)
 	}
 
 	member := &rpc.Member2{
 		State:    copyMemberState(memberState),
 		Liveness: rpc.Liveness_UP,
-		Version:  r.nextVersionLocked(time.Now().UnixMilli()),
+		Version:  version,
 	}
 	r.members[memberState.Id] = member
 
 	r.incMembersCount(member)
 }
 
-func (r *Registry) OwnedMemberLeave(id string) {
+// OwnedMemberLeave takes ownership of the member with the given ID and marks
+// it as left with an expiry for when it should be removed.
+func (r *Registry) OwnedMemberLeave(id string, timestamp int64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// Discard any update to the local member.
+	if id == r.localID {
+		return
+	}
+
+	version := r.nextVersionLocked(timestamp)
+
 	existing, ok := r.members[id]
 	if ok {
+		// If the local update is before the existing member version, this
+		// likely means there is clock skew between nodes, so this should never
+		// happen.
+		//
+		// If it does happen, it means we arn't the owner, so we have to just
+		// discard the leave update and the current owner will mark the member
+		// as down.
+		if compareVersions(existing.Version, version) <= 0 {
+			return
+		}
+
 		r.decMembersCount(existing)
 	}
 
@@ -114,8 +158,8 @@ func (r *Registry) OwnedMemberLeave(id string) {
 	member := &rpc.Member2{
 		State:    existing.State,
 		Liveness: rpc.Liveness_LEFT,
-		Version:  r.nextVersionLocked(time.Now().UnixMilli()),
-		Expiry:   time.Now().UnixMilli() + r.tombstoneTimeout,
+		Version:  version,
+		Expiry:   timestamp + r.tombstoneTimeout,
 	}
 	r.members[id] = member
 
@@ -130,7 +174,22 @@ func (r *Registry) OwnedMemberHeartbeat(id string) {
 }
 
 func (r *Registry) RemoteUpsertMember(member *rpc.Member2) {
-	// update the member
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	existing, ok := r.members[member.State.Id]
+	if ok {
+		// Ignore out of date remote updates.
+		if compareVersions(existing.Version, member.Version) <= 0 {
+			return
+		}
+
+		r.decMembersCount(existing)
+	}
+
+	r.members[member.State.Id] = copyMember(member)
+
+	r.incMembersCount(member)
 
 	// notify SubscribeFromDigest subscribers
 	// if we are owner or lost ownership
@@ -211,6 +270,14 @@ func (r *Registry) decMembersCount(m *rpc.Member2) {
 	}
 }
 
+func copyMember(m *rpc.Member2) *rpc.Member2 {
+	return &rpc.Member2{
+		State:    copyMemberState(m.State),
+		Liveness: m.Liveness,
+		Version:  copyVersion(m.Version),
+	}
+}
+
 func copyMemberState(m *rpc.MemberState) *rpc.MemberState {
 	metadata := make(map[string]string)
 	for k, v := range m.Metadata {
@@ -227,6 +294,16 @@ func copyMemberState(m *rpc.MemberState) *rpc.MemberState {
 	}
 }
 
+func copyVersion(m *rpc.Version2) *rpc.Version2 {
+	return &rpc.Version2{
+		OwnerId: m.OwnerId,
+		Timestamp: &rpc.MonotonicTimestamp{
+			Timestamp: m.Timestamp.Timestamp,
+			Counter:   m.Timestamp.Counter,
+		},
+	}
+}
+
 func livenessToString(liveness rpc.Liveness) string {
 	switch liveness {
 	case rpc.Liveness_UP:
@@ -238,4 +315,32 @@ func livenessToString(liveness rpc.Liveness) string {
 	default:
 		return "unknown"
 	}
+}
+
+func compareVersions(lhs *rpc.Version2, rhs *rpc.Version2) int {
+	if lhs.OwnerId != rhs.OwnerId {
+		// Ignore the counter when owners don't match, as the counter only
+		// applies locally.
+		if lhs.Timestamp.Timestamp < rhs.Timestamp.Timestamp {
+			return 1
+		}
+		if lhs.Timestamp.Timestamp > rhs.Timestamp.Timestamp {
+			return -1
+		}
+		return 0
+	}
+
+	if lhs.Timestamp.Timestamp < rhs.Timestamp.Timestamp {
+		return 1
+	}
+	if lhs.Timestamp.Timestamp > rhs.Timestamp.Timestamp {
+		return -1
+	}
+	if lhs.Timestamp.Counter < rhs.Timestamp.Counter {
+		return 1
+	}
+	if lhs.Timestamp.Counter > rhs.Timestamp.Counter {
+		return -1
+	}
+	return 0
 }
