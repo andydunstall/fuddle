@@ -122,7 +122,7 @@ func TestRegistry_RemoveMember(t *testing.T) {
 	reg.AddMember(addedMember)
 	reg.RemoveMember("my-member")
 
-	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_LEFT)
+	expectedMember := memberWithStatus(addedMember, rpc.Liveness_LEFT)
 
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
@@ -169,7 +169,7 @@ func TestRegistry_SubscribeToRemoveMember(t *testing.T) {
 
 	reg.RemoveMember("my-member", WithNowTime(200))
 
-	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_LEFT)
+	expectedMember := memberWithStatus(addedMember, rpc.Liveness_LEFT)
 
 	assert.True(t, proto.Equal(&rpc.RemoteMemberUpdate{
 		Member: expectedMember,
@@ -435,7 +435,7 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 		WithNowTime(500),
 	)
 
-	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_DOWN)
+	expectedMember := memberWithStatus(addedMember, rpc.Liveness_DOWN)
 
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
@@ -488,7 +488,7 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 		WithNowTime(500),
 	)
 
-	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_DOWN)
+	expectedMember := memberWithStatus(addedMember, rpc.Liveness_DOWN)
 
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
@@ -498,7 +498,7 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 		WithNowTime(1500),
 	)
 
-	expectedMember = memberWithStatus(addedMember, rpc.MemberStatus_LEFT)
+	expectedMember = memberWithStatus(addedMember, rpc.Liveness_LEFT)
 
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
@@ -584,7 +584,7 @@ func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
 		WithNowTime(1000),
 	)
 
-	expectedMember := memberWithStatus(addedMember, rpc.MemberStatus_DOWN)
+	expectedMember := memberWithStatus(addedMember, rpc.Liveness_DOWN)
 
 	member, ok := reg.Member("my-member")
 	assert.True(t, ok)
@@ -647,7 +647,7 @@ func TestRegistry_KnownMemberNotFound(t *testing.T) {
 	assert.True(t, proto.Equal(updates[0], &rpc.RemoteMemberUpdate{
 		Member: &rpc.Member{
 			Id:     "unknown-member",
-			Status: rpc.MemberStatus_LEFT,
+			Status: rpc.Liveness_LEFT,
 		},
 		Version: &rpc.Version{
 			Owner:     "local",
@@ -669,7 +669,7 @@ func TestRegistry_KnownMemberNotFound(t *testing.T) {
 	assert.True(t, proto.Equal(ownerOnlyUpdates[0], &rpc.RemoteMemberUpdate{
 		Member: &rpc.Member{
 			Id:     "unknown-member",
-			Status: rpc.MemberStatus_LEFT,
+			Status: rpc.Liveness_LEFT,
 		},
 		Version: &rpc.Version{
 			Owner:     "local",

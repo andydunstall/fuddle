@@ -90,7 +90,7 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 	}
 
 	if options.localMember != nil {
-		member := memberWithStatus(options.localMember, rpc.MemberStatus_UP)
+		member := memberWithStatus(options.localMember, rpc.Liveness_UP)
 		versionedMember := &VersionedMember{
 			Member:  member,
 			Version: reg.nextVersionLocked(options.now),
@@ -147,7 +147,7 @@ func (r *Registry) UpMembers() []*VersionedMember {
 
 	members := make([]*VersionedMember, 0, len(r.members))
 	for _, m := range r.members {
-		if m.Member.Status == rpc.MemberStatus_UP {
+		if m.Member.Status == rpc.Liveness_UP {
 			members = append(members, m)
 		}
 	}
@@ -239,7 +239,7 @@ func (r *Registry) AddMember(member *rpc.Member, opts ...Option) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.updateMemberLocked(memberWithStatus(member, rpc.MemberStatus_UP), opts...)
+	r.updateMemberLocked(memberWithStatus(member, rpc.Liveness_UP), opts...)
 }
 
 // MemberHeartbeat updates the last seen timestamp for the member.
@@ -261,10 +261,10 @@ func (r *Registry) MemberHeartbeat(member *rpc.Member, opts ...Option) {
 	// Otherwise update the member with a status of UP to take back ownership
 	// and update the members status.
 	existing, ok := r.members[member.Id]
-	if ok && existing.Version.Owner == r.localID && existing.Member.Status == rpc.MemberStatus_UP {
+	if ok && existing.Version.Owner == r.localID && existing.Member.Status == rpc.Liveness_UP {
 		r.lastSeen[member.Id] = options.now
 	} else {
-		r.updateMemberLocked(memberWithStatus(member, rpc.MemberStatus_UP), opts...)
+		r.updateMemberLocked(memberWithStatus(member, rpc.Liveness_UP), opts...)
 	}
 }
 
@@ -284,7 +284,7 @@ func (r *Registry) RemoveMember(id string, opts ...Option) {
 	}
 
 	member := m.Member
-	r.updateMemberLocked(memberWithStatus(member, rpc.MemberStatus_LEFT), opts...)
+	r.updateMemberLocked(memberWithStatus(member, rpc.Liveness_LEFT), opts...)
 }
 
 // RemoteUpdate applies an updates received from another node.
@@ -437,7 +437,7 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 
 	lastSeen := r.lastSeen[id]
 
-	if m.Member.Status == rpc.MemberStatus_LEFT {
+	if m.Member.Status == rpc.Liveness_LEFT {
 		if options.now-lastSeen > r.tombstoneTimeout {
 			r.logger.Info(
 				"removing left member",
@@ -447,28 +447,28 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 		}
 	}
 
-	if m.Member.Status == rpc.MemberStatus_DOWN {
+	if m.Member.Status == rpc.Liveness_DOWN {
 		if options.now-lastSeen > r.reconnectTimeout {
 			r.logger.Info(
 				"member removed after missing heartbeats",
 				zap.Int64("last-update", options.now-lastSeen),
 			)
 			r.updateMemberLocked(
-				memberWithStatus(m.Member, rpc.MemberStatus_LEFT), opts...,
+				memberWithStatus(m.Member, rpc.Liveness_LEFT), opts...,
 			)
 		}
 	}
 
 	// If the last contact from the member exceeds the heartbeat timeout,
 	// mark the member down.
-	if m.Member.Status == rpc.MemberStatus_UP {
+	if m.Member.Status == rpc.Liveness_UP {
 		if options.now-lastSeen > r.heartbeatTimeout {
 			r.logger.Info(
 				"member down after missing heartbeats",
 				zap.Int64("last-update", options.now-lastSeen),
 			)
 			r.updateMemberLocked(
-				memberWithStatus(m.Member, rpc.MemberStatus_DOWN), opts...,
+				memberWithStatus(m.Member, rpc.Liveness_DOWN), opts...,
 			)
 		}
 	}
@@ -494,9 +494,9 @@ func (r *Registry) checkRemoteMemberLivenessLocked(id string, opts ...Option) {
 	if options.now-ownerLastContact > r.heartbeatTimeout {
 		// If the member is up, mark it down as it has missed the heartbeat
 		// timeout.
-		if m.Member.Status == rpc.MemberStatus_UP {
+		if m.Member.Status == rpc.Liveness_UP {
 			r.updateMemberLocked(
-				memberWithStatus(m.Member, rpc.MemberStatus_DOWN),
+				memberWithStatus(m.Member, rpc.Liveness_DOWN),
 				opts...,
 			)
 		} else {
@@ -600,7 +600,7 @@ func (r *Registry) ownerOnlyUpdatesLocked(knownMembers map[string]*rpc.Version) 
 		updates = append(updates, &rpc.RemoteMemberUpdate{
 			Member: &rpc.Member{
 				Id:     id,
-				Status: rpc.MemberStatus_LEFT,
+				Status: rpc.Liveness_LEFT,
 			},
 			Version: &rpc.Version{
 				Owner:     knownVersion.Owner,
@@ -655,7 +655,7 @@ func (r *Registry) allUpdatesLocked(knownMembers map[string]*rpc.Version) []*rpc
 		updates = append(updates, &rpc.RemoteMemberUpdate{
 			Member: &rpc.Member{
 				Id:     id,
-				Status: rpc.MemberStatus_LEFT,
+				Status: rpc.Liveness_LEFT,
 			},
 			Version: &rpc.Version{
 				Owner:     knownVersion.Owner,
@@ -751,7 +751,7 @@ func compareVersions(lhs *rpc.Version, rhs *rpc.Version) int {
 	return 0
 }
 
-func memberWithStatus(m *rpc.Member, status rpc.MemberStatus) *rpc.Member {
+func memberWithStatus(m *rpc.Member, status rpc.Liveness) *rpc.Member {
 	cp := copyMember(m)
 	cp.Status = status
 	return cp
