@@ -30,9 +30,9 @@ func TestSubscribe_ReceiveNodesLocalMember(t *testing.T) {
 
 	r := registry.NewRegistry("local")
 
-	updatesCh := make(chan *rpc.RemoteMemberUpdate)
+	updatesCh := make(chan *rpc.Member2)
 	req := &rpc.SubscribeRequest{}
-	r.Subscribe(req, func(update *rpc.RemoteMemberUpdate) {
+	r.Subscribe(req, func(update *rpc.Member2) {
 		updatesCh <- update
 	})
 
@@ -47,11 +47,10 @@ func TestSubscribe_ReceiveNodesLocalMember(t *testing.T) {
 	// Wait to receive the servers local node.
 	u, err := waitForUpdate(updatesCh)
 	assert.NoError(t, err)
-	assert.Equal(t, node.Fuddle.Config.NodeID, u.Member.Id)
-	assert.Equal(t, rpc.MemberUpdateType_REGISTER, u.UpdateType)
+	assert.Equal(t, node.Fuddle.Config.NodeID, u.State.Id)
 }
 
-func waitForUpdate(ch <-chan *rpc.RemoteMemberUpdate) (*rpc.RemoteMemberUpdate, error) {
+func waitForUpdate(ch <-chan *rpc.Member2) (*rpc.Member2, error) {
 	select {
 	case u := <-ch:
 		return u, nil

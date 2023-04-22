@@ -133,10 +133,14 @@ func randomMember(id string) fuddle.Member {
 		id = uuid.New().String()
 	}
 	return fuddle.Member{
-		ID:       id,
-		Service:  uuid.New().String(),
-		Locality: uuid.New().String(),
-		Created:  rand.Int63(),
+		ID:      id,
+		Status:  uuid.New().String(),
+		Service: uuid.New().String(),
+		Locality: fuddle.Locality{
+			Region:           uuid.New().String(),
+			AvailabilityZone: uuid.New().String(),
+		},
+		Started:  rand.Int63(),
 		Revision: uuid.New().String(),
 		Metadata: map[string]string{
 			uuid.New().String(): uuid.New().String(),
@@ -185,13 +189,19 @@ func waitWithContext(ctx context.Context, ch chan interface{}) error {
 	}
 }
 
-func fromRPC(m *rpc.Member) fuddle.Member {
-	return fuddle.Member{
-		ID:       m.Id,
-		Service:  m.Service,
-		Locality: m.Locality,
-		Created:  m.Created,
-		Revision: m.Revision,
-		Metadata: m.Metadata,
+func fromRPC(m *rpc.Member2) fuddle.Member {
+	member := fuddle.Member{
+		ID:       m.State.Id,
+		Service:  m.State.Service,
+		Started:  m.State.Started,
+		Revision: m.State.Revision,
+		Metadata: m.State.Metadata,
 	}
+	if m.State.Locality != nil {
+		member.Locality = fuddle.Locality{
+			Region:           m.State.Locality.Region,
+			AvailabilityZone: m.State.Locality.AvailabilityZone,
+		}
+	}
+	return member
 }

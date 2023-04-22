@@ -9,12 +9,13 @@ import (
 	"strconv"
 	"time"
 
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/config"
 	"github.com/fuddle-io/fuddle/pkg/node"
-	"github.com/fuddle-io/fuddle/pkg/registry"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/protobuf/proto"
 )
 
 type FuddleNode struct {
@@ -309,10 +310,10 @@ func (c *Cluster) waitForNodeDiscovery(ctx context.Context) error {
 
 func (c *Cluster) waitForRegistryDiscovery(ctx context.Context) error {
 	for {
-		expectedMembers := c.randomFuddleNode().Fuddle.Registry().VersionedMembers()
+		expectedMembers := c.randomFuddleNode().Fuddle.Registry().Members()
 		equal := true
 		for n := range c.fuddleNodes {
-			members := n.Fuddle.Registry().VersionedMembers()
+			members := n.Fuddle.Registry().Members()
 			if !membersEqual(expectedMembers, members) {
 				equal = false
 				break
@@ -382,20 +383,20 @@ func parseAddrPort(addr string) (int, error) {
 	return port, nil
 }
 
-func membersEqual(lhs []*registry.VersionedMember, rhs []*registry.VersionedMember) bool {
+func membersEqual(lhs []*rpc.Member2, rhs []*rpc.Member2) bool {
 	if len(lhs) != len(rhs) {
 		return false
 	}
 
 	sort.Slice(lhs, func(i, j int) bool {
-		return lhs[i].Member.Id < lhs[j].Member.Id
+		return lhs[i].State.Id < lhs[j].State.Id
 	})
 	sort.Slice(rhs, func(i, j int) bool {
-		return rhs[i].Member.Id < rhs[j].Member.Id
+		return rhs[i].State.Id < rhs[j].State.Id
 	})
 
 	for i := 0; i != len(lhs); i++ {
-		if !lhs[i].Equal(rhs[i]) {
+		if !proto.Equal(lhs[i], rhs[i]) {
 			return false
 		}
 	}

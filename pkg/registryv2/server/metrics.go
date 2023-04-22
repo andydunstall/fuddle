@@ -18,7 +18,7 @@ func NewMetrics() *Metrics {
 		ClientUpdatesInbound: metrics.NewCounter(
 			"registry",
 			"client.updates.inbound",
-			[]string{"update_type"},
+			[]string{},
 			"Number of inbound updates received from a client",
 		),
 		ClientUpdatesOutbound: metrics.NewCounter(

@@ -27,7 +27,7 @@ func NewReplicaReadRegistryServer(reg *registry.Registry, opts ...Option) *Repli
 	outboundUpdates := metrics.NewCounter(
 		"registry",
 		"updates.replica.outbound",
-		[]string{"updatetype"},
+		[]string{},
 		"Number of outbound updates to a replica node",
 	)
 	if options.collector != nil {
@@ -45,16 +45,13 @@ func (s *ReplicaReadRegistryServer) Updates(req *rpc.SubscribeRequest, stream rp
 	logger := s.logger.With(zap.String("rpc", "ReplicaReadRegistryServer.Updates"))
 	logger.Debug("updates stream")
 
-	unsubscribe := s.registry.Subscribe(req, func(update *rpc.RemoteMemberUpdate) {
+	unsubscribe := s.registry.Subscribe(req, func(update *rpc.Member2) {
 		logger.Debug(
 			"send update",
-			zap.String("id", update.Member.Id),
-			zap.String("type", update.UpdateType.String()),
+			zap.String("id", update.State.Id),
 		)
 
-		s.outboundUpdates.Inc(map[string]string{
-			"updatetype": memberUpdateTypeToString(update.UpdateType),
-		})
+		s.outboundUpdates.Inc(map[string]string{})
 
 		// Ignore return error, if the client closes the stream the context
 		// will be cancelled.

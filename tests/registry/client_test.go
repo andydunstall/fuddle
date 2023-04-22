@@ -34,9 +34,9 @@ func TestClient_Register(t *testing.T) {
 	require.Nil(t, err)
 	client := rpc.NewClientWriteRegistryClient(conn)
 
-	updatesCh := make(chan *rpc.RemoteMemberUpdate, 10)
+	updatesCh := make(chan *rpc.Member2, 10)
 	req := &rpc.SubscribeRequest{}
-	node.Fuddle.Registry().Subscribe(req, func(update *rpc.RemoteMemberUpdate) {
+	node.Fuddle.Registry().Subscribe(req, func(update *rpc.Member2) {
 		updatesCh <- update
 	})
 
@@ -45,7 +45,7 @@ func TestClient_Register(t *testing.T) {
 
 	err = stream.Send(&rpc.ClientUpdate{
 		UpdateType: rpc.ClientUpdateType_CLIENT_REGISTER,
-		Member: &rpc.Member{
+		Member: &rpc.MemberState{
 			Id: "member-1",
 		},
 		SeqId: 1,
@@ -55,7 +55,7 @@ func TestClient_Register(t *testing.T) {
 	for {
 		select {
 		case u := <-updatesCh:
-			if u.Member.Id == "member-1" {
+			if u.State.Id == "member-1" {
 				return
 			}
 		case <-time.After(time.Second):

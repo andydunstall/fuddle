@@ -9,7 +9,7 @@ import (
 )
 
 type options struct {
-	localMember      *rpc.Member
+	localMember      *rpc.MemberState
 	heartbeatTimeout int64
 	reconnectTimeout int64
 	tombstoneTimeout int64
@@ -34,14 +34,14 @@ type Option interface {
 }
 
 type localMemberOption struct {
-	member *rpc.Member
+	member *rpc.MemberState
 }
 
 func (o localMemberOption) apply(opts *options) {
 	opts.localMember = o.member
 }
 
-func WithLocalMember(m *rpc.Member) Option {
+func WithLocalMember(m *rpc.MemberState) Option {
 	return localMemberOption{member: m}
 }
 

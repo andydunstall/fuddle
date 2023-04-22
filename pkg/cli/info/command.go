@@ -74,40 +74,42 @@ func runMemberStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("ID:", member.Id)
-	fmt.Println("Status:", member.Status)
-	fmt.Println("Service:", member.Service)
-	fmt.Println("Locality:", member.Locality)
-	fmt.Println("Created:", member.Created)
-	fmt.Println("Revision:", member.Revision)
+	fmt.Println("ID:", member.State.Id)
+	fmt.Println("Status:", member.State.Status)
+	fmt.Println("Service:", member.State.Service)
+	fmt.Println("Locality:")
+	fmt.Println("    Region:", member.State.Locality.Region)
+	fmt.Println("    Availability Zone:", member.State.Locality.AvailabilityZone)
+	fmt.Println("Started:", member.State.Started)
+	fmt.Println("Revision:", member.State.Revision)
 	fmt.Println("Metadata:")
 
 	keys := []string{}
-	for key := range member.Metadata {
+	for key := range member.State.Metadata {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		fmt.Printf("    %s: %s\n", key, member.Metadata[key])
+		fmt.Printf("    %s: %s\n", key, member.State.Metadata[key])
 	}
 
 	return nil
 }
 
-func displayMembers(members []*rpc.Member) {
+func displayMembers(members []*rpc.Member2) {
 	sort.Slice(members, func(i, j int) bool {
-		return members[i].Id < members[j].Id
+		return members[i].State.Id < members[j].State.Id
 	})
 
 	tbl := table.New("ID", "Status", "Service", "Locality", "Created", "Revision")
 	for _, member := range members {
 		tbl.AddRow(
-			member.Id,
-			member.Status,
-			member.Service,
-			member.Locality,
-			member.Created,
-			formatRevision(member.Revision),
+			member.State.Id,
+			member.State.Status,
+			member.State.Service,
+			member.State.Locality.AvailabilityZone,
+			member.State.Started,
+			formatRevision(member.State.Revision),
 		)
 	}
 

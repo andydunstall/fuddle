@@ -16,14 +16,3 @@ func clientUpdateTypeToString(updateType rpc.ClientUpdateType) string {
 		return "unknown"
 	}
 }
-
-func memberUpdateTypeToString(updateType rpc.MemberUpdateType) string {
-	switch updateType {
-	case rpc.MemberUpdateType_REGISTER:
-		return "register"
-	case rpc.MemberUpdateType_UNREGISTER:
-		return "unregister"
-	default:
-		return "unknown"
-	}
-}

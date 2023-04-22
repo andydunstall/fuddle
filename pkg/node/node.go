@@ -53,10 +53,11 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 
 	r := registry.NewRegistry(
 		conf.NodeID,
-		registry.WithLocalMember(&rpc.Member{
+		registry.WithLocalMember(&rpc.MemberState{
 			Id:       conf.NodeID,
+			Status:   "active",
 			Service:  "fuddle",
-			Created:  time.Now().UnixMilli(),
+			Started:  time.Now().UnixMilli(),
 			Revision: "unknown",
 		}),
 		registry.WithHeartbeatTimeout(conf.Registry.HeartbeatTimeout.Milliseconds()),
