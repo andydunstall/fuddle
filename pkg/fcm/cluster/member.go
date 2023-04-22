@@ -45,10 +45,13 @@ func (n *MemberNode) Shutdown() {
 
 func randomMember(id string) fuddle.Member {
 	return fuddle.Member{
-		ID:       id,
-		Service:  uuid.New().String(),
-		Locality: uuid.New().String(),
-		Created:  rand.Int63(),
+		ID:      id,
+		Service: uuid.New().String(),
+		Locality: fuddle.Locality{
+			Region:           uuid.New().String(),
+			AvailabilityZone: uuid.New().String(),
+		},
+		Started:  rand.Int63(),
 		Revision: uuid.New().String(),
 		Metadata: map[string]string{
 			uuid.New().String(): uuid.New().String(),

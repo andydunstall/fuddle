@@ -35,7 +35,7 @@ func Connect(addr string, opts ...Option) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) Members(ctx context.Context) ([]*rpc.Member, error) {
+func (c *Client) Members(ctx context.Context) ([]*rpc.Member2, error) {
 	resp, err := c.client.Members(ctx, &rpc.MembersRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("admin client: members: %w", err)
@@ -43,7 +43,7 @@ func (c *Client) Members(ctx context.Context) ([]*rpc.Member, error) {
 	return resp.Members, nil
 }
 
-func (c *Client) Member(ctx context.Context, id string) (*rpc.Member, error) {
+func (c *Client) Member(ctx context.Context, id string) (*rpc.Member2, error) {
 	resp, err := c.client.Member(ctx, &rpc.MemberRequest{
 		Id: id,
 	})

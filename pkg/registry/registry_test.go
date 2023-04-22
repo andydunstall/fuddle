@@ -19,7 +19,7 @@ func TestRegistry_AddLocalMember(t *testing.T) {
 		WithLocalMember(localMember),
 		WithLogger(testutils.Logger()),
 	)
-	m, ok := reg.Member("local")
+	m, ok := reg.MemberState("local")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(localMember, m))
 
@@ -45,7 +45,7 @@ func TestRegistry_LocalMemberUpdateIgnored(t *testing.T) {
 	reg.RemoveMember("local")
 
 	// The member should still equal the original member.
-	m, ok := reg.Member("local")
+	m, ok := reg.MemberState("local")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(localMember, m))
 }
@@ -59,7 +59,7 @@ func TestRegistry_AddMember(t *testing.T) {
 	addedMember := randomMember("my-member")
 	reg.AddMember(addedMember)
 
-	m, ok := reg.Member("my-member")
+	m, ok := reg.MemberState("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(addedMember, m))
 
@@ -83,7 +83,7 @@ func TestRegistry_AddMemberDiscardOutdated(t *testing.T) {
 
 	reg.AddMember(randomMember("my-member"), WithNowTime(50))
 
-	m, ok := reg.Member("my-member")
+	m, ok := reg.MemberState("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(addedMember, m))
 }
@@ -94,20 +94,23 @@ func TestRegistry_SubscribeToAddMember(t *testing.T) {
 		WithLogger(testutils.Logger()),
 	)
 
-	var update *rpc.RemoteMemberUpdate
-	reg.Subscribe(nil, func(u *rpc.RemoteMemberUpdate) {
+	var update *rpc.Member2
+	reg.Subscribe(nil, func(u *rpc.Member2) {
 		update = u
 	})
 
 	addedMember := randomMember("my-member")
 	reg.AddMember(addedMember, WithNowTime(100))
 
-	assert.True(t, proto.Equal(&rpc.RemoteMemberUpdate{
-		Member: addedMember,
-		Version: &rpc.Version{
-			Owner:     "local",
-			Timestamp: 100,
-			Counter:   0,
+	assert.True(t, proto.Equal(&rpc.Member2{
+		State:    addedMember,
+		Liveness: rpc.Liveness_UP,
+		Version: &rpc.Version2{
+			OwnerId: "local",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 100,
+				Counter:   0,
+			},
 		},
 	}, update))
 }
@@ -122,11 +125,10 @@ func TestRegistry_RemoveMember(t *testing.T) {
 	reg.AddMember(addedMember)
 	reg.RemoveMember("my-member")
 
-	expectedMember := memberWithStatus(addedMember, rpc.Liveness_LEFT)
-
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
-	assert.True(t, proto.Equal(expectedMember, m))
+	assert.True(t, proto.Equal(addedMember, m.State))
+	assert.Equal(t, rpc.Liveness_LEFT, m.Liveness)
 
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "left",
@@ -148,7 +150,7 @@ func TestRegistry_RemoveMemberDiscardOutdated(t *testing.T) {
 
 	reg.RemoveMember("my-member", WithNowTime(50))
 
-	m, ok := reg.Member("my-member")
+	m, ok := reg.MemberState("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(addedMember, m))
 }
@@ -162,21 +164,22 @@ func TestRegistry_SubscribeToRemoveMember(t *testing.T) {
 	addedMember := randomMember("my-member")
 	reg.AddMember(addedMember, WithNowTime(100))
 
-	var update *rpc.RemoteMemberUpdate
-	reg.Subscribe(nil, func(u *rpc.RemoteMemberUpdate) {
+	var update *rpc.Member2
+	reg.Subscribe(nil, func(u *rpc.Member2) {
 		update = u
 	})
 
 	reg.RemoveMember("my-member", WithNowTime(200))
 
-	expectedMember := memberWithStatus(addedMember, rpc.Liveness_LEFT)
-
-	assert.True(t, proto.Equal(&rpc.RemoteMemberUpdate{
-		Member: expectedMember,
-		Version: &rpc.Version{
-			Owner:     "local",
-			Timestamp: 200,
-			Counter:   0,
+	assert.True(t, proto.Equal(&rpc.Member2{
+		State:    addedMember,
+		Liveness: rpc.Liveness_LEFT,
+		Version: &rpc.Version2{
+			OwnerId: "local",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 200,
+				Counter:   0,
+			},
 		},
 	}, update))
 }
@@ -201,17 +204,19 @@ func TestRegistry_RemoteUpdateTakeOwnership(t *testing.T) {
 	}))
 
 	updatedMember := randomMember("my-member")
-	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		Member: updatedMember,
-		Version: &rpc.Version{
-			Owner: "remote",
-			// Outdated time.
-			Timestamp: 200,
+	reg.RemoteUpdate(&rpc.Member2{
+		State: updatedMember,
+		Version: &rpc.Version2{
+			OwnerId: "remote",
+			Timestamp: &rpc.MonotonicTimestamp{
+				// Outdated time.
+				Timestamp: 200,
+			},
 		},
 	})
 
 	// The member should equal the remote update.
-	m, ok := reg.Member("my-member")
+	m, ok := reg.MemberState("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(updatedMember, m))
 
@@ -240,17 +245,19 @@ func TestRegistry_RemoteUpdateWithOutdatedVersionIgnored(t *testing.T) {
 	reg.AddMember(addedMember, WithNowTime(200))
 
 	updatedMember := randomMember("my-member")
-	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		Member: updatedMember,
-		Version: &rpc.Version{
-			Owner: "remote",
-			// Outdated time.
-			Timestamp: 100,
+	reg.RemoteUpdate(&rpc.Member2{
+		State: updatedMember,
+		Version: &rpc.Version2{
+			OwnerId: "remote",
+			Timestamp: &rpc.MonotonicTimestamp{
+				// Outdated time.
+				Timestamp: 100,
+			},
 		},
 	})
 
 	// The member should still equal the original member.
-	m, ok := reg.Member("my-member")
+	m, ok := reg.MemberState("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(addedMember, m))
 }
@@ -264,16 +271,18 @@ func TestRegistry_LocalMemberRemoteUpdateIgnored(t *testing.T) {
 	)
 
 	updatedMember := randomMember("local")
-	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		Member: updatedMember,
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: time.Now().UnixMilli() + 1000,
+	reg.RemoteUpdate(&rpc.Member2{
+		State: updatedMember,
+		Version: &rpc.Version2{
+			OwnerId: "remote",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: time.Now().UnixMilli() + 1000,
+			},
 		},
 	})
 
 	// The member should still equal the original member.
-	m, ok := reg.Member("local")
+	m, ok := reg.MemberState("local")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(localMember, m))
 }
@@ -290,17 +299,19 @@ func TestRegistry_RemoteUpdateWithLocalOwnerIgnored(t *testing.T) {
 	reg.AddMember(addedMember)
 
 	updatedMember := randomMember("my-member")
-	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		Member: updatedMember,
-		Version: &rpc.Version{
+	reg.RemoteUpdate(&rpc.Member2{
+		State: updatedMember,
+		Version: &rpc.Version2{
 			// Using the same owner as the local node should be ignored.
-			Owner:     "local",
-			Timestamp: time.Now().UnixMilli() + 1000,
+			OwnerId: "local",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: time.Now().UnixMilli() + 1000,
+			},
 		},
 	})
 
 	// The member should still equal the original member.
-	m, ok := reg.Member("my-member")
+	m, ok := reg.MemberState("my-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(addedMember, m))
 }
@@ -313,17 +324,20 @@ func TestRegistry_SubscribeToRemoteUpdate(t *testing.T) {
 		WithLogger(testutils.Logger()),
 	)
 
-	var update *rpc.RemoteMemberUpdate
-	reg.Subscribe(nil, func(u *rpc.RemoteMemberUpdate) {
+	var update *rpc.Member2
+	reg.Subscribe(nil, func(u *rpc.Member2) {
 		update = u
 	})
 
 	addedMember := randomMember("my-member")
-	remoteUpdate := &rpc.RemoteMemberUpdate{
-		Member: addedMember,
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: 100,
+	remoteUpdate := &rpc.Member2{
+		State: addedMember,
+		Version: &rpc.Version2{
+			OwnerId: "remote",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 100,
+				Counter:   0,
+			},
 		},
 	}
 	reg.RemoteUpdate(remoteUpdate)
@@ -337,20 +351,23 @@ func TestRegistry_SubscribeOwnerOnlyIgnoresRemoteUpdate(t *testing.T) {
 		WithLogger(testutils.Logger()),
 	)
 
-	var update *rpc.RemoteMemberUpdate
+	var update *rpc.Member2
 	reg.Subscribe(
 		&rpc.SubscribeRequest{OwnerOnly: true},
-		func(u *rpc.RemoteMemberUpdate) {
+		func(u *rpc.Member2) {
 			update = u
 		},
 	)
 
 	addedMember := randomMember("my-member")
-	remoteUpdate := &rpc.RemoteMemberUpdate{
-		Member: addedMember,
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: 100,
+	remoteUpdate := &rpc.Member2{
+		State: addedMember,
+		Version: &rpc.Version2{
+			OwnerId: "remote",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 100,
+				Counter:   0,
+			},
 		},
 	}
 	reg.RemoteUpdate(remoteUpdate)
@@ -370,20 +387,23 @@ func TestRegistry_SubscribeOwnerOnlyReceivesOwnershipChangesUpdates(t *testing.T
 
 	reg.AddMember(randomMember("my-member"), WithNowTime(50))
 
-	var update *rpc.RemoteMemberUpdate
+	var update *rpc.Member2
 	reg.Subscribe(
 		&rpc.SubscribeRequest{OwnerOnly: true},
-		func(u *rpc.RemoteMemberUpdate) {
+		func(u *rpc.Member2) {
 			update = u
 		},
 	)
 
 	addedMember := randomMember("my-member")
-	remoteUpdate := &rpc.RemoteMemberUpdate{
-		Member: addedMember,
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: 100,
+	remoteUpdate := &rpc.Member2{
+		State: addedMember,
+		Version: &rpc.Version2{
+			OwnerId: "remote",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 100,
+				Counter:   0,
+			},
 		},
 	}
 	reg.RemoteUpdate(remoteUpdate)
@@ -410,15 +430,13 @@ func TestRegistry_MarkMemberDownIgnoresLocal(t *testing.T) {
 		WithHeartbeatTimeout(500),
 	)
 
-	expectedMember := copyMember(localMember)
-
 	reg.CheckMembersLiveness(
 		WithNowTime(1000),
 	)
 
-	m, ok := reg.Member("local")
+	m, ok := reg.MemberState("local")
 	assert.True(t, ok)
-	assert.True(t, proto.Equal(expectedMember, m))
+	assert.True(t, proto.Equal(localMember, m))
 }
 
 func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
@@ -435,11 +453,10 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 		WithNowTime(500),
 	)
 
-	expectedMember := memberWithStatus(addedMember, rpc.Liveness_DOWN)
-
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
-	assert.True(t, proto.Equal(expectedMember, m))
+	assert.True(t, proto.Equal(addedMember, m.State))
+	assert.Equal(t, rpc.Liveness_DOWN, m.Liveness)
 
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
@@ -458,7 +475,8 @@ func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
 
 	m, ok = reg.Member("my-member")
 	assert.True(t, ok)
-	assert.True(t, proto.Equal(addedMember, m))
+	assert.True(t, proto.Equal(addedMember, m.State))
+	assert.Equal(t, rpc.Liveness_UP, m.Liveness)
 
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
@@ -488,17 +506,14 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 		WithNowTime(500),
 	)
 
-	expectedMember := memberWithStatus(addedMember, rpc.Liveness_DOWN)
-
 	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
-	assert.True(t, proto.Equal(expectedMember, m))
+	assert.True(t, proto.Equal(addedMember, m.State))
+	assert.Equal(t, rpc.Liveness_DOWN, m.Liveness)
 
 	reg.CheckMembersLiveness(
 		WithNowTime(1500),
 	)
-
-	expectedMember = memberWithStatus(addedMember, rpc.Liveness_LEFT)
 
 	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
@@ -511,14 +526,16 @@ func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
 
 	m, ok = reg.Member("my-member")
 	assert.True(t, ok)
-	assert.True(t, proto.Equal(expectedMember, m))
+	assert.True(t, proto.Equal(addedMember, m.State))
+	assert.Equal(t, rpc.Liveness_LEFT, m.Liveness)
 
 	// Adding the member again should revive it.
 	reg.MemberHeartbeat(addedMember, WithNowTime(2000))
 
 	m, ok = reg.Member("my-member")
 	assert.True(t, ok)
-	assert.True(t, proto.Equal(addedMember, m))
+	assert.True(t, proto.Equal(addedMember, m.State))
+	assert.Equal(t, rpc.Liveness_UP, m.Liveness)
 
 	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
 		"status": "up",
@@ -570,11 +587,14 @@ func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
 	)
 
 	addedMember := randomMember("my-member")
-	reg.RemoteUpdate(&rpc.RemoteMemberUpdate{
-		Member: addedMember,
-		Version: &rpc.Version{
-			Owner:     "remote",
-			Timestamp: 100,
+	reg.RemoteUpdate(&rpc.Member2{
+		State: addedMember,
+		Version: &rpc.Version2{
+			OwnerId: "remote",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 100,
+				Counter:   0,
+			},
 		},
 	})
 
@@ -584,11 +604,10 @@ func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
 		WithNowTime(1000),
 	)
 
-	expectedMember := memberWithStatus(addedMember, rpc.Liveness_DOWN)
-
-	member, ok := reg.Member("my-member")
+	m, ok := reg.Member("my-member")
 	assert.True(t, ok)
-	assert.True(t, proto.Equal(expectedMember, member))
+	assert.True(t, proto.Equal(addedMember, m.State))
+	assert.Equal(t, rpc.Liveness_DOWN, m.Liveness)
 }
 
 func TestRegistry_UpdatesUnknownMembers(t *testing.T) {
@@ -601,29 +620,33 @@ func TestRegistry_UpdatesUnknownMembers(t *testing.T) {
 	)
 
 	updates := reg.Updates(&rpc.SubscribeRequest{
-		KnownMembers: make(map[string]*rpc.Version),
+		KnownMembers: make(map[string]*rpc.Version2),
 	})
 	assert.Equal(t, 1, len(updates))
-	assert.True(t, proto.Equal(updates[0], &rpc.RemoteMemberUpdate{
-		Member: localMember,
-		Version: &rpc.Version{
-			Owner:     "local",
-			Timestamp: 100,
-			Counter:   0,
+	assert.True(t, proto.Equal(updates[0], &rpc.Member2{
+		State: localMember,
+		Version: &rpc.Version2{
+			OwnerId: "local",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 100,
+				Counter:   0,
+			},
 		},
 	}))
 
 	ownerOnlyUpdates := reg.Updates(&rpc.SubscribeRequest{
-		KnownMembers: make(map[string]*rpc.Version),
+		KnownMembers: make(map[string]*rpc.Version2),
 		OwnerOnly:    true,
 	})
 	assert.Equal(t, 1, len(ownerOnlyUpdates))
-	assert.True(t, proto.Equal(ownerOnlyUpdates[0], &rpc.RemoteMemberUpdate{
-		Member: localMember,
-		Version: &rpc.Version{
-			Owner:     "local",
-			Timestamp: 100,
-			Counter:   0,
+	assert.True(t, proto.Equal(ownerOnlyUpdates[0], &rpc.Member2{
+		State: localMember,
+		Version: &rpc.Version2{
+			OwnerId: "local",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 100,
+				Counter:   0,
+			},
 		},
 	}))
 }
@@ -636,45 +659,55 @@ func TestRegistry_KnownMemberNotFound(t *testing.T) {
 	)
 
 	updates := reg.Updates(&rpc.SubscribeRequest{
-		KnownMembers: map[string]*rpc.Version{
-			"unknown-member": &rpc.Version{
-				Owner:     "local",
-				Timestamp: 50,
+		KnownMembers: map[string]*rpc.Version2{
+			"unknown-member": &rpc.Version2{
+				OwnerId: "local",
+				Timestamp: &rpc.MonotonicTimestamp{
+					Timestamp: 50,
+					Counter:   0,
+				},
 			},
 		},
 	})
 	assert.Equal(t, 1, len(updates))
-	assert.True(t, proto.Equal(updates[0], &rpc.RemoteMemberUpdate{
-		Member: &rpc.Member{
-			Id:     "unknown-member",
-			Status: rpc.Liveness_LEFT,
+	assert.True(t, proto.Equal(updates[0], &rpc.Member2{
+		State: &rpc.MemberState{
+			Id: "unknown-member",
 		},
-		Version: &rpc.Version{
-			Owner:     "local",
-			Timestamp: 50,
-			Counter:   1,
+		Liveness: rpc.Liveness_LEFT,
+		Version: &rpc.Version2{
+			OwnerId: "local",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 50,
+				Counter:   1,
+			},
 		},
 	}))
 
 	ownerOnlyUpdates := reg.Updates(&rpc.SubscribeRequest{
-		KnownMembers: map[string]*rpc.Version{
-			"unknown-member": &rpc.Version{
-				Owner:     "local",
-				Timestamp: 50,
+		KnownMembers: map[string]*rpc.Version2{
+			"unknown-member": &rpc.Version2{
+				OwnerId: "local",
+				Timestamp: &rpc.MonotonicTimestamp{
+					Timestamp: 50,
+					Counter:   0,
+				},
 			},
 		},
 		OwnerOnly: true,
 	})
 	assert.Equal(t, 1, len(ownerOnlyUpdates))
-	assert.True(t, proto.Equal(ownerOnlyUpdates[0], &rpc.RemoteMemberUpdate{
-		Member: &rpc.Member{
-			Id:     "unknown-member",
-			Status: rpc.Liveness_LEFT,
+	assert.True(t, proto.Equal(ownerOnlyUpdates[0], &rpc.Member2{
+		State: &rpc.MemberState{
+			Id: "unknown-member",
 		},
-		Version: &rpc.Version{
-			Owner:     "local",
-			Timestamp: 50,
-			Counter:   1,
+		Liveness: rpc.Liveness_LEFT,
+		Version: &rpc.Version2{
+			OwnerId: "local",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 50,
+				Counter:   1,
+			},
 		},
 	}))
 }
@@ -689,169 +722,66 @@ func TestRegistry_UpdatesKnownMemberOutOfDate(t *testing.T) {
 	)
 
 	updates := reg.Updates(&rpc.SubscribeRequest{
-		KnownMembers: map[string]*rpc.Version{
-			"local": &rpc.Version{
-				Owner:     "local",
-				Timestamp: 50,
+		KnownMembers: map[string]*rpc.Version2{
+			"local": &rpc.Version2{
+				OwnerId: "local",
+				Timestamp: &rpc.MonotonicTimestamp{
+					Timestamp: 50,
+					Counter:   0,
+				},
 			},
 		},
 	})
 	assert.Equal(t, 1, len(updates))
-	assert.True(t, proto.Equal(updates[0], &rpc.RemoteMemberUpdate{
-		Member: localMember,
-		Version: &rpc.Version{
-			Owner:     "local",
-			Timestamp: 100,
-			Counter:   0,
+	assert.True(t, proto.Equal(updates[0], &rpc.Member2{
+		State: localMember,
+		Version: &rpc.Version2{
+			OwnerId: "local",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 100,
+				Counter:   0,
+			},
 		},
 	}))
 
 	ownerOnlyUpdates := reg.Updates(&rpc.SubscribeRequest{
-		KnownMembers: map[string]*rpc.Version{
-			"local": &rpc.Version{
-				Owner:     "local",
-				Timestamp: 50,
+		KnownMembers: map[string]*rpc.Version2{
+			"local": &rpc.Version2{
+				OwnerId: "local",
+				Timestamp: &rpc.MonotonicTimestamp{
+					Timestamp: 50,
+					Counter:   0,
+				},
 			},
 		},
 		OwnerOnly: true,
 	})
 	assert.Equal(t, 1, len(ownerOnlyUpdates))
-	assert.True(t, proto.Equal(ownerOnlyUpdates[0], &rpc.RemoteMemberUpdate{
-		Member: localMember,
-		Version: &rpc.Version{
-			Owner:     "local",
-			Timestamp: 100,
-			Counter:   0,
+	assert.True(t, proto.Equal(ownerOnlyUpdates[0], &rpc.Member2{
+		State: localMember,
+		Version: &rpc.Version2{
+			OwnerId: "local",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: 100,
+				Counter:   0,
+			},
 		},
 	}))
 }
 
-func TestCompareVersions(t *testing.T) {
-	tests := []struct {
-		Name     string
-		LHS      *rpc.Version
-		RHS      *rpc.Version
-		Expected int
-	}{
-		{
-			Name: "owners not equal but timestamps equal",
-			LHS: &rpc.Version{
-				Owner: "foo",
-			},
-			RHS: &rpc.Version{
-				Owner: "bar",
-			},
-			// LHS greater even though timestamps equal.
-			Expected: -1,
-		},
-		{
-			Name: "owners not equal lhs timestamp greater",
-			LHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 10,
-			},
-			RHS: &rpc.Version{
-				Owner:     "bar",
-				Timestamp: 5,
-			},
-			Expected: -1,
-		},
-		{
-			Name: "owners not equal rhs timestamp greater",
-			LHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 5,
-			},
-			RHS: &rpc.Version{
-				Owner:     "bar",
-				Timestamp: 10,
-			},
-			Expected: 1,
-		},
-		{
-			Name: "owners equal lhs timestamp greater",
-			LHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 10,
-			},
-			RHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 5,
-			},
-			Expected: -1,
-		},
-		{
-			Name: "owners equal rhs timestamp greater",
-			LHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 5,
-			},
-			RHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 10,
-			},
-			Expected: 1,
-		},
-		{
-			Name: "owners equal lhs counter greater",
-			LHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 10,
-				Counter:   10,
-			},
-			RHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 10,
-				Counter:   5,
-			},
-			Expected: -1,
-		},
-		{
-			Name: "owners equal rhs counter greater",
-			LHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 10,
-				Counter:   5,
-			},
-			RHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 10,
-				Counter:   10,
-			},
-			Expected: 1,
-		},
-		{
-			Name: "equal",
-			LHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 10,
-				Counter:   10,
-			},
-			RHS: &rpc.Version{
-				Owner:     "foo",
-				Timestamp: 10,
-				Counter:   10,
-			},
-			Expected: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.Name, func(t *testing.T) {
-			assert.Equal(t, tt.Expected, compareVersions(tt.LHS, tt.RHS))
-		})
-	}
-}
-
-func randomMember(id string) *rpc.Member {
+func randomMember(id string) *rpc.MemberState {
 	if id == "" {
 		id = uuid.New().String()
 	}
-	return &rpc.Member{
-		Id:       id,
-		Service:  uuid.New().String(),
-		Locality: uuid.New().String(),
-		Created:  rand.Int63(),
+	return &rpc.MemberState{
+		Id:      id,
+		Status:  uuid.New().String(),
+		Service: uuid.New().String(),
+		Locality: &rpc.Locality{
+			Region:           uuid.New().String(),
+			AvailabilityZone: uuid.New().String(),
+		},
+		Started:  rand.Int63(),
 		Revision: uuid.New().String(),
 		Metadata: map[string]string{
 			uuid.New().String(): uuid.New().String(),

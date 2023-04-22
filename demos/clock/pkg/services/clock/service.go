@@ -24,7 +24,7 @@ func NewService(id string, ln *net.TCPListener, fuddleAddrs []string, logger *za
 	member := fuddle.Member{
 		ID:       id,
 		Service:  "clock",
-		Created:  time.Now().UnixMilli(),
+		Started:  time.Now().UnixMilli(),
 		Revision: "v0.1.0",
 		Metadata: map[string]string{
 			"rpc-addr": ln.Addr().String(),

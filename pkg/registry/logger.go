@@ -1,98 +1,79 @@
 package registry
 
 import (
+	"strings"
+
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"go.uber.org/zap/zapcore"
 )
 
-// Adds wrappers for gRPC types to log with zap.
-
-type versionLogger struct {
-	Owner     string
-	Timestamp int64
-	Counter   uint64
-}
-
-func newVersionLogger(v *rpc.Version) *versionLogger {
-	return &versionLogger{
-		Owner:     v.Owner,
-		Timestamp: v.Timestamp,
-		Counter:   v.Counter,
-	}
-}
-
-func (l versionLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
-	e.AddString("owner", l.Owner)
-	e.AddInt64("timestamp", l.Timestamp)
-	e.AddUint64("counter", l.Counter)
-	return nil
-}
-
-type metadataLogger map[string]string
-
-func (m metadataLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
-	for k, v := range m {
-		e.AddString(k, v)
-	}
-	return nil
-}
-
 type memberLogger struct {
-	ID       string
-	Status   string
-	Service  string
-	Locality string
-	Created  int64
-	Revision string
-	Metadata metadataLogger
+	member *rpc.Member2
 }
 
-func newMemberLogger(m *rpc.Member) *memberLogger {
-	return &memberLogger{
-		ID:       m.Id,
-		Status:   m.Status.String(),
-		Service:  m.Service,
-		Locality: m.Locality,
-		Created:  m.Created,
-		Revision: m.Revision,
-		Metadata: m.Metadata,
+func newMemberLogger(m *rpc.Member2) memberLogger {
+	return memberLogger{
+		member: m,
 	}
 }
 
 func (l memberLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
-	e.AddString("id", l.ID)
-	e.AddString("status", l.Status)
-	e.AddString("service", l.Service)
-	e.AddString("locality", l.Locality)
-	e.AddInt64("created", l.Created)
-	e.AddString("revision", l.Revision)
-	if err := e.AddObject("metadata", metadataLogger(l.Metadata)); err != nil {
-		return err
+	e.AddString("state.id", l.member.State.Id)
+	e.AddString("state.status", l.member.State.Status)
+	e.AddString("state.service", l.member.State.Service)
+	if l.member.State.Locality != nil {
+		e.AddString("state.locality.region", l.member.State.Locality.Region)
+		e.AddString("state.locality.az", l.member.State.Locality.AvailabilityZone)
 	}
+	e.AddString("state.started", l.member.State.Service)
+	e.AddString("state.revision", l.member.State.Revision)
+
+	e.AddString("liveness", strings.ToLower(l.member.Liveness.String()))
+
+	e.AddString("version.owner", l.member.Version.OwnerId)
+	e.AddInt64("version.timestamp", l.member.Version.Timestamp.Timestamp)
+	e.AddUint64("version.counter", l.member.Version.Timestamp.Counter)
+
+	e.AddInt64("expiry", l.member.Expiry)
+
 	return nil
 }
 
-type remoteMemberUpdateLogger struct {
-	UpdateType rpc.MemberUpdateType
-	Member     *memberLogger
-	Version    *versionLogger
+type memberStateLogger struct {
+	state *rpc.MemberState
 }
 
-func newRemoteMemberUpdateLogger(u *rpc.RemoteMemberUpdate) *remoteMemberUpdateLogger {
-	return &remoteMemberUpdateLogger{
-		UpdateType: u.UpdateType,
-		Member:     newMemberLogger(u.Member),
-		Version:    newVersionLogger(u.Version),
+func newMemberStateLogger(s *rpc.MemberState) memberStateLogger {
+	return memberStateLogger{
+		state: s,
 	}
 }
 
-func (l remoteMemberUpdateLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
-	e.AddString("update-type", l.UpdateType.String())
-	if err := e.AddObject("member", l.Member); err != nil {
-		return err
+func (l memberStateLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddString("id", l.state.Id)
+	e.AddString("status", l.state.Status)
+	e.AddString("service", l.state.Service)
+	e.AddString("locality.region", l.state.Locality.Region)
+	e.AddString("locality.az", l.state.Locality.AvailabilityZone)
+	e.AddString("started", l.state.Service)
+	e.AddString("revision", l.state.Revision)
+
+	return nil
+}
+
+type versionLogger struct {
+	version *rpc.Version2
+}
+
+func newVersionLogger(v *rpc.Version2) versionLogger {
+	return versionLogger{
+		version: v,
 	}
-	if err := e.AddObject("version", l.Version); err != nil {
-		return err
-	}
+}
+
+func (l versionLogger) MarshalLogObject(e zapcore.ObjectEncoder) error {
+	e.AddString("owner", l.version.OwnerId)
+	e.AddInt64("timestamp", l.version.Timestamp.Timestamp)
+	e.AddUint64("counter", l.version.Timestamp.Counter)
 	return nil
 }

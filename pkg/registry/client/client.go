@@ -107,7 +107,7 @@ func (c *Client) onConnected() {
 		context.Background(),
 		&rpc.SubscribeRequest{
 			OwnerOnly:    true,
-			KnownMembers: make(map[string]*rpc.Version),
+			KnownMembers: make(map[string]*rpc.Version2),
 		},
 	)
 	if err != nil {
@@ -139,8 +139,7 @@ func (c *Client) streamUpdates(stream rpc.ReplicaReadRegistry_UpdatesClient) {
 
 		c.logger.Debug(
 			"stream update",
-			zap.String("id", update.Member.Id),
-			zap.String("type", update.UpdateType.String()),
+			zap.String("id", update.State.Id),
 		)
 
 		c.registry.RemoteUpdate(update)
