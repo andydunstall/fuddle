@@ -142,6 +142,19 @@ func (r *Registry) Members() []*rpc.Member2 {
 	return members
 }
 
+func (r *Registry) OwnedMembers() []*rpc.Member2 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	members := make([]*rpc.Member2, 0, len(r.members))
+	for _, m := range r.members {
+		if m.Version.OwnerId == r.localID {
+			members = append(members, m)
+		}
+	}
+	return members
+}
+
 func (r *Registry) UpMembers() []*rpc.Member2 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -157,6 +170,24 @@ func (r *Registry) UpMembers() []*rpc.Member2 {
 
 func (r *Registry) Metrics() *Metrics {
 	return r.metrics
+}
+
+func (r *Registry) SubscribeLocal(onUpdate func(update *rpc.Member2)) func() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	handle := &subHandle{
+		onUpdate:  onUpdate,
+		ownerOnly: true,
+	}
+	r.subs[handle] = struct{}{}
+
+	return func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		delete(r.subs, handle)
+	}
 }
 
 // Subscribe to member updates.

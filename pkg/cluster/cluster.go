@@ -3,6 +3,7 @@ package cluster
 import (
 	"sync"
 
+	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	registryClient "github.com/fuddle-io/fuddle/pkg/registry/client"
 	"go.uber.org/zap"
@@ -67,6 +68,11 @@ func (c *Cluster) OnJoin(id string, addr string) {
 	c.metrics.NodesCount.Set(float64(nodesCount+1), make(map[string]string))
 
 	c.registry.OnNodeJoin(id)
+
+	// To bootstrap the node send the members we own.
+	for _, m := range c.registry.OwnedMembers() {
+		client.Update(m)
+	}
 }
 
 func (c *Cluster) OnLeave(id string) {
@@ -86,4 +92,13 @@ func (c *Cluster) OnLeave(id string) {
 	c.metrics.NodesCount.Set(float64(nodesCount+1), make(map[string]string))
 
 	c.registry.OnNodeLeave(id)
+}
+
+func (c *Cluster) OnUpdate(m *rpc.Member2) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, client := range c.clients {
+		client.Update(m)
+	}
 }

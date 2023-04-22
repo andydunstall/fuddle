@@ -73,6 +73,10 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 		cluster.WithCollector(collector),
 	)
 
+	r.SubscribeLocal(func(update *rpc.Member2) {
+		c.OnUpdate(update)
+	})
+
 	var adminServerOpts []adminServer.Option
 	if options.adminListener != nil {
 		adminServerOpts = append(adminServerOpts, adminServer.WithListener(options.adminListener))

@@ -65,8 +65,8 @@ github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1m
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fuddle-io/fuddle-go v0.0.0-20230422141443-eba05f3b16f3 h1:lvs9JnbE9zhFq44JW1CWoUlBtul6ULlO7ihIZO9O+5M=
 github.com/fuddle-io/fuddle-go v0.0.0-20230422141443-eba05f3b16f3/go.mod h1:8H8xZn1+dQF7m/cxUeJ63xVGTtlLD+aMaBSmXSMmo2w=
-github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230422141008-2439f7c4cb28 h1:khLhHRmmsTB3fEJ7NMC7BoWvu4crO0G2wpzRY95BDo0=
-github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230422141008-2439f7c4cb28/go.mod h1:plrExYS7pCDF4Np8fz1W+Rcc+KYY6DlqRAMmu9Qr4sA=
+github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230422185040-8bc46889ab4a h1:w9O2nJyPycPK0XXsXL3JcpeLsypxmsDG56iMyMCm75U=
+github.com/fuddle-io/fuddle-rpc/go v0.0.0-20230422185040-8bc46889ab4a/go.mod h1:plrExYS7pCDF4Np8fz1W+Rcc+KYY6DlqRAMmu9Qr4sA=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=

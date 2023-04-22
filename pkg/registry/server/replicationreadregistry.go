@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/metrics"
 	"github.com/fuddle-io/fuddle/pkg/registry"
@@ -64,4 +66,14 @@ func (s *ReplicaReadRegistryServer) Updates(req *rpc.SubscribeRequest, stream rp
 	logger.Debug("subscribe stream closed")
 
 	return nil
+}
+
+func (s *ReplicaReadRegistryServer) Update(ctx context.Context, req *rpc.UpdateRequest) (*rpc.UpdateResponse, error) {
+	s.logger.Debug(
+		"replica update",
+		zap.String("id", req.Member.State.Id),
+	)
+
+	s.registry.RemoteUpdate(req.Member)
+	return &rpc.UpdateResponse{}, nil
 }
