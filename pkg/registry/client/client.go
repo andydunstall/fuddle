@@ -3,12 +3,13 @@ package client
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/registry"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -24,6 +25,9 @@ type Client struct {
 	cancel    func()
 
 	onConnectionStateChange func(state ConnState)
+
+	pending   []*rpc.Member2
+	pendingMu sync.Mutex
 
 	logger *zap.Logger
 }
@@ -61,10 +65,18 @@ func Connect(addr string, registry *registry.Registry, opts ...Option) (*Client,
 		onConnectionStateChange: options.onConnectionStateChange,
 		logger:                  options.logger,
 	}
-
-	go c.monitorConnection()
-
+	go c.sendLoop()
 	return c, nil
+}
+
+func (c *Client) Update(member *rpc.Member2) {
+	// TODO(AD) this must not block, instead queue up, and if queue gets full
+	// will have to drop messages (which will be fixed by read repair)
+	// TODO(AD) add retries with backoff (order doesn't matter)
+	c.pendingMu.Lock()
+	defer c.pendingMu.Unlock()
+
+	c.pending = append(c.pending, member)
 }
 
 func (c *Client) Close() {
@@ -73,75 +85,26 @@ func (c *Client) Close() {
 	c.conn.Close()
 }
 
-// monitorConnection handles connection disconnects and reconnects.
-func (c *Client) monitorConnection() {
+func (c *Client) sendLoop() {
+	// TODO(AD) for now just poll
 	for {
-		s := c.conn.GetState()
-		if s == connectivity.Ready {
-			c.onConnected()
-		} else {
-			c.conn.Connect()
-		}
-
-		if !c.conn.WaitForStateChange(c.cancelCtx, s) {
-			// Only returns if the client is closed.
+		select {
+		case <-c.cancelCtx.Done():
 			return
+		case <-time.After(time.Millisecond * 100):
 		}
 
-		// If we were ready but now the state has changed we must have
-		// droped the connection.
-		if s == connectivity.Ready {
-			c.onDisconnected()
+		c.pendingMu.Lock()
+		pending := c.pending
+		c.pending = nil
+		c.pendingMu.Unlock()
+
+		for _, m := range pending {
+			if _, err := c.client.Update(context.Background(), &rpc.UpdateRequest{
+				Member: m,
+			}); err != nil {
+				c.logger.Warn("failed to send update", zap.Error(err))
+			}
 		}
-	}
-}
-
-func (c *Client) onConnected() {
-	c.logger.Info("connected")
-
-	if c.onConnectionStateChange != nil {
-		c.onConnectionStateChange(StateConnected)
-	}
-
-	stream, err := c.client.Updates(
-		context.Background(),
-		&rpc.SubscribeRequest{
-			OwnerOnly:    true,
-			KnownMembers: make(map[string]*rpc.Version2),
-		},
-	)
-	if err != nil {
-		// If subscribe fails, the connection is likely already closed, so
-		// it will be retried once connected.
-		c.logger.Warn("subscribe failed", zap.Error(err))
-		return
-	}
-
-	// streamUpdates will exit when the connection is closed.
-	go c.streamUpdates(stream)
-}
-
-func (c *Client) onDisconnected() {
-	c.logger.Info("disconnected")
-
-	if c.onConnectionStateChange != nil {
-		c.onConnectionStateChange(StateDisconnected)
-	}
-}
-
-func (c *Client) streamUpdates(stream rpc.ReplicaReadRegistry_UpdatesClient) {
-	for {
-		update, err := stream.Recv()
-		if err != nil {
-			c.logger.Warn("stream error", zap.Error(err))
-			return
-		}
-
-		c.logger.Debug(
-			"stream update",
-			zap.String("id", update.State.Id),
-		)
-
-		c.registry.RemoteUpdate(update)
 	}
 }

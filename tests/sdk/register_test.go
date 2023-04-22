@@ -49,6 +49,11 @@ func TestRegister_RegisterMembers(t *testing.T) {
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 
+	assert.NoError(t, c.WaitForHealthy(ctx))
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*15)
+	defer cancel()
+
 	for _, client := range clients {
 		assert.NoError(t, waitForMembers(ctx, client, 15))
 	}
