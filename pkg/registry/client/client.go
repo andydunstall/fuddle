@@ -129,7 +129,7 @@ func (c *Client) onDisconnected() {
 	}
 }
 
-func (c *Client) streamUpdates(stream rpc.Registry_SubscribeClient) {
+func (c *Client) streamUpdates(stream rpc.ReplicaReadRegistry_UpdatesClient) {
 	for {
 		update, err := stream.Recv()
 		if err != nil {
