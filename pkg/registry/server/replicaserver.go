@@ -9,15 +9,32 @@ import (
 	"go.uber.org/zap"
 )
 
-// ReplicaServer services updates to the registry to other Fuddle
-// nodes in the cluster.
+type ReplicaServerMetrics struct {
+	ReplicaUpdatesInbound *metrics.Counter
+}
+
+func NewReplicaServerMetrics() *ReplicaServerMetrics {
+	return &ReplicaServerMetrics{
+		ReplicaUpdatesInbound: metrics.NewCounter(
+			"registry",
+			"replica.updates.inbound",
+			[]string{"source"},
+			"Number of inbound updates received from replicas",
+		),
+	}
+}
+
+func (m *ReplicaServerMetrics) Register(collector metrics.Collector) {
+	collector.AddCounter(m.ReplicaUpdatesInbound)
+}
+
 type ReplicaServer struct {
 	registry *registry.Registry
 
-	outboundUpdates *metrics.Counter
-	logger          *zap.Logger
+	metrics *ReplicaServerMetrics
+	logger  *zap.Logger
 
-	rpc.UnimplementedReplicaReadRegistryServer
+	rpc.UnimplementedReplicaRegistry2Server
 }
 
 func NewReplicaServer(reg *registry.Registry, opts ...Option) *ReplicaServer {
@@ -26,54 +43,31 @@ func NewReplicaServer(reg *registry.Registry, opts ...Option) *ReplicaServer {
 		o.apply(options)
 	}
 
-	outboundUpdates := metrics.NewCounter(
-		"registry",
-		"updates.replica.outbound",
-		[]string{},
-		"Number of outbound updates to a replica node",
-	)
+	metrics := NewReplicaServerMetrics()
 	if options.collector != nil {
-		options.collector.AddCounter(outboundUpdates)
+		metrics.Register(options.collector)
 	}
 
 	return &ReplicaServer{
-		registry:        reg,
-		outboundUpdates: outboundUpdates,
-		logger:          options.logger,
+		registry: reg,
+		metrics:  metrics,
+		logger:   options.logger,
 	}
 }
 
-func (s *ReplicaServer) Updates(req *rpc.SubscribeRequest, stream rpc.ReplicaReadRegistry_UpdatesServer) error {
-	logger := s.logger.With(zap.String("rpc", "ReplicaServer.Updates"))
-	logger.Debug("updates stream")
-
-	unsubscribe := s.registry.Subscribe(req, func(update *rpc.Member2) {
-		logger.Debug(
-			"send update",
-			zap.String("id", update.State.Id),
-		)
-
-		s.outboundUpdates.Inc(map[string]string{})
-
-		// Ignore return error, if the client closes the stream the context
-		// will be cancelled.
-		// nolint
-		stream.Send(update)
-	})
-	defer unsubscribe()
-
-	<-stream.Context().Done()
-	logger.Debug("subscribe stream closed")
-
-	return nil
+func (s *ReplicaServer) Metrics() *ReplicaServerMetrics {
+	return s.metrics
 }
 
 func (s *ReplicaServer) Update(ctx context.Context, req *rpc.UpdateRequest) (*rpc.UpdateResponse, error) {
-	s.logger.Debug(
-		"replica update",
-		zap.String("id", req.Member.State.Id),
-	)
+	s.metrics.ReplicaUpdatesInbound.Inc(map[string]string{
+		"source": req.SourceNodeId,
+	})
 
 	s.registry.RemoteUpdate(req.Member)
 	return &rpc.UpdateResponse{}, nil
+}
+
+func (s *ReplicaServer) Sync(ctx context.Context, req *rpc.ReplicaSyncRequest) (*rpc.ReplicaSyncResponse, error) {
+	return &rpc.ReplicaSyncResponse{}, nil
 }

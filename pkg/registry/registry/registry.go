@@ -97,6 +97,13 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 	return reg
 }
 
+func (r *Registry) LocalID() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.localID
+}
+
 // MemberState returns the member with the given ID, or false if it is not found.
 func (r *Registry) MemberState(id string) (*rpc.MemberState, bool) {
 	r.mu.Lock()
