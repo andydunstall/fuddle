@@ -16,6 +16,7 @@ import (
 
 type ReplicaClientMetrics struct {
 	ReplicaUpdatesOutbound *metrics.Counter
+	RepairUpdatesInbound   *metrics.Counter
 }
 
 func NewReplicaClientMetrics() *ReplicaClientMetrics {
@@ -26,11 +27,19 @@ func NewReplicaClientMetrics() *ReplicaClientMetrics {
 			[]string{"target", "status"},
 			"Number of outbound updates send to a replica",
 		),
+
+		RepairUpdatesInbound: metrics.NewCounter(
+			"registry",
+			"repair.updates.inbound",
+			[]string{"source", "status"},
+			"Number of inbound updates from replica repair",
+		),
 	}
 }
 
 func (m *ReplicaClientMetrics) Register(collector metrics.Collector) {
 	collector.AddCounter(m.ReplicaUpdatesOutbound)
+	collector.AddCounter(m.RepairUpdatesInbound)
 }
 
 // ReplicaClient is used to make RPCs to other Fuddle nodes in the cluster.
@@ -128,6 +137,11 @@ func (c *ReplicaClient) Sync(ctx context.Context) error {
 		Digest: c.registry.Digest(c.digestLimit),
 	})
 	if err != nil {
+		c.metrics.RepairUpdatesInbound.Inc(map[string]string{
+			"source": c.targetID,
+			"status": "fail",
+		})
+
 		return fmt.Errorf("replica client: client: sync: %w", err)
 	}
 
@@ -136,6 +150,11 @@ func (c *ReplicaClient) Sync(ctx context.Context) error {
 		zap.String("target", c.targetID),
 		zap.Int("digest-len", len(resp.Members)),
 	)
+
+	c.metrics.RepairUpdatesInbound.Add(len(resp.Members), map[string]string{
+		"source": c.targetID,
+		"status": "ok",
+	})
 
 	for _, m := range resp.Members {
 		c.registry.RemoteUpdate(m)

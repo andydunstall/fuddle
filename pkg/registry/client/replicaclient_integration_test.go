@@ -11,6 +11,7 @@ import (
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/registry/client"
+	"github.com/fuddle-io/fuddle/pkg/registry/registry"
 	"github.com/fuddle-io/fuddle/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,7 +72,10 @@ func TestClient_ForwardUpdate(t *testing.T) {
 	defer grpcServer.Stop()
 
 	client, err := client.ReplicaConnect(
-		addr, "local", "target", client.NewReplicaClientMetrics(),
+		addr,
+		"target",
+		registry.NewRegistry("local"),
+		client.NewReplicaClientMetrics(),
 	)
 	require.NoError(t, err)
 	defer client.Close()
@@ -104,7 +108,10 @@ func TestClient_ForwardUpdateRetryUnavailable(t *testing.T) {
 	defer grpcServer.Stop()
 
 	client, err := client.ReplicaConnect(
-		addr, "local", "target", client.NewReplicaClientMetrics(),
+		addr,
+		"target",
+		registry.NewRegistry("local"),
+		client.NewReplicaClientMetrics(),
 	)
 	require.NoError(t, err)
 	defer client.Close()
