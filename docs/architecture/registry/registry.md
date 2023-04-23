@@ -1,76 +1,65 @@
 # Registry
-> :warning: The registry is being replaced by [registryv2](../registryv2/registry.md).
+> :warning: **In progress**
 
-The registry contains the set of registered members.
+The registry maintains the set of registered members in the cluster.
 
-# Member State
-Each registered member includes:
-* Status: Whether the member is considered `up` or `down` by Fuddle
-* Attributes: A set of attributes used to look up members and for observability,
-such as service and locality
-* Metadata: A set of arbitrary key-value pairs containing application state
+## Members
+Each member respresents the running instance of a service. Members are
+registered by Fuddle clients, plus each Fuddle node registers itself.
 
-Members are registered by clients. That client is then the authority for that
-member. If the client goes down, all members registered by the client are also
-considered down. This is because typically a Fuddle client will be registering
-its own process, though may also register a 3rd party service running locally,
-such as Redis.
+Members contain a set of attributes, including the members ID, status, service,
+locality and application defined metadata. This member state can be used by
+Fuddle clients to filter the set of members of interest, and contains
+information needed to interact with the member.
 
-## Status
-A members status is either `up` or `down`.
+Fuddle also maintains the liveness of each registered member, with status of
+either `up`, `down` or `left`.
 
-The status is decided by Fuddle based on client heartbeats. If Fuddle does not
-receive a heartbeat from a client with registered members for the configured
-`heartbeat_timeout` (default 20s), all members registered by that client are
-considered `down`.
+See [members.md](./members.md) for details.
 
-If `down` members don't become healthy again for the configured
-`reconnect_timeout` (default 5m), the members are unregistered.
+## Clients
+Application nodes interact with Fuddle using on of the Fuddle SDKs, which run
+the Fuddle client.
 
-Keeping `down` members in the cluster makes observability easier as you can
-inspect the failed members, and allows applications to decide how they handle
-`down` members. Such as load balancer may immediately stop trying to route
-requests to `down` members, but a database may want to keep them to avoid
-excessive rebalancing.
+Clients stream the state of the registry to build an eventually consistent
+local copy of the registry, which can then be used by the application to query
+the registry and subscribe to updates.
 
-Note applications may choose to add their own application defined member status
-using member metadata.
+Applications also use the Fuddle client to register members into the registry.
+Each member has its own connection to Fuddle, and that connection must remain
+active and send regular heartbeats for the member to be considered healthy.
 
-## Attributes
-The member attributes describe the member.
+See [client.md](./client.md) for details.
 
-These are used for filtering members, such as looking up members in the `orders`
-service in `us-east-2`. Note metadata can also be used for filtering.
+## Failure Detector
+The failure detector will mark members that miss their heartbeats as `down`
+and eventually removes them from the cluster.
 
-The attributes contain:
-* ID (`string`): A unique identifier for the member
-* Service (`string`): The type of service running on the member (such as
-`orders`, `redis`, `frontend`)
-* Locality (`string`): The location of the members. The format of the locality
-is user defined though is recommended to be organized into a hierarchy such as
-`<provider>.<region>.<zone>` or `<data center>.<rack>` to make it easy to filter
-using wildcards
-* Created (`int64`): The UNIX timestamp in milliseconds that the member was
-created
-* Revision (`string`): An identifier for the version of the service running on
-the member, such as a Git tag or commit SHA
+See [failure_detector.md](./failure_detector.md) for details.
 
-## Metadata
-The member metadata contains a set of arbitrary key-value pairs containing
-application defined state. This can be used to include information members need
-to know about one another, such as routing information, protocol versions etc.
+## Replication
+The registry is replicated to every Fuddle node in the cluster. This means:
+* Clients can connect to any Fuddle node and stream the full registry
+* The cluster can tolerate nodes failing and losing networking with minimal
+disruption
 
-# Failure Detector
-To detect failed members, each client must send a heartbeat every
-`heartbeat_interval` (default 5s) to Fuddle.
+All updates are forwarded to every other Fuddle node. To repair any
+discrepancies between nodes Fuddle also runs a background repair process where
+nodes periodically synchronise their states.
 
-If Fuddle doesn’t receive a heartbeat for the `heartbeat_timeout` (default 20s),
-it will mark all members registered by that client as `down`.
+See [replication.md](./replication.md) for details.
 
-Members stay in the `down` state until either:
-* The client reconnects so members move back to the `up` state
-* The `reconnect_timeout` (default 5m) is reached and the down members are
-unregistered
+## Node Lifecycle
+When Fuddle nodes start up, they wait until they have received the registry
+state from other replicas before they begin accepting client connections.
 
-If a client eventually reconnects after the `reconnect_timeout`, its members
-will be re-registered.
+When a Fuddle node is shut down, it will stop accepting client connections and
+gradually drop all existing client connections. This forces clients to reconnect
+to another node to minimise disruption when the Fuddle node shuts down.
+
+## Fault Tolerance
+[fault_tolerance.md](./fault_tolerance.md) describes how each supported fault
+scenario is handled by Fuddle.
+
+## Metrics
+[metrics.md](./metrics.md) describes the available registry metrics.

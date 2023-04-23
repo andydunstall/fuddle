@@ -93,11 +93,12 @@ attributes and metadata.
 ## Architecture
 * [Overview](./docs/architecture/overview.md)
 * [Registry](./docs/architecture/registry/registry.md)
-	* [Replication](./docs/architecture/registry/replication.md)
+	* [Members](./docs/architecture/registry/members.md)
 	* [Client](./docs/architecture/registry/client.md)
-* [RegistryV2](./docs/architecture/registryv2/registry.md)
-	* [Members](./docs/architecture/registryv2/members.md)
-	* [Replication](./docs/architecture/registryv2/replication.md)
+	* [Failure Detector](./docs/architecture/registry/failure_detector.md)
+	* [Replication](./docs/architecture/registry/replication.md)
+	* [Fault Tolerance](./docs/architecture/registry/fault_tolerance.md)
+	* [Metrics](./docs/architecture/registry/metrics.md)
 
 # :warning: Limitations
 Fuddle is still early in development so is missing features needed to run in
