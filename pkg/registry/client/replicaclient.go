@@ -86,6 +86,8 @@ func (p *pendingUpdates) Close() {
 // If the connection to the replica drops, the client will keep trying to
 // reconnect until it is closed.
 type ReplicaClient struct {
+	localID string
+
 	pending *pendingUpdates
 
 	updateTimeout time.Duration
@@ -101,7 +103,7 @@ type ReplicaClient struct {
 	logger *zap.Logger
 }
 
-func ReplicaConnect(addr string, opts ...Option) (*ReplicaClient, error) {
+func ReplicaConnect(addr string, localID string, opts ...Option) (*ReplicaClient, error) {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
@@ -133,6 +135,7 @@ func ReplicaConnect(addr string, opts ...Option) (*ReplicaClient, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &ReplicaClient{
+		localID:       localID,
 		pending:       newPendingUpdates(options.pendingUpdatesLimit),
 		updateTimeout: options.updateTimeout,
 		conn:          conn,
@@ -181,7 +184,8 @@ func (c *ReplicaClient) sendLoop() {
 		ctx, cancel := context.WithTimeout(c.ctx, c.updateTimeout)
 		defer cancel()
 		if _, err := c.client.Update(ctx, &rpc.UpdateRequest{
-			Member: m,
+			Member:       m,
+			SourceNodeId: c.localID,
 		}); err != nil {
 			c.logger.Warn(
 				"failed to forward update",

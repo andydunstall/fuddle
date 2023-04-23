@@ -50,7 +50,7 @@ func (c *Cluster) OnJoin(id string, addr string) {
 	)
 
 	client, err := registryClient.ReplicaConnect(
-		addr, registryClient.WithLogger(c.logger),
+		addr, c.registry.LocalID(), registryClient.WithLogger(c.logger),
 	)
 	if err != nil {
 		c.logger.Error("client connect", zap.Error(err))

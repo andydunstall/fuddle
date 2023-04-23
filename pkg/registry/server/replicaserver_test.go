@@ -28,7 +28,8 @@ func TestReplicaServer_Update(t *testing.T) {
 		},
 	}
 	_, err := server.Update(context.Background(), &rpc.UpdateRequest{
-		Member: member,
+		Member:       member,
+		SourceNodeId: "local",
 	})
 	assert.NoError(t, err)
 
@@ -36,4 +37,39 @@ func TestReplicaServer_Update(t *testing.T) {
 	m, ok := reg.MemberState("new-member")
 	assert.True(t, ok)
 	assert.True(t, proto.Equal(member.State, m))
+}
+
+func TestReplicaServer_UpdateMetrics(t *testing.T) {
+	reg := registry.NewRegistry("local")
+	server := server.NewReplicaServer(reg)
+
+	member := &rpc.Member2{
+		State:    testutils.RandomMemberState("new-member", ""),
+		Liveness: rpc.Liveness_UP,
+		Version: &rpc.Version2{
+			OwnerId: "foo-123",
+			Timestamp: &rpc.MonotonicTimestamp{
+				Timestamp: time.Now().UnixMilli() + 10000,
+			},
+		},
+	}
+	_, err := server.Update(context.Background(), &rpc.UpdateRequest{
+		Member:       member,
+		SourceNodeId: "local",
+	})
+	assert.NoError(t, err)
+
+	assert.Equal(t, 1.0, server.Metrics().ReplicaUpdatesInbound.Value(map[string]string{
+		"source": "local",
+	}))
+
+	_, err = server.Update(context.Background(), &rpc.UpdateRequest{
+		Member:       member,
+		SourceNodeId: "local",
+	})
+	assert.NoError(t, err)
+
+	assert.Equal(t, 2.0, server.Metrics().ReplicaUpdatesInbound.Value(map[string]string{
+		"source": "local",
+	}))
 }
