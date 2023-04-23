@@ -1,2 +1,2 @@
-# Replication
+# Fault Tolerance
 > :warning: **In progress**
