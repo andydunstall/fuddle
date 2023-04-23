@@ -103,11 +103,15 @@ func displayMembers(members []*rpc.Member2) {
 
 	tbl := table.New("ID", "Status", "Service", "Locality", "Created", "Revision")
 	for _, member := range members {
+		availabilityZone := ""
+		if member.State.Locality != nil {
+			availabilityZone = member.State.Locality.AvailabilityZone
+		}
 		tbl.AddRow(
 			member.State.Id,
 			member.State.Status,
 			member.State.Service,
-			member.State.Locality.AvailabilityZone,
+			availabilityZone,
 			member.State.Started,
 			formatRevision(member.State.Revision),
 		)
