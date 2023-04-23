@@ -180,7 +180,7 @@ func (n *Node) Shutdown() {
 }
 
 func (n *Node) failureDetector() {
-	ticker := time.NewTicker(time.Millisecond * 100)
+	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()
 
 	for {
@@ -188,7 +188,7 @@ func (n *Node) failureDetector() {
 		case <-n.done:
 			return
 		case <-ticker.C:
-			n.registry.CheckMembersLiveness()
+			n.registry.UpdateLiveness(time.Now().UnixMilli())
 		}
 	}
 }

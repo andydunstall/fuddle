@@ -313,6 +313,11 @@ func (r *Registry) MemberHeartbeat(member *rpc.MemberState, opts ...Option) {
 // used as a tombstone to ensure the update is propagated before nodes actually
 // remove the node.
 func (r *Registry) RemoveMember(id string, opts ...Option) {
+	options := defaultOptions()
+	for _, o := range opts {
+		o.apply(options)
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -322,8 +327,12 @@ func (r *Registry) RemoveMember(id string, opts ...Option) {
 		return
 	}
 
-	// TODO expiry
-	r.updateMemberLocked(m.State, rpc.Liveness_LEFT, 0, opts...)
+	r.updateMemberLocked(
+		m.State,
+		rpc.Liveness_LEFT,
+		options.now+r.tombstoneTimeout,
+		opts...,
+	)
 }
 
 // RemoteUpdate applies an updates received from another node.
@@ -374,24 +383,6 @@ func (r *Registry) RemoteUpdate(update *rpc.Member2) {
 	)
 
 	r.notifySubscribersLocked(update, ownershipChange)
-}
-
-func (r *Registry) CheckMembersLiveness(opts ...Option) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	for id := range r.members {
-		r.checkMemberLivenessLocked(id, opts...)
-	}
-
-	for id := range r.leftNodes {
-		// If we've taken away all members for a left node, it can be
-		// discarded.
-		if r.membersForOwnerLocked(id) == 0 {
-			r.logger.Info("removing left node; no remaining members")
-			delete(r.leftNodes, id)
-		}
-	}
 }
 
 func (r *Registry) updateMemberLocked(member *rpc.MemberState, liveness rpc.Liveness, expiry int64, opts ...Option) {
@@ -447,93 +438,6 @@ func (r *Registry) updateMemberLocked(member *rpc.MemberState, liveness rpc.Live
 	)
 
 	r.notifySubscribersLocked(versionedMember, true)
-}
-
-func (r *Registry) checkMemberLivenessLocked(id string, opts ...Option) {
-	// The local member is always up.
-	if id == r.localID {
-		return
-	}
-
-	m := r.members[id]
-	if m.Version.OwnerId == r.localID {
-		r.checkOwnedMemberLivenessLocked(id, opts...)
-	} else {
-		r.checkRemoteMemberLivenessLocked(id, opts...)
-	}
-}
-
-func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
-	options := defaultOptions()
-	for _, o := range opts {
-		o.apply(options)
-	}
-
-	m := r.members[id]
-
-	lastSeen := r.lastSeen[id]
-
-	if m.Liveness == rpc.Liveness_LEFT {
-		if options.now-lastSeen > r.tombstoneTimeout {
-			r.logger.Info(
-				"removing left member",
-				zap.Int64("last-update", options.now-lastSeen),
-			)
-			r.deleteMemberLocked(m.State.Id)
-		}
-	}
-
-	if m.Liveness == rpc.Liveness_DOWN {
-		if options.now-lastSeen > r.reconnectTimeout {
-			r.logger.Info(
-				"member removed after missing heartbeats",
-				zap.Int64("last-update", options.now-lastSeen),
-			)
-			r.updateMemberLocked(m.State, rpc.Liveness_LEFT, 0, opts...)
-		}
-	}
-
-	// If the last contact from the member exceeds the heartbeat timeout,
-	// mark the member down.
-	if m.Liveness == rpc.Liveness_UP {
-		if options.now-lastSeen > r.heartbeatTimeout {
-			r.logger.Info(
-				"member down after missing heartbeats",
-				zap.Int64("last-update", options.now-lastSeen),
-			)
-			r.updateMemberLocked(
-				m.State, rpc.Liveness_DOWN, 0, opts...,
-			)
-		}
-	}
-}
-
-func (r *Registry) checkRemoteMemberLivenessLocked(id string, opts ...Option) {
-	options := defaultOptions()
-	for _, o := range opts {
-		o.apply(options)
-	}
-
-	m := r.members[id]
-
-	// If the owner of the node is still in the cluster, do nothing.
-	ownerLastContact, ok := r.leftNodes[m.Version.OwnerId]
-	if !ok {
-		return
-	}
-
-	// If the owner has left the cluster for more than the heartbeat timeout,
-	// try to take ownership of the member. This may lead to nodes competing
-	// for ownership, which is ok as one will quickly win.
-	if options.now-ownerLastContact > r.heartbeatTimeout {
-		// If the member is up, mark it down as it has missed the heartbeat
-		// timeout.
-		if m.Liveness == rpc.Liveness_UP {
-			r.updateMemberLocked(m.State, rpc.Liveness_DOWN, 0, opts...)
-		} else {
-			r.updateMemberLocked(m.State, m.Liveness, 0, opts...)
-		}
-	}
 }
 
 func (r *Registry) notifySubscribersLocked(update *rpc.Member2, owner bool) {
