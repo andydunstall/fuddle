@@ -8,6 +8,7 @@ import (
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/metrics"
+	"github.com/fuddle-io/fuddle/pkg/registry/registry"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -15,6 +16,7 @@ import (
 
 type ReplicaClientMetrics struct {
 	ReplicaUpdatesOutbound *metrics.Counter
+	RepairUpdatesInbound   *metrics.Counter
 }
 
 func NewReplicaClientMetrics() *ReplicaClientMetrics {
@@ -25,11 +27,19 @@ func NewReplicaClientMetrics() *ReplicaClientMetrics {
 			[]string{"target", "status"},
 			"Number of outbound updates send to a replica",
 		),
+
+		RepairUpdatesInbound: metrics.NewCounter(
+			"registry",
+			"repair.updates.inbound",
+			[]string{"source", "status"},
+			"Number of inbound updates from replica repair",
+		),
 	}
 }
 
 func (m *ReplicaClientMetrics) Register(collector metrics.Collector) {
 	collector.AddCounter(m.ReplicaUpdatesOutbound)
+	collector.AddCounter(m.RepairUpdatesInbound)
 }
 
 // ReplicaClient is used to make RPCs to other Fuddle nodes in the cluster.
@@ -38,7 +48,9 @@ func (m *ReplicaClientMetrics) Register(collector metrics.Collector) {
 // reconnect until it is closed.
 type ReplicaClient struct {
 	targetID string
-	localID  string
+	registry *registry.Registry
+
+	digestLimit int
 
 	pending *pendingUpdates
 
@@ -56,7 +68,7 @@ type ReplicaClient struct {
 	logger  *zap.Logger
 }
 
-func ReplicaConnect(addr string, targetID string, localID string, metrics *ReplicaClientMetrics, opts ...Option) (*ReplicaClient, error) {
+func ReplicaConnect(addr string, targetID string, registry *registry.Registry, metrics *ReplicaClientMetrics, opts ...Option) (*ReplicaClient, error) {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
@@ -89,7 +101,8 @@ func ReplicaConnect(addr string, targetID string, localID string, metrics *Repli
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &ReplicaClient{
 		targetID:      targetID,
-		localID:       localID,
+		registry:      registry,
+		digestLimit:   options.digestLimit,
 		pending:       newPendingUpdates(options.pendingUpdatesLimit),
 		updateTimeout: options.updateTimeout,
 		conn:          conn,
@@ -119,6 +132,37 @@ func (c *ReplicaClient) Update(u *rpc.Member2) {
 	c.pending.Push(u)
 }
 
+func (c *ReplicaClient) Sync(ctx context.Context) error {
+	resp, err := c.client.Sync(ctx, &rpc.ReplicaSyncRequest{
+		Digest: c.registry.Digest(c.digestLimit),
+	})
+	if err != nil {
+		c.metrics.RepairUpdatesInbound.Inc(map[string]string{
+			"source": c.targetID,
+			"status": "fail",
+		})
+
+		return fmt.Errorf("replica client: client: sync: %w", err)
+	}
+
+	c.logger.Info(
+		"replica sync",
+		zap.String("target", c.targetID),
+		zap.Int("digest-len", len(resp.Members)),
+	)
+
+	c.metrics.RepairUpdatesInbound.Add(len(resp.Members), map[string]string{
+		"source": c.targetID,
+		"status": "ok",
+	})
+
+	for _, m := range resp.Members {
+		c.registry.RemoteUpdate(m)
+	}
+
+	return nil
+}
+
 func (c *ReplicaClient) Close() {
 	c.cancel()
 	c.pending.Close()
@@ -140,7 +184,7 @@ func (c *ReplicaClient) sendLoop() {
 		defer cancel()
 		if _, err := c.client.Update(ctx, &rpc.UpdateRequest{
 			Member:       m,
-			SourceNodeId: c.localID,
+			SourceNodeId: c.registry.LocalID(),
 		}); err != nil {
 			c.logger.Warn(
 				"failed to forward update",

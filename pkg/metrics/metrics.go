@@ -51,6 +51,16 @@ func (c *Counter) Inc(labels map[string]string) {
 	c.promCounter.With(prometheus.Labels(labels)).Inc()
 }
 
+func (c *Counter) Add(n int, labels map[string]string) {
+	labelsToLowercase(labels)
+
+	c.mu.Lock()
+	c.values[labelsToString(labels)] = c.values[labelsToString(labels)] + float64(n)
+	c.mu.Unlock()
+
+	c.promCounter.With(prometheus.Labels(labels)).Add(float64(n))
+}
+
 func (c *Counter) Value(labels map[string]string) float64 {
 	return c.values[labelsToString(labels)]
 }

@@ -1,7 +1,10 @@
 package cluster
 
 import (
+	"context"
+	"math/rand"
 	"sync"
+	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	registryClient "github.com/fuddle-io/fuddle/pkg/registry/client"
@@ -59,7 +62,7 @@ func (c *Cluster) OnJoin(id string, addr string) {
 	client, err := registryClient.ReplicaConnect(
 		addr,
 		id,
-		c.registry.LocalID(),
+		c.registry,
 		c.clientMetrics,
 		registryClient.WithLogger(c.logger),
 	)
@@ -112,4 +115,33 @@ func (c *Cluster) OnUpdate(m *rpc.Member2) {
 	for _, client := range c.clients {
 		client.Update(m)
 	}
+}
+
+func (c *Cluster) ReplicaRepair() {
+	client, ok := c.randomClient()
+	if !ok {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
+	if err := client.Sync(ctx); err != nil {
+		c.logger.Warn("replica sync failed", zap.Error(err))
+	}
+}
+
+func (c *Cluster) randomClient() (*registryClient.ReplicaClient, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if len(c.clients) == 0 {
+		return nil, false
+	}
+
+	var ids []string
+	for id := range c.clients {
+		ids = append(ids, id)
+	}
+	id := ids[rand.Int()%len(ids)]
+	return c.clients[id], true
 }

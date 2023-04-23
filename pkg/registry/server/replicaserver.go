@@ -11,6 +11,7 @@ import (
 
 type ReplicaServerMetrics struct {
 	ReplicaUpdatesInbound *metrics.Counter
+	RepairUpdatesOutbound *metrics.Counter
 }
 
 func NewReplicaServerMetrics() *ReplicaServerMetrics {
@@ -21,11 +22,19 @@ func NewReplicaServerMetrics() *ReplicaServerMetrics {
 			[]string{"source"},
 			"Number of inbound updates received from replicas",
 		),
+
+		RepairUpdatesOutbound: metrics.NewCounter(
+			"registry",
+			"repair.updates.outbound",
+			[]string{"target"},
+			"Number of outbound updates from replica repair",
+		),
 	}
 }
 
 func (m *ReplicaServerMetrics) Register(collector metrics.Collector) {
 	collector.AddCounter(m.ReplicaUpdatesInbound)
+	collector.AddCounter(m.RepairUpdatesOutbound)
 }
 
 type ReplicaServer struct {
@@ -69,5 +78,13 @@ func (s *ReplicaServer) Update(ctx context.Context, req *rpc.UpdateRequest) (*rp
 }
 
 func (s *ReplicaServer) Sync(ctx context.Context, req *rpc.ReplicaSyncRequest) (*rpc.ReplicaSyncResponse, error) {
-	return &rpc.ReplicaSyncResponse{}, nil
+	delta := s.registry.Delta(req.Digest)
+
+	s.metrics.RepairUpdatesOutbound.Add(len(delta), map[string]string{
+		"target": req.SourceNodeId,
+	})
+
+	return &rpc.ReplicaSyncResponse{
+		Members: delta,
+	}, nil
 }
