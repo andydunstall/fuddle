@@ -69,5 +69,7 @@ func (s *ReplicaServer) Update(ctx context.Context, req *rpc.UpdateRequest) (*rp
 }
 
 func (s *ReplicaServer) Sync(ctx context.Context, req *rpc.ReplicaSyncRequest) (*rpc.ReplicaSyncResponse, error) {
-	return &rpc.ReplicaSyncResponse{}, nil
+	return &rpc.ReplicaSyncResponse{
+		Members: s.registry.Delta(req.Digest),
+	}, nil
 }

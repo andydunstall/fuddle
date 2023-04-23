@@ -9,6 +9,7 @@ import (
 type options struct {
 	pendingUpdatesLimit int
 	updateTimeout       time.Duration
+	digestLimit         int
 	logger              *zap.Logger
 }
 
@@ -46,6 +47,18 @@ func (o updateTimeoutOption) apply(opts *options) {
 
 func WithUpdateTimeoutOption(timeout time.Duration) Option {
 	return updateTimeoutOption{timeout: timeout}
+}
+
+type digestLimitOption struct {
+	limit int
+}
+
+func (o digestLimitOption) apply(opts *options) {
+	opts.digestLimit = o.limit
+}
+
+func WithDigestLimit(limit int) Option {
+	return digestLimitOption{limit: limit}
 }
 
 type loggerOption struct {

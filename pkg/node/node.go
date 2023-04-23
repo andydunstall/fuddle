@@ -23,6 +23,7 @@ type Node struct {
 
 	gossip      *gossip.Gossip
 	registry    *registry.Registry
+	cluster     *cluster.Cluster
 	rpcServer   *rpcServer.Server
 	adminServer *adminServer.Server
 
@@ -149,6 +150,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	n := &Node{
 		Config:      conf,
 		registry:    r,
+		cluster:     c,
 		gossip:      g,
 		rpcServer:   s,
 		adminServer: adminServer,
@@ -157,6 +159,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	}
 
 	go n.failureDetector()
+	go n.replicaRepair()
 
 	return n, nil
 }
@@ -189,6 +192,20 @@ func (n *Node) failureDetector() {
 			return
 		case <-ticker.C:
 			n.registry.UpdateLiveness(time.Now().UnixMilli())
+		}
+	}
+}
+
+func (n *Node) replicaRepair() {
+	ticker := time.NewTicker(time.Millisecond * 500)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-n.done:
+			return
+		case <-ticker.C:
+			n.cluster.ReplicaRepair()
 		}
 	}
 }

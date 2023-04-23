@@ -45,6 +45,10 @@ type Registry struct {
 	// but are not part of the registry.
 	leftNodes map[string]int64
 
+	// priorityMembers contains the member IDs that are known to be out of date
+	// so must be included as a priority in the next digest.
+	priorityMembers map[string]interface{}
+
 	// mu is a mutex protecting the fields above.
 	mu sync.Mutex
 
@@ -73,6 +77,7 @@ func NewRegistry(localID string, opts ...Option) *Registry {
 		lastSeen:         make(map[string]int64),
 		subs:             make(map[*subHandle]interface{}),
 		leftNodes:        make(map[string]int64),
+		priorityMembers:  make(map[string]interface{}),
 		heartbeatTimeout: options.heartbeatTimeout,
 		reconnectTimeout: options.reconnectTimeout,
 		tombstoneTimeout: options.tombstoneTimeout,
@@ -678,4 +683,38 @@ func compareVersions(lhs *rpc.Version2, rhs *rpc.Version2) int {
 		return -1
 	}
 	return 0
+}
+
+func copyMember(m *rpc.Member2) *rpc.Member2 {
+	return &rpc.Member2{
+		State:    copyMemberState(m.State),
+		Liveness: m.Liveness,
+		Version:  copyVersion(m.Version),
+	}
+}
+
+func copyMemberState(m *rpc.MemberState) *rpc.MemberState {
+	metadata := make(map[string]string)
+	for k, v := range m.Metadata {
+		metadata[k] = v
+	}
+	return &rpc.MemberState{
+		Id:       m.Id,
+		Status:   m.Status,
+		Service:  m.Service,
+		Locality: m.Locality,
+		Started:  m.Started,
+		Revision: m.Revision,
+		Metadata: metadata,
+	}
+}
+
+func copyVersion(m *rpc.Version2) *rpc.Version2 {
+	return &rpc.Version2{
+		OwnerId: m.OwnerId,
+		Timestamp: &rpc.MonotonicTimestamp{
+			Timestamp: m.Timestamp.Timestamp,
+			Counter:   m.Timestamp.Counter,
+		},
+	}
 }
