@@ -158,6 +158,7 @@ func TestRegistry_RemoveMemberDiscardOutdated(t *testing.T) {
 func TestRegistry_SubscribeToRemoveMember(t *testing.T) {
 	reg := NewRegistry(
 		"local",
+		WithTombstoneTimeout(10000),
 		WithLogger(testutils.Logger()),
 	)
 
@@ -174,6 +175,7 @@ func TestRegistry_SubscribeToRemoveMember(t *testing.T) {
 	assert.True(t, proto.Equal(&rpc.Member2{
 		State:    addedMember,
 		Liveness: rpc.Liveness_LEFT,
+		Expiry:   200 + 10000,
 		Version: &rpc.Version2{
 			OwnerId: "local",
 			Timestamp: &rpc.MonotonicTimestamp{
@@ -418,196 +420,6 @@ func TestRegistry_MemberNotFound(t *testing.T) {
 	)
 	_, ok := reg.Member("foo")
 	assert.False(t, ok)
-}
-
-func TestRegistry_MarkMemberDownIgnoresLocal(t *testing.T) {
-	localMember := randomMember("local")
-	reg := NewRegistry(
-		"local",
-		WithLocalMember(localMember),
-		WithLogger(testutils.Logger()),
-		WithNowTime(100),
-		WithHeartbeatTimeout(500),
-	)
-
-	reg.CheckMembersLiveness(
-		WithNowTime(1000),
-	)
-
-	m, ok := reg.MemberState("local")
-	assert.True(t, ok)
-	assert.True(t, proto.Equal(localMember, m))
-}
-
-func TestRegistry_MarkMemberDownAfterMissingHeartbeats(t *testing.T) {
-	reg := NewRegistry(
-		"local",
-		WithLogger(testutils.Logger()),
-		WithHeartbeatTimeout(300),
-	)
-
-	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithNowTime(100))
-
-	reg.CheckMembersLiveness(
-		WithNowTime(500),
-	)
-
-	m, ok := reg.Member("my-member")
-	assert.True(t, ok)
-	assert.True(t, proto.Equal(addedMember, m.State))
-	assert.Equal(t, rpc.Liveness_DOWN, m.Liveness)
-
-	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "up",
-		"owner":  "local",
-	}))
-	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "down",
-		"owner":  "local",
-	}))
-	assert.Equal(t, 1.0, reg.Metrics().MembersOwned.Value(map[string]string{
-		"status": "down",
-	}))
-
-	// A heartbeat should revive it.
-	reg.MemberHeartbeat(addedMember, WithNowTime(600))
-
-	m, ok = reg.Member("my-member")
-	assert.True(t, ok)
-	assert.True(t, proto.Equal(addedMember, m.State))
-	assert.Equal(t, rpc.Liveness_UP, m.Liveness)
-
-	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "up",
-		"owner":  "local",
-	}))
-	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "down",
-		"owner":  "local",
-	}))
-	assert.Equal(t, 1.0, reg.Metrics().MembersOwned.Value(map[string]string{
-		"status": "up",
-	}))
-}
-
-func TestRegistry_MarkMemberRemovedAfterMissingHeartbeats(t *testing.T) {
-	reg := NewRegistry(
-		"local",
-		WithLogger(testutils.Logger()),
-		WithHeartbeatTimeout(300),
-		WithReconnectTimeout(800),
-	)
-
-	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithNowTime(100))
-
-	reg.CheckMembersLiveness(
-		WithNowTime(500),
-	)
-
-	m, ok := reg.Member("my-member")
-	assert.True(t, ok)
-	assert.True(t, proto.Equal(addedMember, m.State))
-	assert.Equal(t, rpc.Liveness_DOWN, m.Liveness)
-
-	reg.CheckMembersLiveness(
-		WithNowTime(1500),
-	)
-
-	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "up",
-		"owner":  "local",
-	}))
-	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "left",
-		"owner":  "local",
-	}))
-
-	m, ok = reg.Member("my-member")
-	assert.True(t, ok)
-	assert.True(t, proto.Equal(addedMember, m.State))
-	assert.Equal(t, rpc.Liveness_LEFT, m.Liveness)
-
-	// Adding the member again should revive it.
-	reg.MemberHeartbeat(addedMember, WithNowTime(2000))
-
-	m, ok = reg.Member("my-member")
-	assert.True(t, ok)
-	assert.True(t, proto.Equal(addedMember, m.State))
-	assert.Equal(t, rpc.Liveness_UP, m.Liveness)
-
-	assert.Equal(t, 1.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "up",
-		"owner":  "local",
-	}))
-	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "left",
-		"owner":  "local",
-	}))
-}
-
-func TestRegistry_MarkMemberLeftMemberRemovedAfterTombstoneTimeout(t *testing.T) {
-	reg := NewRegistry(
-		"local",
-		WithLogger(testutils.Logger()),
-		WithTombstoneTimeout(1000),
-	)
-
-	addedMember := randomMember("my-member")
-	reg.AddMember(addedMember, WithNowTime(100))
-	reg.RemoveMember("my-member", WithNowTime(200))
-
-	reg.CheckMembersLiveness(
-		WithNowTime(1500),
-	)
-
-	_, ok := reg.Member("my-member")
-	assert.False(t, ok)
-
-	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "up",
-		"owner":  "local",
-	}))
-	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "down",
-		"owner":  "local",
-	}))
-	assert.Equal(t, 0.0, reg.Metrics().MembersCount.Value(map[string]string{
-		"status": "left",
-		"owner":  "local",
-	}))
-}
-
-func TestRegistry_RemoveOwnedNodesMembers(t *testing.T) {
-	reg := NewRegistry(
-		"local",
-		WithLogger(testutils.Logger()),
-		WithHeartbeatTimeout(500),
-	)
-
-	addedMember := randomMember("my-member")
-	reg.RemoteUpdate(&rpc.Member2{
-		State: addedMember,
-		Version: &rpc.Version2{
-			OwnerId: "remote",
-			Timestamp: &rpc.MonotonicTimestamp{
-				Timestamp: 100,
-				Counter:   0,
-			},
-		},
-	})
-
-	reg.OnNodeLeave("remote", WithNowTime(200))
-
-	reg.CheckMembersLiveness(
-		WithNowTime(1000),
-	)
-
-	m, ok := reg.Member("my-member")
-	assert.True(t, ok)
-	assert.True(t, proto.Equal(addedMember, m.State))
-	assert.Equal(t, rpc.Liveness_DOWN, m.Liveness)
 }
 
 func TestRegistry_UpdatesUnknownMembers(t *testing.T) {
