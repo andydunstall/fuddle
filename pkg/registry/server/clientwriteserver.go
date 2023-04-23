@@ -3,12 +3,12 @@ package server
 import (
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/metrics"
-	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry/registry"
 	"go.uber.org/zap"
 )
 
-// ClientWriteRegistryServer receives updates from external clients.
-type ClientWriteRegistryServer struct {
+// ClientWriteServer receives updates from external clients.
+type ClientWriteServer struct {
 	registry *registry.Registry
 
 	inboundUpdates *metrics.Counter
@@ -17,7 +17,7 @@ type ClientWriteRegistryServer struct {
 	rpc.UnimplementedClientWriteRegistryServer
 }
 
-func NewClientWriteRegistryServer(reg *registry.Registry, opts ...Option) *ClientWriteRegistryServer {
+func NewClientWriteServer(reg *registry.Registry, opts ...Option) *ClientWriteServer {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
@@ -33,15 +33,15 @@ func NewClientWriteRegistryServer(reg *registry.Registry, opts ...Option) *Clien
 		options.collector.AddCounter(inboundUpdates)
 	}
 
-	return &ClientWriteRegistryServer{
+	return &ClientWriteServer{
 		registry:       reg,
 		inboundUpdates: inboundUpdates,
 		logger:         options.logger,
 	}
 }
 
-func (s *ClientWriteRegistryServer) Register(stream rpc.ClientWriteRegistry_RegisterServer) error {
-	logger := s.logger.With(zap.String("rpc", "ClientWriteRegistryServer.Register"))
+func (s *ClientWriteServer) Register(stream rpc.ClientWriteRegistry_RegisterServer) error {
+	logger := s.logger.With(zap.String("rpc", "ClientWriteServer.Register"))
 	logger.Debug("register stream")
 
 	m, err := stream.Recv()

@@ -11,7 +11,7 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/gossip"
 	"github.com/fuddle-io/fuddle/pkg/logger"
 	"github.com/fuddle-io/fuddle/pkg/metrics"
-	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry/registry"
 	registryServer "github.com/fuddle-io/fuddle/pkg/registry/server"
 	rpcServer "github.com/fuddle-io/fuddle/pkg/server"
 	"go.uber.org/zap"
@@ -123,24 +123,24 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	rpcServerOpts = append(rpcServerOpts, rpcServer.WithLogger(logger.Logger("server")))
 	s := rpcServer.NewServer(conf, rpcServerOpts...)
 
-	clientReadRegistryServer := registryServer.NewClientReadRegistryServer(
+	clientReadServer := registryServer.NewClientReadServer(
 		r,
 		registryServer.WithLogger(logger.Logger("registry")),
 		registryServer.WithCollector(collector),
 	)
-	clientWriteRegistryServer := registryServer.NewClientWriteRegistryServer(
+	clientWriteServer := registryServer.NewClientWriteServer(
 		r,
 		registryServer.WithLogger(logger.Logger("registry")),
 		registryServer.WithCollector(collector),
 	)
-	replicaReadRegistryServer := registryServer.NewReplicaReadRegistryServer(
+	replicaReadServer := registryServer.NewReplicaServer(
 		r,
 		registryServer.WithLogger(logger.Logger("registry")),
 		registryServer.WithCollector(collector),
 	)
-	rpc.RegisterClientReadRegistryServer(s.GRPCServer(), clientReadRegistryServer)
-	rpc.RegisterClientWriteRegistryServer(s.GRPCServer(), clientWriteRegistryServer)
-	rpc.RegisterReplicaReadRegistryServer(s.GRPCServer(), replicaReadRegistryServer)
+	rpc.RegisterClientReadRegistryServer(s.GRPCServer(), clientReadServer)
+	rpc.RegisterClientWriteRegistryServer(s.GRPCServer(), clientWriteServer)
+	rpc.RegisterReplicaReadRegistryServer(s.GRPCServer(), replicaReadServer)
 
 	if err := s.Serve(); err != nil {
 		return nil, fmt.Errorf("fuddle: %w", err)

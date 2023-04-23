@@ -5,13 +5,13 @@ import (
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
 	"github.com/fuddle-io/fuddle/pkg/metrics"
-	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry/registry"
 	"go.uber.org/zap"
 )
 
-// ReplicaReadRegistryServer services updates to the registry to other Fuddle
+// ReplicaServer services updates to the registry to other Fuddle
 // nodes in the cluster.
-type ReplicaReadRegistryServer struct {
+type ReplicaServer struct {
 	registry *registry.Registry
 
 	outboundUpdates *metrics.Counter
@@ -20,7 +20,7 @@ type ReplicaReadRegistryServer struct {
 	rpc.UnimplementedReplicaReadRegistryServer
 }
 
-func NewReplicaReadRegistryServer(reg *registry.Registry, opts ...Option) *ReplicaReadRegistryServer {
+func NewReplicaServer(reg *registry.Registry, opts ...Option) *ReplicaServer {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
@@ -36,15 +36,15 @@ func NewReplicaReadRegistryServer(reg *registry.Registry, opts ...Option) *Repli
 		options.collector.AddCounter(outboundUpdates)
 	}
 
-	return &ReplicaReadRegistryServer{
+	return &ReplicaServer{
 		registry:        reg,
 		outboundUpdates: outboundUpdates,
 		logger:          options.logger,
 	}
 }
 
-func (s *ReplicaReadRegistryServer) Updates(req *rpc.SubscribeRequest, stream rpc.ReplicaReadRegistry_UpdatesServer) error {
-	logger := s.logger.With(zap.String("rpc", "ReplicaReadRegistryServer.Updates"))
+func (s *ReplicaServer) Updates(req *rpc.SubscribeRequest, stream rpc.ReplicaReadRegistry_UpdatesServer) error {
+	logger := s.logger.With(zap.String("rpc", "ReplicaServer.Updates"))
 	logger.Debug("updates stream")
 
 	unsubscribe := s.registry.Subscribe(req, func(update *rpc.Member2) {
@@ -68,7 +68,7 @@ func (s *ReplicaReadRegistryServer) Updates(req *rpc.SubscribeRequest, stream rp
 	return nil
 }
 
-func (s *ReplicaReadRegistryServer) Update(ctx context.Context, req *rpc.UpdateRequest) (*rpc.UpdateResponse, error) {
+func (s *ReplicaServer) Update(ctx context.Context, req *rpc.UpdateRequest) (*rpc.UpdateResponse, error) {
 	s.logger.Debug(
 		"replica update",
 		zap.String("id", req.Member.State.Id),

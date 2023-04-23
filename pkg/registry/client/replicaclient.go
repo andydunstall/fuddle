@@ -7,13 +7,13 @@ import (
 	"time"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
-	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry/registry"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type Client struct {
+type ReplicaClient struct {
 	addr string
 
 	registry *registry.Registry
@@ -24,19 +24,13 @@ type Client struct {
 	cancelCtx context.Context
 	cancel    func()
 
-	onConnectionStateChange func(state ConnState)
-
 	pending   []*rpc.Member2
 	pendingMu sync.Mutex
 
 	logger *zap.Logger
 }
 
-// Connect will setup a connection to the given address.
-//
-// If the client cannot connect, or the connection drops, the client will keep
-// trying to reconnect in the background until it is closed.
-func Connect(addr string, registry *registry.Registry, opts ...Option) (*Client, error) {
+func ReplicaConnect(addr string, registry *registry.Registry, opts ...Option) (*ReplicaClient, error) {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
@@ -55,21 +49,20 @@ func Connect(addr string, registry *registry.Registry, opts ...Option) (*Client,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	c := &Client{
-		addr:                    addr,
-		registry:                registry,
-		conn:                    conn,
-		cancelCtx:               ctx,
-		cancel:                  cancel,
-		client:                  rpc.NewReplicaReadRegistryClient(conn),
-		onConnectionStateChange: options.onConnectionStateChange,
-		logger:                  options.logger,
+	c := &ReplicaClient{
+		addr:      addr,
+		registry:  registry,
+		conn:      conn,
+		cancelCtx: ctx,
+		cancel:    cancel,
+		client:    rpc.NewReplicaReadRegistryClient(conn),
+		logger:    options.logger,
 	}
 	go c.sendLoop()
 	return c, nil
 }
 
-func (c *Client) Update(member *rpc.Member2) {
+func (c *ReplicaClient) Update(member *rpc.Member2) {
 	// TODO(AD) this must not block, instead queue up, and if queue gets full
 	// will have to drop messages (which will be fixed by read repair)
 	// TODO(AD) add retries with backoff (order doesn't matter)
@@ -79,13 +72,13 @@ func (c *Client) Update(member *rpc.Member2) {
 	c.pending = append(c.pending, member)
 }
 
-func (c *Client) Close() {
+func (c *ReplicaClient) Close() {
 	c.logger.Info("closing")
 	c.cancel()
 	c.conn.Close()
 }
 
-func (c *Client) sendLoop() {
+func (c *ReplicaClient) sendLoop() {
 	// TODO(AD) for now just poll
 	for {
 		select {
