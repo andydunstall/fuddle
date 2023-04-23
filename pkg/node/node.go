@@ -11,7 +11,7 @@ import (
 	"github.com/fuddle-io/fuddle/pkg/gossip"
 	"github.com/fuddle-io/fuddle/pkg/logger"
 	"github.com/fuddle-io/fuddle/pkg/metrics"
-	"github.com/fuddle-io/fuddle/pkg/registry"
+	"github.com/fuddle-io/fuddle/pkg/registry/registry"
 	registryServer "github.com/fuddle-io/fuddle/pkg/registry/server"
 	rpcServer "github.com/fuddle-io/fuddle/pkg/server"
 	"go.uber.org/zap"

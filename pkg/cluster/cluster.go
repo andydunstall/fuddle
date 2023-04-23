@@ -4,8 +4,8 @@ import (
 	"sync"
 
 	rpc "github.com/fuddle-io/fuddle-rpc/go"
-	"github.com/fuddle-io/fuddle/pkg/registry"
 	registryClient "github.com/fuddle-io/fuddle/pkg/registry/client"
+	"github.com/fuddle-io/fuddle/pkg/registry/registry"
 	"go.uber.org/zap"
 )
 
