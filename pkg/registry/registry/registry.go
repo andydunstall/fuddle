@@ -278,7 +278,7 @@ func (r *Registry) AddMember(member *rpc.MemberState, opts ...Option) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.updateMemberLocked(member, rpc.Liveness_UP, opts...)
+	r.updateMemberLocked(member, rpc.Liveness_UP, 0, opts...)
 }
 
 // MemberHeartbeat updates the last seen timestamp for the member.
@@ -303,7 +303,7 @@ func (r *Registry) MemberHeartbeat(member *rpc.MemberState, opts ...Option) {
 	if ok && existing.Version.OwnerId == r.localID && existing.Liveness == rpc.Liveness_UP {
 		r.lastSeen[member.Id] = options.now
 	} else {
-		r.updateMemberLocked(member, rpc.Liveness_UP, opts...)
+		r.updateMemberLocked(member, rpc.Liveness_UP, 0, opts...)
 	}
 }
 
@@ -322,7 +322,8 @@ func (r *Registry) RemoveMember(id string, opts ...Option) {
 		return
 	}
 
-	r.updateMemberLocked(m.State, rpc.Liveness_LEFT, opts...)
+	// TODO expiry
+	r.updateMemberLocked(m.State, rpc.Liveness_LEFT, 0, opts...)
 }
 
 // RemoteUpdate applies an updates received from another node.
@@ -393,7 +394,7 @@ func (r *Registry) CheckMembersLiveness(opts ...Option) {
 	}
 }
 
-func (r *Registry) updateMemberLocked(member *rpc.MemberState, liveness rpc.Liveness, opts ...Option) {
+func (r *Registry) updateMemberLocked(member *rpc.MemberState, liveness rpc.Liveness, expiry int64, opts ...Option) {
 	// TODO copy state
 
 	options := defaultOptions()
@@ -435,6 +436,7 @@ func (r *Registry) updateMemberLocked(member *rpc.MemberState, liveness rpc.Live
 		State:    member,
 		Liveness: liveness,
 		Version:  version,
+		Expiry:   expiry,
 	}
 	r.setMemberLocked(versionedMember)
 
@@ -487,7 +489,7 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 				"member removed after missing heartbeats",
 				zap.Int64("last-update", options.now-lastSeen),
 			)
-			r.updateMemberLocked(m.State, rpc.Liveness_LEFT, opts...)
+			r.updateMemberLocked(m.State, rpc.Liveness_LEFT, 0, opts...)
 		}
 	}
 
@@ -500,7 +502,7 @@ func (r *Registry) checkOwnedMemberLivenessLocked(id string, opts ...Option) {
 				zap.Int64("last-update", options.now-lastSeen),
 			)
 			r.updateMemberLocked(
-				m.State, rpc.Liveness_DOWN, opts...,
+				m.State, rpc.Liveness_DOWN, 0, opts...,
 			)
 		}
 	}
@@ -527,9 +529,9 @@ func (r *Registry) checkRemoteMemberLivenessLocked(id string, opts ...Option) {
 		// If the member is up, mark it down as it has missed the heartbeat
 		// timeout.
 		if m.Liveness == rpc.Liveness_UP {
-			r.updateMemberLocked(m.State, rpc.Liveness_DOWN, opts...)
+			r.updateMemberLocked(m.State, rpc.Liveness_DOWN, 0, opts...)
 		} else {
-			r.updateMemberLocked(m.State, m.Liveness, opts...)
+			r.updateMemberLocked(m.State, m.Liveness, 0, opts...)
 		}
 	}
 }
