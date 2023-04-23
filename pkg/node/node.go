@@ -140,7 +140,7 @@ func NewNode(conf *config.Config, opts ...Option) (*Node, error) {
 	)
 	rpc.RegisterClientReadRegistryServer(s.GRPCServer(), clientReadServer)
 	rpc.RegisterClientWriteRegistryServer(s.GRPCServer(), clientWriteServer)
-	rpc.RegisterReplicaReadRegistryServer(s.GRPCServer(), replicaReadServer)
+	rpc.RegisterReplicaRegistry2Server(s.GRPCServer(), replicaReadServer)
 
 	if err := s.Serve(); err != nil {
 		return nil, fmt.Errorf("fuddle: %w", err)
