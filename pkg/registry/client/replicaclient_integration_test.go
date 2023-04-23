@@ -70,7 +70,9 @@ func TestClient_ForwardUpdate(t *testing.T) {
 	require.NoError(t, err)
 	defer grpcServer.Stop()
 
-	client, err := client.ReplicaConnect(addr, "local")
+	client, err := client.ReplicaConnect(
+		addr, "local", "target", client.NewReplicaClientMetrics(),
+	)
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -101,7 +103,9 @@ func TestClient_ForwardUpdateRetryUnavailable(t *testing.T) {
 	require.NoError(t, err)
 	defer grpcServer.Stop()
 
-	client, err := client.ReplicaConnect(addr, "local")
+	client, err := client.ReplicaConnect(
+		addr, "local", "target", client.NewReplicaClientMetrics(),
+	)
 	require.NoError(t, err)
 	defer client.Close()
 

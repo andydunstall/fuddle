@@ -18,8 +18,9 @@ type Cluster struct {
 
 	registry *registry.Registry
 
-	logger  *zap.Logger
-	metrics *Metrics
+	logger        *zap.Logger
+	metrics       *Metrics
+	clientMetrics *registryClient.ReplicaClientMetrics
 }
 
 func NewCluster(reg *registry.Registry, opts ...Option) *Cluster {
@@ -33,12 +34,18 @@ func NewCluster(reg *registry.Registry, opts ...Option) *Cluster {
 		metrics.Register(options.collector)
 	}
 
+	clientMetrics := registryClient.NewReplicaClientMetrics()
+	if options.collector != nil {
+		clientMetrics.Register(options.collector)
+	}
+
 	return &Cluster{
-		nodes:    make(map[string]interface{}),
-		clients:  make(map[string]*registryClient.ReplicaClient),
-		registry: reg,
-		logger:   options.logger,
-		metrics:  metrics,
+		nodes:         make(map[string]interface{}),
+		clients:       make(map[string]*registryClient.ReplicaClient),
+		registry:      reg,
+		logger:        options.logger,
+		metrics:       metrics,
+		clientMetrics: clientMetrics,
 	}
 }
 
@@ -50,7 +57,11 @@ func (c *Cluster) OnJoin(id string, addr string) {
 	)
 
 	client, err := registryClient.ReplicaConnect(
-		addr, c.registry.LocalID(), registryClient.WithLogger(c.logger),
+		addr,
+		id,
+		c.registry.LocalID(),
+		c.clientMetrics,
+		registryClient.WithLogger(c.logger),
 	)
 	if err != nil {
 		c.logger.Error("client connect", zap.Error(err))
