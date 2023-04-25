@@ -25,7 +25,13 @@ func run(cmd *cobra.Command, args []string) {
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, os.Interrupt)
 
-	server, err := fcm.NewFCM(addr, port, fcm.WithLogger(logger))
+	server, err := fcm.NewFCM(
+		addr,
+		port,
+		fcm.WithDefaultCluster(cluster),
+		fcm.WithLogger(logger),
+		fcm.WithClusterLogDir(clusterLogDir),
+	)
 	if err != nil {
 		logger.Fatal("failed to start server", zap.Error(err))
 	}

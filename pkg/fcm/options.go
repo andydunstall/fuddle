@@ -7,19 +7,33 @@ import (
 )
 
 type options struct {
-	listener net.Listener
-	logger   *zap.Logger
+	defaultCluster bool
+	listener       net.Listener
+	logger         *zap.Logger
+	clusterLogDir  string
 }
 
 func defaultOptions() *options {
 	return &options{
-		listener: nil,
-		logger:   zap.NewNop(),
+		defaultCluster: false,
+		listener:       nil,
+		logger:         zap.NewNop(),
+		clusterLogDir:  "",
 	}
 }
 
 type Option interface {
 	apply(*options)
+}
+
+type defaultClusterOption bool
+
+func (o defaultClusterOption) apply(opts *options) {
+	opts.defaultCluster = bool(o)
+}
+
+func WithDefaultCluster(cluster bool) Option {
+	return defaultClusterOption(cluster)
 }
 
 type listenerOption struct {
@@ -44,4 +58,16 @@ func (o loggerOption) apply(opts *options) {
 
 func WithLogger(log *zap.Logger) Option {
 	return loggerOption{Log: log}
+}
+
+type clusterLogDirOption struct {
+	dir string
+}
+
+func (o clusterLogDirOption) apply(opts *options) {
+	opts.clusterLogDir = o.dir
+}
+
+func WithClusterLogDir(dir string) Option {
+	return clusterLogDirOption{dir: dir}
 }
