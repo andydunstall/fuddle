@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"sort"
 	"strconv"
 	"time"
@@ -44,10 +43,7 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 		o.apply(&options)
 	}
 
-	logDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		return nil, fmt.Errorf("cluster: create log dir: %w", err)
-	}
+	logDir := "/fcm/logs"
 
 	id := uuid.New().String()[:8]
 	if options.defaultCluster {
@@ -160,17 +156,17 @@ func (c *Cluster) AddFuddleNode() (*FuddleNode, error) {
 
 	conf := config.DefaultConfig()
 
-	conf.RPC.BindAddr = "127.0.0.1"
+	conf.RPC.BindAddr = "0.0.0.0"
 	conf.RPC.AdvAddr = "127.0.0.1"
 	conf.RPC.BindPort = rpcPort
 	conf.RPC.AdvPort = rpcProxyPort
 
-	conf.Admin.BindAddr = "127.0.0.1"
+	conf.Admin.BindAddr = "0.0.0.0"
 	conf.Admin.BindPort = adminPort
-	conf.Admin.AdvAddr = "127.0.0.1"
+	conf.Admin.AdvAddr = "fcm"
 	conf.Admin.AdvPort = adminPort
 
-	conf.Gossip.BindAddr = "127.0.0.1"
+	conf.Gossip.BindAddr = "0.0.0.0"
 	conf.Gossip.AdvAddr = "127.0.0.1"
 	conf.Gossip.BindPort = gossipPort
 	conf.Gossip.AdvPort = gossipPort
@@ -358,7 +354,7 @@ func (c *Cluster) knownNodesMatch(node *FuddleNode) bool {
 
 func tcpListen(port int) (*net.TCPListener, error) {
 	ln, err := net.ListenTCP("tcp", &net.TCPAddr{
-		IP:   net.ParseIP("127.0.0.1"),
+		IP:   net.ParseIP("0.0.0.0"),
 		Port: port,
 	})
 	if err != nil {
@@ -369,7 +365,7 @@ func tcpListen(port int) (*net.TCPListener, error) {
 
 func udpListen(port int) (*net.UDPConn, error) {
 	ln, err := net.ListenUDP("udp", &net.UDPAddr{
-		IP:   net.ParseIP("127.0.0.1"),
+		IP:   net.ParseIP("0.0.0.0"),
 		Port: port,
 	})
 	if err != nil {

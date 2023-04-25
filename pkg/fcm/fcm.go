@@ -23,7 +23,11 @@ func NewFCM(addr string, port int, opts ...Option) (*FCM, error) {
 
 	clusters := cluster.NewManager()
 	if options.defaultCluster {
-		c, err := cluster.NewCluster(cluster.WithDefaultCluster())
+		c, err := cluster.NewCluster(
+			cluster.WithFuddleNodes(3),
+			cluster.WithMemberNodes(20),
+			cluster.WithDefaultCluster(),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("fcm: %w", err)
 		}
