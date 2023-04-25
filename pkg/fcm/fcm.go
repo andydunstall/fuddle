@@ -27,6 +27,7 @@ func NewFCM(addr string, port int, opts ...Option) (*FCM, error) {
 			cluster.WithFuddleNodes(3),
 			cluster.WithMemberNodes(20),
 			cluster.WithDefaultCluster(),
+			cluster.WithLogDir(options.clusterLogDir),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("fcm: %w", err)

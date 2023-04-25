@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"sort"
 	"strconv"
 	"time"
@@ -43,7 +44,10 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 		o.apply(&options)
 	}
 
-	logDir := "/fcm/logs"
+	logDir := options.logDir
+	if logDir == "" {
+		logDir, _ = os.MkdirTemp("", "")
+	}
 
 	id := uuid.New().String()[:8]
 	if options.defaultCluster {

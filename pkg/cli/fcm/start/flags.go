@@ -7,6 +7,8 @@ var (
 	cluster bool
 
 	logLevel string
+
+	clusterLogDir string
 )
 
 func init() {
@@ -35,5 +37,12 @@ func init() {
 		"log-level", "",
 		"info",
 		"the log level to use (one of 'debug', 'info', 'warn', 'error')",
+	)
+
+	Command.Flags().StringVarP(
+		&clusterLogDir,
+		"cluster-log-dir", "",
+		"",
+		"the log directory for cluster output (defaults to a temporary dir)",
 	)
 }

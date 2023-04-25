@@ -4,7 +4,7 @@ services:
   fcm:
     image: fuddle:latest
     container_name: fcm
-    command: fuddle fcm start --bind-addr 0.0.0.0 --cluster
+    command: fuddle fcm start --bind-addr 0.0.0.0 --cluster --cluster-log-dir /fcm/logs
     ports:
       - "8220:8220"
     expose:

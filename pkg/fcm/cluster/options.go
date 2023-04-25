@@ -4,6 +4,7 @@ type options struct {
 	fuddleNodes    int
 	memberNodes    int
 	defaultCluster bool
+	logDir         string
 }
 
 func defaultOptions() options {
@@ -11,6 +12,7 @@ func defaultOptions() options {
 		fuddleNodes:    3,
 		memberNodes:    0,
 		defaultCluster: false,
+		logDir:         "",
 	}
 }
 
@@ -50,4 +52,16 @@ func (o defaultClusterOption) apply(opts *options) {
 
 func WithDefaultCluster() Option {
 	return defaultClusterOption(true)
+}
+
+type logDirOption struct {
+	dir string
+}
+
+func (o logDirOption) apply(opts *options) {
+	opts.logDir = o.dir
+}
+
+func WithLogDir(dir string) Option {
+	return logDirOption{dir: dir}
 }

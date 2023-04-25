@@ -30,6 +30,7 @@ func run(cmd *cobra.Command, args []string) {
 		port,
 		fcm.WithDefaultCluster(cluster),
 		fcm.WithLogger(logger),
+		fcm.WithClusterLogDir(clusterLogDir),
 	)
 	if err != nil {
 		logger.Fatal("failed to start server", zap.Error(err))
