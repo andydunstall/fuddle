@@ -14,8 +14,21 @@ This is just an overview of the available commands, a full list of commands can
 be seen using `fuddle fcm help`.
 
 ## Server
-Before you can create a cluster, you must start the FCM server with `fuddle fcm
-start`. By default the server listens on port `8220`.
+Before you can create a cluster, you must start the FCM server.
+
+The easiest way to start FCM is using the docker-compose cluster, which can be
+run with `docker-compose -f dev/fcm/docker-compose.yml up`.
+
+This will:
+* Start the FCM server listening on port `8220`
+* Start a default cluster with ID `default`
+* Start Prometheus and Grafana that monitor the nodes in the default cluster
+
+### Grafana
+To use Grafana to monitor the default cluster:
+* Add a Prometheus data source with address `prometheus:9090`
+* Either create you're own dashboard or import the Fuddle dashboard from
+`monitoring/grafana/fuddle.json`
 
 ## Create A Cluster
 Once the FCM server is running, create a new cluster using `fuddle fcm cluster
