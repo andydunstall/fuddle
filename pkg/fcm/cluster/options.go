@@ -1,14 +1,16 @@
 package cluster
 
 type options struct {
-	fuddleNodes int
-	memberNodes int
+	fuddleNodes    int
+	memberNodes    int
+	defaultCluster bool
 }
 
 func defaultOptions() options {
 	return options{
-		fuddleNodes: 3,
-		memberNodes: 0,
+		fuddleNodes:    3,
+		memberNodes:    0,
+		defaultCluster: false,
 	}
 }
 
@@ -38,4 +40,14 @@ func (o memberNodesOption) apply(opts *options) {
 
 func WithMemberNodes(nodes int) Option {
 	return memberNodesOption{nodes: nodes}
+}
+
+type defaultClusterOption bool
+
+func (o defaultClusterOption) apply(opts *options) {
+	opts.defaultCluster = bool(o)
+}
+
+func WithDefaultCluster() Option {
+	return defaultClusterOption(true)
 }

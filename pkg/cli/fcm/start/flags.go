@@ -4,6 +4,8 @@ var (
 	addr string
 	port int
 
+	cluster bool
+
 	logLevel string
 )
 
@@ -19,6 +21,13 @@ func init() {
 		"bind-port", "",
 		8220,
 		"the port to listen on",
+	)
+
+	Command.Flags().BoolVarP(
+		&cluster,
+		"cluster", "",
+		false,
+		"whether to create a default cluster on startup",
 	)
 
 	Command.Flags().StringVarP(

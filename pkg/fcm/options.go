@@ -7,19 +7,31 @@ import (
 )
 
 type options struct {
-	listener net.Listener
-	logger   *zap.Logger
+	defaultCluster bool
+	listener       net.Listener
+	logger         *zap.Logger
 }
 
 func defaultOptions() *options {
 	return &options{
-		listener: nil,
-		logger:   zap.NewNop(),
+		defaultCluster: false,
+		listener:       nil,
+		logger:         zap.NewNop(),
 	}
 }
 
 type Option interface {
 	apply(*options)
+}
+
+type defaultClusterOption bool
+
+func (o defaultClusterOption) apply(opts *options) {
+	opts.defaultCluster = bool(o)
+}
+
+func WithDefaultCluster(cluster bool) Option {
+	return defaultClusterOption(cluster)
 }
 
 type listenerOption struct {

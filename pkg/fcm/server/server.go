@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/fuddle-io/fuddle/pkg/fcm/cluster"
@@ -57,24 +56,21 @@ type promTarget struct {
 }
 
 type Server struct {
-	clusters map[string]*cluster.Cluster
-
-	// mu is a mutex protecting the fields above.
-	mu sync.Mutex
+	clusters *cluster.Manager
 
 	httpServer *http.Server
 
 	logger *zap.Logger
 }
 
-func NewServer(addr string, port int, opts ...Option) (*Server, error) {
+func NewServer(addr string, port int, clusters *cluster.Manager, opts ...Option) (*Server, error) {
 	options := defaultOptions()
 	for _, o := range opts {
 		o.apply(options)
 	}
 
 	s := &Server{
-		clusters: make(map[string]*cluster.Cluster),
+		clusters: clusters,
 		logger:   options.logger,
 	}
 
@@ -131,9 +127,7 @@ func (s *Server) Shutdown() {
 
 	s.httpServer.Shutdown(ctx)
 
-	for _, c := range s.clusters {
-		c.Shutdown()
-	}
+	s.clusters.Shutdown()
 }
 
 func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
@@ -174,9 +168,7 @@ func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	s.mu.Lock()
-	s.clusters[c.ID()] = c
-	s.mu.Unlock()
+	s.clusters.Add(c)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -187,11 +179,8 @@ func (s *Server) createCluster(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) describeCluster(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	id := mux.Vars(r)["id"]
-	c, ok := s.clusters[id]
+	c, ok := s.clusters.Get(id)
 	if !ok {
 		s.logger.Warn("describe cluster; not found", zap.String("id", id))
 		http.Error(w, "not found", http.StatusNotFound)
@@ -225,11 +214,8 @@ func (s *Server) describeCluster(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) clusterHealth(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	id := mux.Vars(r)["id"]
-	c, ok := s.clusters[id]
+	c, ok := s.clusters.Get(id)
 	if !ok {
 		s.logger.Warn("cluster health; not found", zap.String("id", id))
 		http.Error(w, "not found", http.StatusNotFound)
@@ -251,28 +237,17 @@ func (s *Server) clusterHealth(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteCluster(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
-	s.mu.Lock()
-	c, ok := s.clusters[id]
-	delete(s.clusters, id)
-	s.mu.Unlock()
-
-	if !ok {
+	if !s.clusters.Delete(id) {
 		s.logger.Warn("delete cluster; not found", zap.String("id", id))
-		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-
-	c.Shutdown()
 
 	s.logger.Info("delete cluster; ok", zap.String("id", id))
 }
 
 func (s *Server) addNodes(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	id := mux.Vars(r)["id"]
-	c, ok := s.clusters[id]
+	c, ok := s.clusters.Get(id)
 	if !ok {
 		s.logger.Warn("add nodes; cluster not found", zap.String("id", id))
 		http.Error(w, "not found", http.StatusNotFound)
@@ -325,11 +300,8 @@ func (s *Server) addNodes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) removeNodes(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	id := mux.Vars(r)["id"]
-	c, ok := s.clusters[id]
+	c, ok := s.clusters.Get(id)
 	if !ok {
 		s.logger.Warn("remove nodes; cluster not found", zap.String("id", id))
 		http.Error(w, "not found", http.StatusNotFound)
@@ -372,16 +344,13 @@ func (s *Server) removeNodes(w http.ResponseWriter, r *http.Request) {
 func (s *Server) clusterPromTargets(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
-	s.mu.Lock()
 	targets := make(map[string]string)
-	c, ok := s.clusters[id]
+	c, ok := s.clusters.Get(id)
 	if ok {
 		for _, node := range c.FuddleNodes() {
 			targets[node.Fuddle.Config.NodeID] = node.Fuddle.Config.Admin.JoinAdvAddr()
 		}
 	}
-
-	s.mu.Unlock()
 
 	if !ok {
 		s.logger.Warn("cluster prom targets; not found", zap.String("id", id))

@@ -18,6 +18,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// TODO(AD) make thread safe
+
 type FuddleNode struct {
 	Fuddle   *node.Node
 	RPCProxy *Proxy
@@ -47,8 +49,13 @@ func NewCluster(opts ...Option) (*Cluster, error) {
 		return nil, fmt.Errorf("cluster: create log dir: %w", err)
 	}
 
+	id := uuid.New().String()[:8]
+	if options.defaultCluster {
+		id = "default"
+	}
+
 	c := &Cluster{
-		id:          uuid.New().String()[:8],
+		id:          id,
 		fuddleNodes: make(map[*FuddleNode]interface{}),
 		memberNodes: make(map[*MemberNode]interface{}),
 		logDir:      logDir,
