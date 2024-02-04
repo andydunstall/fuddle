@@ -1,5 +1,5 @@
 # Fuddle
-Fuddle was a side-project playing about with creating a service registry similar to
+Fuddle was a side-project to try and create a simple service discovery mechanism, similar to
 [Eureka](https://github.com/Netflix/eureka). I worked on this a while ago to play
 around with ideas for replacing another gossip based service, though after moving jobs
 I've stopped working on it...
