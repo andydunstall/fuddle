@@ -1,5 +1,8 @@
 # Fuddle
-> :warning: **Fuddle is still in development**
+Fuddle was a side-project playing about with creating a service registry similar to
+[Eureka](https://github.com/Netflix/eureka). I worked on this a while ago to play
+around with ideas for replacing another gossip based service, though after moving jobs
+I've stopped working on it...
 
 # What Is Fuddle?
 Fuddle is a service registry, used for client side service discovery and cluster
